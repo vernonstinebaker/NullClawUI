@@ -1,140 +1,98 @@
-# NullClawUI — Development Plan
+# NullClawUI — Agents & Roles
 
-A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Agent-to-Agent) protocol.
-
-## Platform & Tech Stack
+## Platform Baseline
 
 | Property | Value |
 |---|---|
-| **iOS / iPadOS Target** | 26.0 (no backward compatibility) |
-| **macOS Target** | 26.0 Tahoe (optional Mac Catalyst) |
+| **iOS Deployment Target** | iOS 26.0 |
+| **macOS Deployment Target** | macOS 26.0 (Tahoe) |
 | **Swift Version** | Swift 6 (strict concurrency) |
-| **UI Paradigm** | Liquid Glass (iOS 26 material system) |
-| **State Management** | @Observable macro (Swift 6) |
-| **Networking** | URLSession + AsyncSequence for SSE |
-| **Keychain** | Security framework (keyed per gateway URL) |
-| **Markdown** | swift-markdown-ui (Phase 6) |
-| **Xcode** | 26+ |
-| **Preferred Simulator** | iPhone 17 Pro Max, iOS 26.0 |
+| **UI Paradigm** | Liquid Glass (iOS 26 / visionOS-aligned materials) |
+| **Xcode Version** | Xcode 26+ |
+| **NullClaw API Reference** | See PLAN.md Phase 0 and the NullClaw Gateway OpenAPI spec at the configured gateway URL (/openapi.json). |
+
+All agents operate under **Swift 6 strict concurrency** (-strict-concurrency=complete). Every network call must be async/await-based; no DispatchQueue usage. All state mutations touching the UI must happen on @MainActor.
 
 ---
 
-## Phase 0: Project Setup (The "Ground")
+## Roles
 
-- **Goal**: Establish the Xcode project structure, dependencies, entitlements, and version control before writing any app code.
-- **Tasks**:
-  - Create Xcode project: NullClawUI, targets NullClawUI (app), NullClawUITests (unit), NullClawUIUITests (UI).
-  - Set deployment target iOS 26.0 on all targets.
-  - Enable Swift 6 language mode and -strict-concurrency=complete on all targets.
-  - Add Info.plist key: NSAllowsLocalNetworking = true (under NSAppTransportSecurity) to allow plain-HTTP connections to http://localhost.
-  - Add Keychain Sharing entitlement: com.nullclaw.nullclawui.
-  - Add Swift Package dependency: swift-markdown-ui (for Phase 6; add early to avoid project file churn).
-  - Create folder structure:
-    ```
-    NullClawUI/
-      App/            # @main entry point, AppModel
-      Views/          # SwiftUI screens
-      ViewModels/     # @Observable view models
-      Networking/     # URLSession, A2A client, SSE parser
-      Security/       # KeychainService
-      Models/         # Codable types (AgentCard, Task, Message…)
-      Resources/      # Assets.xcassets, Info.plist
-    NullClawUITests/
-    NullClawUIUITests/
-    ```
-  - git init, create .gitignore and README.md.
-- **Validation**: xcodebuild build -scheme NullClawUI -destination 'generic/platform=iOS Simulator' succeeds with zero warnings.
+### Swift/SwiftUI Architect
+- **Focus**: App lifecycle, navigation (NavigationStack / NavigationSplitView), and state management using the **Swift @Observable macro** (iOS 26 / Swift 6 preferred over legacy ObservableObject).
+- **Goal**: Clean, idiomatic SwiftUI structure that is easy to extend phase-by-phase.
+- **Notes**:
+  - Target iOS 26 exclusively — use new APIs freely; no @available guards needed.
+  - Favor NavigationSplitView for iPad; NavigationStack for iPhone compact-width.
+  - Apply **Liquid Glass** materials (GlassEffect, .glassBackgroundEffect()) for surfaces, cards, and overlaid controls.
 
----
-
-## Phase 1: Foundation & Discovery (The "Hello World")
-
-- **Goal**: Confirm the app can "see" a NullClaw instance.
-- **Features**:
-  - Settings screen with a URL input field (default: http://localhost:5111).
-  - GET /health connectivity check on app foreground / manual refresh.
-  - GET /.well-known/agent-card.json to display agent name, version, and capabilities.
-  - A status indicator using a Liquid Glass badge: green "Online" / red "Offline".
-- **A2A Note**: agent-card.json shape:
+### Network & Protocol Specialist
+- **Focus**: URLSession configuration, SSE (Server-Sent Events) streaming via AsyncSequence, JSON-RPC 2.0 serialization for the A2A protocol.
+- **Goal**: Robust, error-resistant communication with the NullClaw Gateway.
+- **A2A Request Shape**:
   ```json
-  { "name": "NullClaw", "version": "1.0.0", "capabilities": { … } }
+  {
+    "jsonrpc": "2.0",
+    "id": "<uuid>",
+    "method": "message/send",
+    "params": { "message": { "role": "user", "parts": [{ "text": "…" }] } }
+  }
   ```
-- **Implementation Note**: NSAllowsLocalNetworking must already be set (Phase 0) or HTTP requests will fail on-device.
-- **Validation**: App shows a green "Online" badge and the agent's name from agent-card.json.
+  Streaming uses method: "message/stream" and returns SSE lines of the form data: { …TaskStatusUpdateEvent… }.
+- **Notes**:
+  - Use NSAllowsLocalNetworking: true in Info.plist to permit plain-HTTP http:// gateway connections during development. Production should use HTTPS.
+  - Implement exponential-backoff reconnect for dropped SSE streams (max 3 retries).
+  - Endpoints: GET /health, GET /.well-known/agent-card.json, POST /pair, POST /a2a, GET /tasks/{id}, POST /tasks/{id}/cancel.
 
----
+### Security & Identity Guard
+- **Focus**: Pairing flow, Bearer token handling, and secure storage in the system Keychain.
+- **Goal**: Zero-leak credential management.
+- **Keychain Keying Strategy**: Each stored credential must be keyed by the normalized gateway base URL (scheme + host + port), allowing the user to connect to multiple gateways without collision. Example key: nullclaw.token.https://my-server.local:5111.
+- **Notes**:
+  - Use kSecAttrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly.
+  - On token deletion / re-pair, explicitly delete the old Keychain item before writing a new one.
 
-## Phase 2: Secure Pairing (The "Key")
+### UX/UI Designer (Apple Standard)
+- **Focus**: HIG compliance, **Liquid Glass** design language, iconography, animations, and accessibility.
+- **Goal**: A professional, Apple-native feel targeting iOS 26 and iPadOS 26.
+- **Liquid Glass Guidelines**:
+  - Use .glassBackgroundEffect() for floating panels, modals, and overlaid toolbars.
+  - Use GlassEffect with .regularMaterial for card surfaces.
+  - Animate with withAnimation(.spring(duration: 0.35, bounce: 0.2)).
+  - Accent color should be dynamically sourced from agent-card.json once fetched; fall back to system tint.
+- **Notes**:
+  - iPad layout uses NavigationSplitView (sidebar = task list, detail = chat). Defined in Phase 6 but the architecture must support it from Phase 1.
+  - All interactive elements must have accessibilityLabel and accessibilityHint.
 
-- **Goal**: Establish a trusted connection and persist credentials.
-- **Features**:
-  - Pairing UI: a 6-digit numeric code entry (user-chosen, not TOTP; codes are issued by the NullClaw admin interface).
-  - POST /pair with body { "code": "123456" } returns { "token": "<bearer>" }.
-  - Secure storage of the token in the system Keychain, keyed by normalized gateway URL.
-  - Auto-load token on launch; show "Paired" status in settings.
-  - "Unpair" action: deletes the Keychain item and resets to the pairing screen.
-- **Validation**: App successfully pairs once and remembers the connection across restarts. Re-launching without unpairing skips the pairing screen.
+### Validation & QA Engineer
+- **Focus**: Unit tests (XCTest / Swift Testing framework), network mocking, and integration testing against a running NullClaw instance.
+- **Goal**: Verify that every phase of PLAN.md is fully functional and regression-free before advancing.
+- **How to Run NullClaw Locally**: A NullClaw Gateway instance must be running at http://localhost:5111. Refer to the NullClaw repository (README.md → "Running Locally") for setup steps.
+- **Test Targets**:
+  - NullClawUI — main app target.
+  - NullClawUITests — XCTest unit tests (JSON-RPC parsing, Keychain read/write, SSE token parsing).
+  - NullClawUIUITests — UI tests (XCUIApplication).
+- **Build & Test Commands**:
+  ```bash
+  # Unit tests
+  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2'
 
----
+  # UI tests
+  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2' -only-testing:NullClawUIUITests
+  ```
 
-## Phase 3: Simple Interaction (The "Chat")
+### Test Coverage Mandate
 
-- **Goal**: Send a prompt and receive a complete (non-streaming) response.
-- **Features**:
-  - Chat UI: ScrollView with message bubbles + TextEditor input bar (Liquid Glass toolbar).
-  - POST /a2a with JSON-RPC method message/send:
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": "<uuid>",
-      "method": "message/send",
-      "params": {
-        "message": { "role": "user", "parts": [{ "text": "Hello" }] }
-      }
-    }
-    ```
-  - Decode the response Task object and display the assistant's reply text.
-  - Show a loading indicator (Liquid Glass spinner) while awaiting the response.
-- **Validation**: User can send "Hello" and see the agent's reply rendered in the chat view.
+**Every code change must be accompanied by tests.** No exceptions.
 
----
-
-## Phase 4: Real-time Streaming (The "Life")
-
-- **Goal**: Update the UI token-by-token as the agent generates a response.
-- **Features**:
-  - POST /a2a with JSON-RPC method message/stream (same request shape as Phase 3).
-  - AsyncSequence-based SSE parser: splits on 
-
-, strips data: prefix, decodes TaskStatusUpdateEvent JSON.
-  - "Thinking…" state displayed while status == "working".
-  - Partial token rendering: append each text chunk to the in-progress message bubble.
-  - **Reconnect strategy**: on stream drop, retry up to 3 times with exponential backoff (1 s, 2 s, 4 s) before surfacing an error.
-- **Validation**: User sees the response appearing word-by-word. A simulated network drop triggers visible retry behaviour.
-
----
-
-## Phase 5: Task Management & History (The "Memory")
-
-- **Goal**: Allow users to browse and manage previous interactions.
-- **Features**:
-  - Sidebar / List view populated by GET /tasks (REST endpoint returning a JSON array of Task summaries).
-  - Tapping a task calls GET /tasks/{id} (REST) and re-populates the chat view with the full message history.
-  - "Abort" button (shown only while streaming) calls POST /tasks/{id}/cancel (REST).
-  - Tasks are cached locally in-memory for the session; no persistent local store in this phase.
-- **Note**: All task history endpoints are REST (not JSON-RPC). Only message/send and message/stream are JSON-RPC via POST /a2a.
-- **Validation**: User can stop a response mid-stream via the Abort button, and can tap an old task in the sidebar to reload its conversation.
-
----
-
-## Phase 6: Polish & Native Integration (The "Experience")
-
-- **Goal**: Make it feel like a first-class Apple application.
-- **Features**:
-  - **Markdown rendering** using swift-markdown-ui for assistant responses.
-  - **Multi-modal input**: attach images/files via the /a2a protocol (parts array with { "type": "file", … }).
-  - **Adaptive accent color**: parse accentColor from agent-card.json; fall back to system tint.
-  - **iPadOS layout**: NavigationSplitView with sidebar (task list) and detail (chat). NavigationStack for iPhone compact width.
-  - **Light/Dark mode**: fully system-adaptive; no hard-coded colors.
-  - **Accessibility**: all controls have accessibilityLabel and accessibilityHint; VoiceOver tested.
-- **Validation**: App renders markdown correctly in the simulator. Accent color updates after connecting to a new gateway. VoiceOver can navigate and send a message without visual assistance.
+- **Behavior changes** (new methods, changed logic): add or update `XCTestCase` tests in `NullClawUITests/NullClawUITests.swift` that directly exercise the changed code path.
+- **Bug fixes**: add a regression test that would have caught the original failure.
+- **Logging-only / pure UI-layout changes**: formal tests may not be practical. Add a comment near the change:
+  ```swift
+  // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
+  ```
+- **New ViewModel methods**: always test both the happy path and the key failure/edge cases. For `@MainActor` methods use `@MainActor func test...() async`.
+- **Keychain operations**: every method that reads or writes to the Keychain must be tested via `KeychainService` directly. Always call `KeychainService.deleteToken(for:)` in `tearDown()` to avoid state leakage between tests.
+- Regression tests must include a comment citing the bug they guard, e.g.:
+  ```swift
+  // Regression: unpairGateway(_:) on an inactive profile must not clear appModel.isPaired.
+  ```

@@ -93,7 +93,7 @@ private struct SidebarView: View {
                                 Text(summary.id)
                                     .font(.caption.monospaced())
                                     .lineLimit(1)
-                                Text(summary.status.capitalized)
+                                Text(summary.statusLabel.capitalized)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }

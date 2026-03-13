@@ -47,6 +47,14 @@ struct SettingsView: View {
                                     .textFieldStyle(.roundedBorder)
                                     .accessibilityLabel("Gateway URL")
                                     .accessibilityHint("Enter the NullClaw gateway address")
+                                    .onTapGesture {
+                                        DispatchQueue.main.async {
+                                            UIApplication.shared.sendAction(
+                                                #selector(UIResponder.selectAll(_:)),
+                                                to: nil, from: nil, for: nil
+                                            )
+                                        }
+                                    }
 
                                 HStack {
                                     ConnectionBadge(status: appModel.connectionStatus)
@@ -84,7 +92,6 @@ struct SettingsView: View {
                                         @Bindable var pvm = vm
                                         TextField("000000", text: $pvm.pairingCode)
                                             .keyboardType(.numberPad)
-                                            .textContentType(.oneTimeCode)
                                             .textFieldStyle(.roundedBorder)
                                             .accessibilityLabel("Pairing code")
                                             .accessibilityHint("6-digit code from the admin interface")

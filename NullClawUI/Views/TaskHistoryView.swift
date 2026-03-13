@@ -23,7 +23,7 @@ struct TaskHistoryView: View {
                                     Text(summary.id)
                                         .font(.caption.monospaced())
                                         .lineLimit(1)
-                                    Text(summary.status.capitalized)
+                                    Text(summary.statusLabel.capitalized)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -33,7 +33,7 @@ struct TaskHistoryView: View {
                                     .foregroundStyle(.tertiary)
                             }
                         }
-                        .accessibilityLabel("Task \(summary.id), status: \(summary.status)")
+                                        .accessibilityLabel("Task \(summary.id), status: \(summary.statusLabel)")
                         .accessibilityHint("Tap to reload this conversation in Chat")
                     }
                     .listStyle(.insetGrouped)

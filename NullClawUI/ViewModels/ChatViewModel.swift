@@ -51,11 +51,11 @@ final class ChatViewModel {
         errorMessage = nil
         messages.append(ChatMessage(role: "user", text: text))
 
-        let userMessage = A2AMessage(role: "user", parts: [MessagePart(text: text)])
+        let userMessage = A2AMessage(role: "user", parts: [MessagePart(text: text, kind: "text")])
         do {
             let task = try await client.sendMessage(userMessage)
             activeTaskID = task.id
-            let replyText = task.status.message?.parts.compactMap(\.text).joined() ?? ""
+            let replyText = task.replyText
             messages.append(ChatMessage(role: "assistant", text: replyText))
         } catch {
             errorMessage = error.localizedDescription
@@ -77,7 +77,7 @@ final class ChatViewModel {
         var retries = 0
         let maxRetries = 3
 
-        let userMessage = A2AMessage(role: "user", parts: [MessagePart(text: text)])
+        let userMessage = A2AMessage(role: "user", parts: [MessagePart(text: text, kind: "text")])
 
         while retries <= maxRetries {
             do {
@@ -90,19 +90,33 @@ final class ChatViewModel {
                 }
 
                 for try await event in stream {
+                    guard let result = event.result else { continue }
                     if let idx = assistantIndex {
-                        if let delta = event.delta?.text {
-                            messages[idx].text += delta
-                        }
-                        if let finalText = event.status?.message?.parts.compactMap(\.text).joined(), !finalText.isEmpty {
-                            messages[idx].text = finalText
-                        }
-                        if event.final == true {
-                            messages[idx].isStreaming = false
+                        switch result.kind {
+                        case "artifact-update":
+                            if let parts = result.artifact?.parts {
+                                let text = parts.compactMap { $0.text }.joined()
+                                if result.append == true {
+                                    messages[idx].text += text
+                                } else {
+                                    messages[idx].text = text
+                                }
+                            }
+                        case "status-update":
+                            if result.final == true {
+                                messages[idx].isStreaming = false
+                            }
+                        case "task":
+                            if let taskId = result.id, activeTaskID == nil {
+                                activeTaskID = taskId
+                            }
+                        default:
+                            break
                         }
                     }
-                    if let id = event.id as String?, activeTaskID == nil {
-                        activeTaskID = id
+                    // Capture task ID from any event
+                    if let taskId = result.taskId, activeTaskID == nil {
+                        activeTaskID = taskId
                     }
                 }
                 // Successfully finished
@@ -150,8 +164,12 @@ final class ChatViewModel {
     func loadTask(id: String) async {
         do {
             let task = try await client.getTask(id: id)
-            messages = (task.messages ?? []).map { msg in
-                ChatMessage(role: msg.role, text: msg.parts.compactMap(\.text).joined())
+            // Server returns history with role "user" and "agent" (not "assistant").
+            // Map "agent" → "assistant" so the chat UI renders it correctly.
+            messages = (task.history ?? task.messages ?? []).map { msg in
+                let role = msg.role == "agent" ? "assistant" : msg.role
+                let text = msg.parts.compactMap { $0.text }.joined()
+                return ChatMessage(role: role, text: text)
             }
             activeTaskID = id
         } catch {

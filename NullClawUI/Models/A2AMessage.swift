@@ -7,6 +7,13 @@ struct JSONRPCRequest<P: Encodable & Sendable>: Encodable, Sendable {
     let id: String
     let method: String
     let params: P
+
+    // Explicit key order: jsonrpc → id → method → params.
+    // The NullClaw gateway's hand-rolled JSON parser requires "method"
+    // to appear before "params" to correctly route requests.
+    enum CodingKeys: String, CodingKey {
+        case jsonrpc, id, method, params
+    }
 }
 
 struct JSONRPCResponse<R: Decodable>: Decodable {
@@ -24,10 +31,11 @@ struct JSONRPCError: Decodable {
 
 struct MessagePart: Codable, Sendable {
     let text: String?
-    // Phase 6: file parts will be added here
+    let kind: String?   // "text" | "file" etc — present in server responses
 
     enum CodingKeys: String, CodingKey {
         case text
+        case kind
     }
 }
 
@@ -42,10 +50,29 @@ struct MessageSendParams: Encodable, Sendable {
 
 // MARK: - Task
 
+struct TaskArtifact: Codable, Sendable {
+    let artifactId: String?
+    let parts: [MessagePart]
+
+    var text: String {
+        parts.compactMap { $0.text }.joined()
+    }
+}
+
 struct NullClawTask: Codable, Sendable, Identifiable {
     let id: String
     let status: TaskStatus
     let messages: [A2AMessage]?
+    let artifacts: [TaskArtifact]?
+    let history: [A2AMessage]?
+
+    /// Best-effort reply text: prefer artifacts, fall back to status.message.
+    var replyText: String {
+        if let art = artifacts, !art.isEmpty {
+            return art.map(\.text).joined(separator: "\n")
+        }
+        return status.message?.parts.compactMap(\.text).joined() ?? ""
+    }
 
     struct TaskStatus: Codable, Sendable {
         let state: String    // "working" | "completed" | "cancelled" | "failed"
@@ -53,17 +80,58 @@ struct NullClawTask: Codable, Sendable, Identifiable {
     }
 }
 
-/// Lightweight summary used for the task list (Phase 5)
+/// Lightweight summary used for the task list (Phase 5).
+/// The server returns the full task shape; we extract id + status.state.
 struct TaskSummary: Codable, Sendable, Identifiable {
     let id: String
-    let status: String
+    let status: TaskSummaryStatus
+
+    struct TaskSummaryStatus: Codable, Sendable {
+        let state: String
+    }
+
+    /// Display string for the status row.
+    var statusLabel: String { status.state }
+}
+
+// MARK: - JSON-RPC params for task management (Phase 5)
+
+/// Params for tasks/list (no required fields; server defaults to pageSize 50).
+struct TaskListParams: Encodable, Sendable {}
+
+/// Params for tasks/get and tasks/cancel.
+struct TaskIDParams: Encodable, Sendable {
+    let id: String
+}
+
+/// Result shape for the tasks/list JSON-RPC response.
+struct TaskListResult: Decodable, Sendable {
+    let tasks: [TaskSummary]
+    let totalSize: Int?
+    let nextPageToken: String?
 }
 
 // MARK: - SSE Event (Phase 4)
 
-struct TaskStatusUpdateEvent: Decodable, Sendable {
-    let id: String
-    let status: NullClawTask.TaskStatus?
-    let delta: MessagePart?
-    let final: Bool?
+/// Wraps a streaming JSON-RPC result from method "message/stream".
+/// Each SSE line is: data: {"jsonrpc":"2.0","id":"...","result": <StreamEvent>}
+struct SSEEnvelope: Decodable, Sendable {
+    let id: String?
+    let result: StreamEvent?
 }
+
+struct StreamEvent: Decodable, Sendable {
+    let kind: String            // "task" | "artifact-update" | "status-update"
+    let taskId: String?
+    let artifact: TaskArtifact? // present when kind == "artifact-update"
+    let append: Bool?           // true = delta, false = replace
+    let lastChunk: Bool?
+    let status: NullClawTask.TaskStatus? // present when kind == "status-update"
+    let final: Bool?            // true on the terminal event
+
+    // kind == "task": initial task snapshot
+    let id: String?             // task id when kind == "task"
+}
+
+/// Alias kept for compatibility — callers use StreamEvent directly now.
+typealias TaskStatusUpdateEvent = SSEEnvelope

@@ -47,6 +47,7 @@ actor GatewayClient {
     private let encoder: JSONEncoder = {
         let e = JSONEncoder()
         e.keyEncodingStrategy = .convertToSnakeCase
+        e.outputFormatting = .withoutEscapingSlashes
         return e
     }()
 
@@ -88,7 +89,7 @@ actor GatewayClient {
     func pair(code: String) async throws -> String {
         let url = baseURL.appendingPathComponent("pair")
         var req = try makeRequest(url: url, method: "POST")
-        req.httpBody = try encoder.encode(["code": code])
+        req.setValue(code, forHTTPHeaderField: "X-Pairing-Code")
         let (data, response) = try await session.data(for: req)
         try validate(response)
         let result = try decode(PairResponse.self, from: data)
@@ -189,30 +190,52 @@ actor GatewayClient {
         }
     }
 
-    // MARK: - Phase 5: Task History (REST)
+    // MARK: - Phase 5: Task History (JSON-RPC via POST /a2a)
+    // Note: All task management methods are JSON-RPC, not REST.
+    // Methods: tasks/list, tasks/get, tasks/cancel — all POSTed to /a2a.
 
     func listTasks() async throws -> [TaskSummary] {
         guard bearerToken != nil else { throw GatewayError.unpaired }
-        let url = baseURL.appendingPathComponent("tasks")
-        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let rpc = JSONRPCRequest(id: UUID().uuidString,
+                                 method: "tasks/list",
+                                 params: TaskListParams())
+        let url = baseURL.appendingPathComponent("a2a")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(rpc)
         let (data, response) = try await session.data(for: req)
         try validate(response)
-        return try decode([TaskSummary].self, from: data)
+        let envelope = try decode(JSONRPCResponse<TaskListResult>.self, from: data)
+        if let err = envelope.error { throw GatewayError.jsonRPCError(code: err.code, message: err.message) }
+        return envelope.result?.tasks ?? []
     }
 
     func getTask(id: String) async throws -> NullClawTask {
         guard bearerToken != nil else { throw GatewayError.unpaired }
-        let url = baseURL.appendingPathComponent("tasks/\(id)")
-        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let rpc = JSONRPCRequest(id: UUID().uuidString,
+                                 method: "tasks/get",
+                                 params: TaskIDParams(id: id))
+        let url = baseURL.appendingPathComponent("a2a")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(rpc)
         let (data, response) = try await session.data(for: req)
         try validate(response)
-        return try decode(NullClawTask.self, from: data)
+        let envelope = try decode(JSONRPCResponse<NullClawTask>.self, from: data)
+        if let err = envelope.error { throw GatewayError.jsonRPCError(code: err.code, message: err.message) }
+        guard let task = envelope.result else {
+            throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "Null result")))
+        }
+        return task
     }
 
     func cancelTask(id: String) async throws {
         guard bearerToken != nil else { throw GatewayError.unpaired }
-        let url = baseURL.appendingPathComponent("tasks/\(id)/cancel")
-        let req = try makeRequest(url: url, method: "POST", authenticated: true)
+        let rpc = JSONRPCRequest(id: UUID().uuidString,
+                                 method: "tasks/cancel",
+                                 params: TaskIDParams(id: id))
+        let url = baseURL.appendingPathComponent("a2a")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(rpc)
         let (_, response) = try await session.data(for: req)
         try validate(response)
     }

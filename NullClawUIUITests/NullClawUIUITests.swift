@@ -61,12 +61,27 @@ final class NullClawUITests: XCTestCase {
 
     func testPairingCodeFieldNotVisibleBeforeConnect() {
         // Pairing field should only appear after successful connect
-        // Since we can't connect to a real server in UI tests, we verify
-        // the field does NOT exist on initial load.
         let codeField = app.textFields["Pairing code"]
-        // Wait briefly — it should NOT appear before a connection is made
         let exists = codeField.waitForExistence(timeout: 2)
         XCTAssertFalse(exists, "Pairing code field should not appear before connecting")
+    }
+
+    func testE2E_ConnectToLocalhost() {
+        // This test requires the actual NullClaw gateway to be running at localhost:5111!
+        let urlField = app.textFields["Gateway URL"]
+        XCTAssertTrue(urlField.waitForExistence(timeout: 5))
+        
+        // Ensure default is set
+        urlField.clearAndEnterText("http://127.0.0.1:5111")
+        
+        // Tap connect to hit the real server
+        let connectBtn = app.buttons["Connect"]
+        connectBtn.tap()
+        
+        // The pairing code field should dynamically appear once the connection succeeds
+        let codeField = app.textFields["Pairing code"]
+        let appeared = codeField.waitForExistence(timeout: 10)
+        XCTAssertTrue(appeared, "Pairing code field failed to appear. Ensure the Gateway is running at http://127.0.0.1:5111")
     }
 
     // MARK: - Accessibility

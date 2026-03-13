@@ -27,7 +27,7 @@ final class PairingViewModel {
         defer { isPairing = false }
 
         do {
-            let token = try await client.pair(code: pairingCode)
+            let token = try await client.pair(code: pairingCode.trimmingCharacters(in: .whitespacesAndNewlines))
             try KeychainService.storeToken(token, for: appModel.gatewayURL)
             await client.setToken(token)
             appModel.isPaired = true
