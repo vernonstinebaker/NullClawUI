@@ -1,0 +1,103 @@
+name: NullClawUI
+options:
+  bundleIdPrefix: com.nullclaw
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26.3"
+  createIntermediateGroups: true
+  groupOrdering:
+    - pattern: NullClawUI
+      order: [App, Views, ViewModels, Networking, Security, Models, Resources]
+
+packages:
+  swift-markdown-ui:
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    from: 2.4.0
+
+settings:
+  SWIFT_VERSION: "6.0"
+  SWIFT_STRICT_CONCURRENCY: complete
+  ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  NullClawUI:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: NullClawUI
+        excludes:
+          - "**/*.entitlements"
+    resources:
+      - NullClawUI/Resources/Info.plist
+    info:
+      path: NullClawUI/Resources/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UILaunchScreen: {}
+    entitlements:
+      path: NullClawUI/Resources/NullClawUI.entitlements
+    dependencies:
+      - package: swift-markdown-ui
+        product: MarkdownUI
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.nullclaw.nullclawui
+      SWIFT_VERSION: "6.0"
+      SWIFT_STRICT_CONCURRENCY: complete
+      IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+      SWIFT_EMIT_LOC_STRINGS: YES
+      ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  NullClawUITests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - NullClawUITests
+    dependencies:
+      - target: NullClawUI
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.nullclaw.nullclawui.tests
+      SWIFT_VERSION: "6.0"
+      SWIFT_STRICT_CONCURRENCY: complete
+      IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+      GENERATE_INFOPLIST_FILE: YES
+
+  NullClawUIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - NullClawUIUITests
+    dependencies:
+      - target: NullClawUI
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.nullclaw.nullclawui.uitests
+      SWIFT_VERSION: "6.0"
+      SWIFT_STRICT_CONCURRENCY: complete
+      IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+      GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  NullClawUI:
+    build:
+      targets:
+        NullClawUI: all
+        NullClawUITests: [test]
+        NullClawUIUITests: [test]
+    test:
+      targets:
+        - name: NullClawUITests
+          parallelizable: true
+          randomExecutionOrder: true
+        - name: NullClawUIUITests
+          parallelizable: false
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
