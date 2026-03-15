@@ -8,11 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */; };
+		AA11BB22CC33DD44EE55FF66 /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF67 /* GatewayProfile.swift */; };
+		BB22CC33DD44EE55FF66AA11 /* GatewayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22CC33DD44EE55FF66AA12 /* GatewayStore.swift */; };
+		CC33DD44EE55FF66AA11BB22 /* GatewayListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC33DD44EE55FF66AA11BB23 /* GatewayListView.swift */; };
 		28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A879BA976476DF9DECFFA87 /* SettingsView.swift */; };
 		2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA2CB9C003C8025B742C7D /* MainTabView.swift */; };
 		3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */; };
 		3E64ABF9FD76A909E6875619 /* NullClawUIUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C9B668A10A66138C052549 /* NullClawUIUITests.swift */; };
 		51D91DC2B8D5B19632AC55EB /* TaskHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */; };
+		599CCF57DCC74EEA49AAF9B8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */; };
 		7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */; };
 		879851702FDB296A7AA8EF8D /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 926367C0C86587FB306CDD2C /* MarkdownUI */; };
 		919E77BC06606B0AB5A82C48 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */; };
@@ -20,6 +24,7 @@
 		A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */; };
 		A8B6645D086598650A813BB8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2211EF38611CF618453B2921 /* ContentView.swift */; };
 		BC2D495D8A10C9D48248DA98 /* A2AMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */; };
+		DD44EE55FF66AA11BB22CC33 /* ConversationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD44EE55FF66AA11BB22CC34 /* ConversationRecord.swift */; };
 		BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */; };
 		C02F8A78AFC103AE612E73E7 /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA0E8EAD82E62F5C960BD12 /* AgentCard.swift */; };
 		C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A727AFB0435F24F2346AE65C /* KeychainService.swift */; };
@@ -48,18 +53,23 @@
 
 /* Begin PBXFileReference section */
 		1CAFCE3D5DD22F4C2040022C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF67 /* GatewayProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayProfile.swift; sourceTree = "<group>"; };
+		BB22CC33DD44EE55FF66AA12 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
+		CC33DD44EE55FF66AA11BB23 /* GatewayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayListView.swift; sourceTree = "<group>"; };
 		389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUITests.swift; sourceTree = "<group>"; };
 		3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayViewModel.swift; sourceTree = "<group>"; };
 		46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A2AMessage.swift; sourceTree = "<group>"; };
+		DD44EE55FF66AA11BB22CC34 /* ConversationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRecord.swift; sourceTree = "<group>"; };
 		4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewModel.swift; sourceTree = "<group>"; };
 		5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		72DA2CB9C003C8025B742C7D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
-		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8A879BA976476DF9DECFFA87 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskHistoryView.swift; sourceTree = "<group>"; };
 		A03240766199909EB8710D1B /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A727AFB0435F24F2346AE65C /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		B3C9B668A10A66138C052549 /* NullClawUIUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIUITests.swift; sourceTree = "<group>"; };
 		BAA0E8EAD82E62F5C960BD12 /* AgentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCard.swift; sourceTree = "<group>"; };
@@ -89,6 +99,8 @@
 			children = (
 				46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */,
 				BAA0E8EAD82E62F5C960BD12 /* AgentCard.swift */,
+				DD44EE55FF66AA11BB22CC34 /* ConversationRecord.swift */,
+				AA11BB22CC33DD44EE55FF67 /* GatewayProfile.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -122,6 +134,7 @@
 			children = (
 				5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */,
 				FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */,
+				BB22CC33DD44EE55FF66AA12 /* GatewayStore.swift */,
 				EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */,
 			);
 			path = App;
@@ -130,6 +143,7 @@
 		9565EF5E185872F96F0E8101 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */,
 				1CAFCE3D5DD22F4C2040022C /* Info.plist */,
 			);
 			path = Resources;
@@ -150,6 +164,7 @@
 			children = (
 				BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */,
 				2211EF38611CF618453B2921 /* ContentView.swift */,
+				CC33DD44EE55FF66AA11BB23 /* GatewayListView.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
@@ -209,6 +224,7 @@
 			buildConfigurationList = 8372F4AE23F36BFCF625FFB8 /* Build configuration list for PBXNativeTarget "NullClawUI" */;
 			buildPhases = (
 				DEF0F70F908B419D9CE26004 /* Sources */,
+				848DDC74506ACA88FB68259E /* Resources */,
 				452023D9E2B19C26DE397899 /* Frameworks */,
 			);
 			buildRules = (
@@ -297,6 +313,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		848DDC74506ACA88FB68259E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				599CCF57DCC74EEA49AAF9B8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		93274FB2A02CAB3478F94E8C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -324,8 +351,12 @@
 				2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */,
 				C9F21BCC5224D6A98DC17D83 /* ChatViewModel.swift in Sources */,
 				EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */,
+				DD44EE55FF66AA11BB22CC33 /* ConversationRecord.swift in Sources */,
 				A8B6645D086598650A813BB8 /* ContentView.swift in Sources */,
 				DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */,
+				CC33DD44EE55FF66AA11BB22 /* GatewayListView.swift in Sources */,
+				AA11BB22CC33DD44EE55FF66 /* GatewayProfile.swift in Sources */,
+				BB22CC33DD44EE55FF66AA11 /* GatewayStore.swift in Sources */,
 				A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */,
 				D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */,
 				C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */,
@@ -358,7 +389,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				DEVELOPMENT_TEAM = ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -366,7 +396,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = plus.agility.nullclaw.nullclawui.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = plus.agillity.nullclawui.uitests;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -444,7 +474,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				DEVELOPMENT_TEAM = ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -452,7 +481,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = plus.agility.nullclaw.nullclawui.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = plus.agillity.nullclawui.uitests;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -523,7 +552,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				DEVELOPMENT_TEAM = ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -531,7 +559,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = plus.agility.nullclawui.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = plus.agillity.nullclawui.tests;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -544,7 +572,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				DEVELOPMENT_TEAM = ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -552,7 +579,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = plus.agility.nullclawui.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = plus.agillity.nullclawui.tests;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -575,30 +602,30 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-			PRODUCT_BUNDLE_IDENTIFIER = plus.agility.nullclawui;
-			SDKROOT = iphoneos;
-			SWIFT_EMIT_LOC_STRINGS = YES;
-			SWIFT_STRICT_CONCURRENCY = complete;
-			SWIFT_VERSION = 6.0;
-			TARGETED_DEVICE_FAMILY = "1,2";
+				PRODUCT_BUNDLE_IDENTIFIER = plus.agillity.nullclawui;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
 		};
-		name = Release;
-	};
-	E582AC466632BDD07B7C143C /* Debug */ = {
-		isa = XCBuildConfiguration;
-		buildSettings = {
-			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-			CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
-			CODE_SIGN_IDENTITY = "iPhone Developer";
-			DEVELOPMENT_TEAM = ;
-			INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
-			IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-			LD_RUNPATH_SEARCH_PATHS = (
-				"$(inherited)",
-				"@executable_path/Frameworks",
-			);
-			PRODUCT_BUNDLE_IDENTIFIER = plus.agility.nullclawui;
+		E582AC466632BDD07B7C143C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = ;
+				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = plus.agillity.nullclawui;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;

@@ -34,7 +34,8 @@ actor GatewayClient {
 
     private let session: URLSession = {
         let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 10
+        cfg.timeoutIntervalForRequest = 30
+        cfg.timeoutIntervalForResource = 300 // long enough for SSE streams
         return URLSession(configuration: cfg)
     }()
 
@@ -61,7 +62,7 @@ actor GatewayClient {
     // MARK: Configuration
 
     func setBaseURL(_ url: URL) { self.baseURL = url }
-    func setToken(_ token: String?) { self.bearerToken = token }
+    func setToken(_ token: String?) { self.bearerToken = token.flatMap { $0.isEmpty ? nil : $0 } }
 
     // MARK: - Phase 1: Health & Agent Card
 
@@ -118,35 +119,11 @@ actor GatewayClient {
         return task
     }
 
-    // MARK: - Phase 4: message/stream (SSE)
+    // MARK: - Phase 4: message/stream (SSE via AsyncBytes)
 
-    /// Returns an AsyncThrowingStream of TaskStatusUpdateEvent.
-    func streamMessage(_ message: A2AMessage) throws -> AsyncThrowingStream<TaskStatusUpdateEvent, Error> {
-        guard let token = bearerToken else { throw GatewayError.unpaired }
-        let params  = MessageSendParams(message: message)
-        let rpc     = JSONRPCRequest(id: UUID().uuidString,
-                                     method: "message/stream",
-                                     params: params)
-        let url = baseURL.appendingPathComponent("a2a")
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.httpBody = try encoder.encode(rpc)
-
-        return AsyncThrowingStream { continuation in
-            let task = session.dataTask(with: req)
-            let delegate = SSEDelegate(decoder: self.decoder, continuation: continuation)
-            // URLSession delegate-based SSE handled in SSEDelegate
-            _ = delegate
-            _ = task
-            // Full SSE impl via AsyncBytes (simpler in Swift 6):
-            continuation.finish(throwing: GatewayError.networkError(underlying: URLError(.unsupportedURL)))
-        }
-    }
-
-    /// Proper SSE streaming via URLSession.bytes
-    func streamMessageBytes(_ message: A2AMessage) async throws -> AsyncThrowingStream<TaskStatusUpdateEvent, Error> {
+    /// Streams a message via SSE (method: message/stream) using URLSession.bytes.
+    /// Each yielded SSEEnvelope wraps a StreamEvent (kind: task | artifact-update | status-update).
+    func streamMessage(_ message: A2AMessage) async throws -> AsyncThrowingStream<TaskStatusUpdateEvent, Error> {
         guard let token = bearerToken else { throw GatewayError.unpaired }
         let params = MessageSendParams(message: message)
         let rpc    = JSONRPCRequest(id: UUID().uuidString,
@@ -173,11 +150,15 @@ actor GatewayClient {
                         while let range = buffer.range(of: "\n\n") {
                             let chunk = String(buffer[buffer.startIndex..<range.lowerBound])
                             buffer.removeSubrange(buffer.startIndex..<range.upperBound)
-                            let line = chunk.hasPrefix("data: ") ? String(chunk.dropFirst(6)) : chunk
-                            if line == "[DONE]" { continuation.finish(); return }
-                            guard let data = line.data(using: .utf8) else { continue }
-                            if let event = try? localDecoder.decode(TaskStatusUpdateEvent.self, from: data) {
-                                continuation.yield(event)
+                            // Strip the "data: " SSE prefix
+                            let dataLines = chunk.split(separator: "\n", omittingEmptySubsequences: true)
+                            for dataLine in dataLines {
+                                let stripped = dataLine.hasPrefix("data: ") ? String(dataLine.dropFirst(6)) : String(dataLine)
+                                if stripped == "[DONE]" { continuation.finish(); return }
+                                guard let data = stripped.data(using: .utf8) else { continue }
+                                if let event = try? localDecoder.decode(TaskStatusUpdateEvent.self, from: data) {
+                                    continuation.yield(event)
+                                }
                             }
                         }
                     }
@@ -266,15 +247,5 @@ actor GatewayClient {
         } catch {
             throw GatewayError.decodingError(underlying: error)
         }
-    }
-}
-
-// Placeholder SSEDelegate — full implementation handled via AsyncBytes above
-private final class SSEDelegate: NSObject, URLSessionDataDelegate, Sendable {
-    let decoder: JSONDecoder
-    let continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation
-    init(decoder: JSONDecoder, continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation) {
-        self.decoder = decoder
-        self.continuation = continuation
     }
 }

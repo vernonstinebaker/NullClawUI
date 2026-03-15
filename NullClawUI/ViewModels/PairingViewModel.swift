@@ -39,7 +39,7 @@ final class PairingViewModel {
     func unpair() {
         KeychainService.deleteToken(for: appModel.gatewayURL)
         Task { await client.setToken(nil) }
-        appModel.isPaired = false
+        appModel.isPaired = false   // delegates to store.setProfilePaired
         pairingCode = ""
     }
 }

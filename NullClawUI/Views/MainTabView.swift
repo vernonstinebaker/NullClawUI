@@ -4,60 +4,51 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var chatVM: ChatViewModel?
-    @State private var gatewayVM: GatewayViewModel?
-    
+
+    var gatewayViewModel: GatewayViewModel
+    var chatViewModel: ChatViewModel
+
     // For SplitView navigation
     @State private var selectedTaskID: String? = nil
     @State private var showingSettings = false
+    // For iPhone TabView — tracks the active tab so we can switch to Chat programmatically.
+    @State private var selectedTab: Int = 0
 
     var body: some View {
         Group {
-            if let cvm = chatVM, let gvm = gatewayVM {
-                if horizontalSizeClass == .regular {
-                    // iPadOS: SplitView
-                    NavigationSplitView {
-                        SidebarView(viewModel: cvm, selectedTaskID: $selectedTaskID, showingSettings: $showingSettings)
-                    } detail: {
-                        ChatView(viewModel: cvm, gatewayViewModel: gvm)
-                    }
-                } else {
-                    // iPhone: TabView
-                    TabView {
-                        Tab("Chat", systemImage: "bubble.left.and.bubble.right.fill") {
-                            ChatView(viewModel: cvm, gatewayViewModel: gvm)
-                        }
-                        Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90") {
-                            TaskHistoryView(viewModel: cvm)
-                        }
-                        Tab("Settings", systemImage: "gear") {
-                            PairedSettingsView(pairingVM: makePairingVM(gvm: gvm))
-                        }
-                    }
+            if horizontalSizeClass == .regular {
+                // iPadOS: SplitView
+                NavigationSplitView {
+                    SidebarView(viewModel: chatViewModel, selectedTaskID: $selectedTaskID, showingSettings: $showingSettings)
+                } detail: {
+                    ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
                 }
             } else {
-                ProgressView("Loading…")
+                // iPhone: TabView with programmatic tab selection.
+                TabView(selection: $selectedTab) {
+                    Tab("Chat", systemImage: "bubble.left.and.bubble.right.fill", value: 0) {
+                        ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
+                    }
+                    Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: 1) {
+                        TaskHistoryView(viewModel: chatViewModel)
+                    }
+                    Tab("Settings", systemImage: "gear", value: 2) {
+                        PairedSettingsView(pairingVM: makePairingVM())
+                    }
+                }
+                .onChange(of: chatViewModel.chatTabRequested) { _, _ in
+                    // Switch to the Chat tab whenever a history task is loaded.
+                    selectedTab = 0
+                }
             }
         }
         .sheet(isPresented: $showingSettings) {
-            if let gvm = gatewayVM {
-                PairedSettingsView(pairingVM: makePairingVM(gvm: gvm))
-            }
-        }
-        .task {
-            let gvm = GatewayViewModel(appModel: appModel)
-            await gvm.connect()
-            gatewayVM = gvm
-
-            let token = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? ""
-            await gvm.client.setToken(token)
-
-            chatVM = ChatViewModel(appModel: appModel, client: gvm.client)
+            PairedSettingsView(pairingVM: makePairingVM())
         }
     }
 
-    private func makePairingVM(gvm: GatewayViewModel) -> PairingViewModel {
-        return PairingViewModel(appModel: appModel, client: gvm.client)
+    private func makePairingVM() -> PairingViewModel {
+        return PairingViewModel(appModel: appModel, client: gatewayViewModel.client)
     }
 }
 
@@ -65,37 +56,63 @@ private struct SidebarView: View {
     var viewModel: ChatViewModel
     @Binding var selectedTaskID: String?
     @Binding var showingSettings: Bool
+    @Environment(ConversationStore.self) private var conversationStore
+    @Environment(GatewayStore.self) private var gatewayStore
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
 
     var body: some View {
         List {
             Section("Current Chat") {
-                Button { 
-                    selectedTaskID = nil 
-                    viewModel.activeTaskID = nil
-                    viewModel.messages.removeAll()
+                Button {
+                    selectedTaskID = nil
+                    if let profile = gatewayStore.activeProfile {
+                        viewModel.startNewConversation(gateway: profile)
+                    } else {
+                        viewModel.activeTaskID = nil
+                        viewModel.messages.removeAll()
+                    }
                 } label: {
                     Label("New Conversation", systemImage: "plus.message")
                 }
             }
 
             Section("History") {
-                if viewModel.taskSummaries.isEmpty {
+                if conversationStore.records.isEmpty {
                     Text("No previous conversations.")
                         .foregroundStyle(.secondary)
                         .font(.caption)
                 } else {
-                    ForEach(viewModel.taskSummaries) { summary in
+                    ForEach(conversationStore.records) { record in
                         Button {
-                            selectedTaskID = summary.id
-                            Task { await viewModel.loadTask(id: summary.id) }
+                            selectedTaskID = record.serverTaskID
+                            if let taskID = record.serverTaskID {
+                                Task { await viewModel.loadTask(id: taskID) }
+                            } else {
+                                viewModel.messages.removeAll()
+                                viewModel.activeTaskID = nil
+                                viewModel.activeContextID = nil
+                            }
                         } label: {
-                            VStack(alignment: .leading) {
-                                Text(summary.id)
-                                    .font(.caption.monospaced())
-                                    .lineLimit(1)
-                                Text(summary.statusLabel.capitalized)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(record.title)
+                                    .font(.subheadline)
+                                    .lineLimit(2)
+                                HStack(spacing: 5) {
+                                    Text(record.gatewayName)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(Color.accentColor)
+                                    Text("·")
+                                        .font(.caption2)
+                                        .foregroundStyle(.quaternary)
+                                    Text(relativeTimestamp(for: record.startedAt))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
@@ -108,12 +125,17 @@ private struct SidebarView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button { showingSettings = true } label: { Label("Settings", systemImage: "gear") }
             }
-            ToolbarItem(placement: .cancellationAction) {
-                Button { Task { await viewModel.loadTaskHistory() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
-            }
         }
-        .task {
-            await viewModel.loadTaskHistory()
+    }
+
+    private func relativeTimestamp(for date: Date) -> String {
+        let age = Date().timeIntervalSince(date)
+        if age < 60 * 60 * 24 {
+            return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
         }
+        let f = DateFormatter()
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f.string(from: date)
     }
 }

@@ -30,6 +30,7 @@ targets:
           - "**/*.entitlements"
     resources:
       - NullClawUI/Resources/Info.plist
+      - NullClawUI/Resources/Assets.xcassets
     info:
       path: NullClawUI/Resources/Info.plist
       properties:

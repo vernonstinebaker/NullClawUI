@@ -2,17 +2,31 @@ import Foundation
 
 // MARK: - JSON-RPC 2.0 Envelope
 
-struct JSONRPCRequest<P: Encodable & Sendable>: Encodable, Sendable {
+struct JSONRPCRequest<P: Encodable & Sendable>: Sendable {
     let jsonrpc: String = "2.0"
     let id: String
     let method: String
     let params: P
+}
 
+extension JSONRPCRequest: Encodable {
     // Explicit key order: jsonrpc → id → method → params.
     // The NullClaw gateway's hand-rolled JSON parser requires "method"
     // to appear before "params" to correctly route requests.
+    //
+    // NOTE: defining encode(to:) in an extension (NOT in the struct body) is
+    // required to prevent the Swift compiler from emitting a synthesised
+    // encode(to:) for generic types that silently shadows the hand-written one.
     enum CodingKeys: String, CodingKey {
         case jsonrpc, id, method, params
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(jsonrpc, forKey: .jsonrpc)
+        try container.encode(id, forKey: .id)
+        try container.encode(method, forKey: .method)
+        try container.encode(params, forKey: .params)
     }
 }
 
@@ -33,6 +47,11 @@ struct MessagePart: Codable, Sendable {
     let text: String?
     let kind: String?   // "text" | "file" etc — present in server responses
 
+    init(text: String? = nil, kind: String? = nil) {
+        self.text = text
+        self.kind = kind
+    }
+
     enum CodingKeys: String, CodingKey {
         case text
         case kind
@@ -42,6 +61,17 @@ struct MessagePart: Codable, Sendable {
 struct A2AMessage: Codable, Sendable {
     let role: String          // "user" | "assistant"
     var parts: [MessagePart]
+    var contextId: String? = nil    // Optional: ties messages to the same conversation session
+
+    // Explicit CodingKeys to prevent JSONEncoder's .convertToSnakeCase strategy
+    // from turning "contextId" into "context_id". The gateway looks for "contextId"
+    // (camelCase) in a2a.zig:extractMessageContextId — snake_case silently breaks
+    // context continuity, causing a fresh agent session on every message.
+    enum CodingKeys: String, CodingKey {
+        case role
+        case parts
+        case contextId = "contextId"
+    }
 }
 
 struct MessageSendParams: Encodable, Sendable {
@@ -61,6 +91,7 @@ struct TaskArtifact: Codable, Sendable {
 
 struct NullClawTask: Codable, Sendable, Identifiable {
     let id: String
+    let contextId: String?      // conversation session ID; pass on subsequent messages
     let status: TaskStatus
     let messages: [A2AMessage]?
     let artifacts: [TaskArtifact]?
@@ -123,6 +154,7 @@ struct SSEEnvelope: Decodable, Sendable {
 struct StreamEvent: Decodable, Sendable {
     let kind: String            // "task" | "artifact-update" | "status-update"
     let taskId: String?
+    let contextId: String?      // returned on every event; use to continue the conversation
     let artifact: TaskArtifact? // present when kind == "artifact-update"
     let append: Bool?           // true = delta, false = replace
     let lastChunk: Bool?

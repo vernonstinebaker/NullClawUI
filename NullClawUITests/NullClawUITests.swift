@@ -1,182 +1,98 @@
-import XCTest
-@testable import NullClawUI
+# NullClawUI — Agents & Roles
 
-// MARK: - Keychain Tests
+## Platform Baseline
 
-final class KeychainServiceTests: XCTestCase {
-    private let testURL = "http://localhost:5111"
-    private let testToken = "test-bearer-token-abc123"
+| Property | Value |
+|---|---|
+| **iOS Deployment Target** | iOS 26.0 |
+| **macOS Deployment Target** | macOS 26.0 (Tahoe) |
+| **Swift Version** | Swift 6 (strict concurrency) |
+| **UI Paradigm** | Liquid Glass (iOS 26 / visionOS-aligned materials) |
+| **Xcode Version** | Xcode 26+ |
+| **NullClaw API Reference** | See PLAN.md Phase 0 and the NullClaw Gateway OpenAPI spec at the configured gateway URL (/openapi.json). |
 
-    override func tearDown() {
-        KeychainService.deleteToken(for: testURL)
-        super.tearDown()
-    }
+All agents operate under **Swift 6 strict concurrency** (-strict-concurrency=complete). Every network call must be async/await-based; no DispatchQueue usage. All state mutations touching the UI must happen on @MainActor.
 
-    func testStoreAndRetrieveToken() throws {
-        try KeychainService.storeToken(testToken, for: testURL)
-        let retrieved = try KeychainService.retrieveToken(for: testURL)
-        XCTAssertEqual(retrieved, testToken)
-    }
+---
 
-    func testDeleteToken() throws {
-        try KeychainService.storeToken(testToken, for: testURL)
-        KeychainService.deleteToken(for: testURL)
-        let retrieved = try KeychainService.retrieveToken(for: testURL)
-        XCTAssertNil(retrieved)
-    }
+## Roles
 
-    func testOverwriteToken() throws {
-        try KeychainService.storeToken(testToken, for: testURL)
-        let newToken = "new-token-xyz"
-        try KeychainService.storeToken(newToken, for: testURL)
-        let retrieved = try KeychainService.retrieveToken(for: testURL)
-        XCTAssertEqual(retrieved, newToken)
-    }
+### Swift/SwiftUI Architect
+- **Focus**: App lifecycle, navigation (NavigationStack / NavigationSplitView), and state management using the **Swift @Observable macro** (iOS 26 / Swift 6 preferred over legacy ObservableObject).
+- **Goal**: Clean, idiomatic SwiftUI structure that is easy to extend phase-by-phase.
+- **Notes**:
+  - Target iOS 26 exclusively — use new APIs freely; no @available guards needed.
+  - Favor NavigationSplitView for iPad; NavigationStack for iPhone compact-width.
+  - Apply **Liquid Glass** materials (GlassEffect, .glassBackgroundEffect()) for surfaces, cards, and overlaid controls.
 
-    func testRetrieveMissingToken() throws {
-        let result = try KeychainService.retrieveToken(for: "http://notexist:9999")
-        XCTAssertNil(result)
-    }
+### Network & Protocol Specialist
+- **Focus**: URLSession configuration, SSE (Server-Sent Events) streaming via AsyncSequence, JSON-RPC 2.0 serialization for the A2A protocol.
+- **Goal**: Robust, error-resistant communication with the NullClaw Gateway.
+- **A2A Request Shape**:
+  ```json
+  {
+    "jsonrpc": "2.0",
+    "id": "<uuid>",
+    "method": "message/send",
+    "params": { "message": { "role": "user", "parts": [{ "text": "…" }] } }
+  }
+  ```
+  Streaming uses method: "message/stream" and returns SSE lines of the form data: { …TaskStatusUpdateEvent… }.
+- **Notes**:
+  - Use NSAllowsLocalNetworking: true in Info.plist to permit plain-HTTP http:// gateway connections during development. Production should use HTTPS.
+  - Implement exponential-backoff reconnect for dropped SSE streams (max 3 retries).
+  - Endpoints: GET /health, GET /.well-known/agent-card.json, POST /pair, POST /a2a, GET /tasks/{id}, POST /tasks/{id}/cancel.
 
-    func testDifferentGatewaysIsolated() throws {
-        let url1 = "http://gateway1:5111"
-        let url2 = "http://gateway2:5111"
-        defer {
-            KeychainService.deleteToken(for: url1)
-            KeychainService.deleteToken(for: url2)
-        }
-        try KeychainService.storeToken("token1", for: url1)
-        try KeychainService.storeToken("token2", for: url2)
-        XCTAssertEqual(try KeychainService.retrieveToken(for: url1), "token1")
-        XCTAssertEqual(try KeychainService.retrieveToken(for: url2), "token2")
-    }
-}
+### Security & Identity Guard
+- **Focus**: Pairing flow, Bearer token handling, and secure storage in the system Keychain.
+- **Goal**: Zero-leak credential management.
+- **Keychain Keying Strategy**: Each stored credential must be keyed by the normalized gateway base URL (scheme + host + port), allowing the user to connect to multiple gateways without collision. Example key: nullclaw.token.https://my-server.local:5111.
+- **Notes**:
+  - Use kSecAttrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly.
+  - On token deletion / re-pair, explicitly delete the old Keychain item before writing a new one.
 
-// MARK: - AgentCard Decoding Tests
+### UX/UI Designer (Apple Standard)
+- **Focus**: HIG compliance, **Liquid Glass** design language, iconography, animations, and accessibility.
+- **Goal**: A professional, Apple-native feel targeting iOS 26 and iPadOS 26.
+- **Liquid Glass Guidelines**:
+  - Use .glassBackgroundEffect() for floating panels, modals, and overlaid toolbars.
+  - Use GlassEffect with .regularMaterial for card surfaces.
+  - Animate with withAnimation(.spring(duration: 0.35, bounce: 0.2)).
+  - Accent color should be dynamically sourced from agent-card.json once fetched; fall back to system tint.
+- **Notes**:
+  - iPad layout uses NavigationSplitView (sidebar = task list, detail = chat). Defined in Phase 6 but the architecture must support it from Phase 1.
+  - All interactive elements must have accessibilityLabel and accessibilityHint.
 
-final class AgentCardDecodingTests: XCTestCase {
-    func testDecodeFullAgentCard() throws {
-        let json = """
-        {
-            "name": "NullClaw",
-            "version": "1.2.0",
-            "description": "An AI gateway.",
-            "capabilities": {
-                "streaming": true,
-                "multi_modal": false,
-                "history": true
-            },
-            "accentColor": "#7B5EA7"
-        }
-        """
-        let card = try JSONDecoder().decode(AgentCard.self, from: Data(json.utf8))
-        XCTAssertEqual(card.name, "NullClaw")
-        XCTAssertEqual(card.version, "1.2.0")
-        XCTAssertEqual(card.description, "An AI gateway.")
-        XCTAssertEqual(card.capabilities?.streaming, true)
-        XCTAssertEqual(card.capabilities?.multiModal, false)
-        XCTAssertEqual(card.capabilities?.history, true)
-        XCTAssertEqual(card.accentColor, "#7B5EA7")
-    }
+### Validation & QA Engineer
+- **Focus**: Unit tests (XCTest / Swift Testing framework), network mocking, and integration testing against a running NullClaw instance.
+- **Goal**: Verify that every phase of PLAN.md is fully functional and regression-free before advancing.
+- **How to Run NullClaw Locally**: A NullClaw Gateway instance must be running at http://localhost:5111. Refer to the NullClaw repository (README.md → "Running Locally") for setup steps.
+- **Test Targets**:
+  - NullClawUI — main app target.
+  - NullClawUITests — XCTest unit tests (JSON-RPC parsing, Keychain read/write, SSE token parsing).
+  - NullClawUIUITests — UI tests (XCUIApplication).
+- **Build & Test Commands**:
+  ```bash
+  # Unit tests
+  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2'
 
-    func testDecodeMinimalAgentCard() throws {
-        let json = "{ \"name\": \"NullClaw\", \"version\": \"1.0.0\" }"
-        let card = try JSONDecoder().decode(AgentCard.self, from: Data(json.utf8))
-        XCTAssertEqual(card.name, "NullClaw")
-        XCTAssertNil(card.description)
-        XCTAssertNil(card.capabilities)
-        XCTAssertNil(card.accentColor)
-    }
-}
+  # UI tests
+  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2' -only-testing:NullClawUIUITests
+  ```
 
-// MARK: - JSONRPCRequest Encoding Tests
+### Test Coverage Mandate
 
-final class JSONRPCEncodingTests: XCTestCase {
-    func testEncodeMessageSendRequest() throws {
-        let params = MessageSendParams(message: A2AMessage(role: "user", parts: [MessagePart(text: "Hello")]))
-        let rpc = JSONRPCRequest(id: "test-id", method: "message/send", params: params)
+**Every code change must be accompanied by tests.** No exceptions.
 
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let data = try encoder.encode(rpc)
-        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-
-        XCTAssertEqual(dict?["jsonrpc"] as? String, "2.0")
-        XCTAssertEqual(dict?["method"] as? String, "message/send")
-        XCTAssertEqual(dict?["id"] as? String, "test-id")
-        XCTAssertNotNil(dict?["params"])
-    }
-}
-
-// MARK: - NullClawTask Decoding Tests
-
-final class NullClawTaskDecodingTests: XCTestCase {
-    func testDecodeCompletedTask() throws {
-        let json = """
-        {
-            "id": "task-001",
-            "status": {
-                "state": "completed",
-                "message": {
-                    "role": "assistant",
-                    "parts": [{ "text": "Hello, I am NullClaw!" }]
-                }
-            }
-        }
-        """
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let task = try decoder.decode(NullClawTask.self, from: Data(json.utf8))
-        XCTAssertEqual(task.id, "task-001")
-        XCTAssertEqual(task.status.state, "completed")
-        XCTAssertEqual(task.status.message?.parts.first?.text, "Hello, I am NullClaw!")
-    }
-}
-
-// MARK: - SSE Parsing Tests
-
-final class SSEParsingTests: XCTestCase {
-    func testParseTaskStatusUpdateEvent() throws {
-        let json = """
-        {
-            "id": "task-001",
-            "final": true,
-            "status": {
-                "state": "completed",
-                "message": {
-                    "role": "assistant",
-                    "parts": [{ "text": "Done." }]
-                }
-            }
-        }
-        """
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let event = try decoder.decode(TaskStatusUpdateEvent.self, from: Data(json.utf8))
-        XCTAssertEqual(event.id, "task-001")
-        XCTAssertEqual(event.final, true)
-        XCTAssertEqual(event.status?.state, "completed")
-    }
-
-    func testParseDeltaEvent() throws {
-        let json = """
-        { "id": "task-002", "delta": { "text": "Hello" }, "final": false }
-        """
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let event = try decoder.decode(TaskStatusUpdateEvent.self, from: Data(json.utf8))
-        XCTAssertEqual(event.delta?.text, "Hello")
-        XCTAssertEqual(event.final, false)
-    }
-}
-
-// MARK: - GatewayError Tests
-
-final class GatewayErrorTests: XCTestCase {
-    func testLocalizedDescriptions() {
-        XCTAssertNotNil(GatewayError.invalidURL.errorDescription)
-        XCTAssertNotNil(GatewayError.httpError(statusCode: 401).errorDescription)
-        XCTAssertNotNil(GatewayError.unpaired.errorDescription)
-        XCTAssertTrue(GatewayError.httpError(statusCode: 404).errorDescription!.contains("404"))
-    }
-}
+- **Behavior changes** (new methods, changed logic): add or update `XCTestCase` tests in `NullClawUITests/NullClawUITests.swift` that directly exercise the changed code path.
+- **Bug fixes**: add a regression test that would have caught the original failure.
+- **Logging-only / pure UI-layout changes**: formal tests may not be practical. Add a comment near the change:
+  ```swift
+  // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
+  ```
+- **New ViewModel methods**: always test both the happy path and the key failure/edge cases. For `@MainActor` methods use `@MainActor func test...() async`.
+- **Keychain operations**: every method that reads or writes to the Keychain must be tested via `KeychainService` directly. Always call `KeychainService.deleteToken(for:)` in `tearDown()` to avoid state leakage between tests.
+- Regression tests must include a comment citing the bug they guard, e.g.:
+  ```swift
+  // Regression: unpairGateway(_:) on an inactive profile must not clear appModel.isPaired.
+  ```
