@@ -48,12 +48,27 @@ enum KeychainService {
         delete(key: itemKey(for: gatewayURL))
     }
 
+    static func hasToken(for gatewayURL: String) -> Bool {
+        ((try? retrieveToken(for: gatewayURL)) ?? nil)?.isEmpty == false
+    }
+
+    static func moveToken(from oldGatewayURL: String, to newGatewayURL: String) throws {
+        let oldKey = itemKey(for: oldGatewayURL)
+        let newKey = itemKey(for: newGatewayURL)
+        guard oldKey != newKey else { return }
+        guard let token = try retrieveToken(for: oldGatewayURL) else { return }
+        try storeToken(token, for: newGatewayURL)
+        _ = deleteToken(for: oldGatewayURL)
+    }
+
+    static func normalizedGatewayURL(_ gatewayURL: String) -> String {
+        gatewayURL.trimmingCharacters(in: .init(charactersIn: "/")).lowercased()
+    }
+
     // MARK: - Helpers
 
     private static func itemKey(for gatewayURL: String) -> String {
-        // Normalize: strip trailing slash, lowercase scheme+host.
-        let normalized = gatewayURL.trimmingCharacters(in: .init(charactersIn: "/")).lowercased()
-        return "\(servicePrefix).\(normalized)"
+        "\(servicePrefix).\(normalizedGatewayURL(gatewayURL))"
     }
 
     @discardableResult

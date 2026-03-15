@@ -2,32 +2,11 @@ import Foundation
 
 // MARK: - JSON-RPC 2.0 Envelope
 
-struct JSONRPCRequest<P: Encodable & Sendable>: Sendable {
+struct JSONRPCRequest<P: Encodable & Sendable>: Encodable, Sendable {
     let jsonrpc: String = "2.0"
     let id: String
     let method: String
     let params: P
-}
-
-extension JSONRPCRequest: Encodable {
-    // Explicit key order: jsonrpc → id → method → params.
-    // The NullClaw gateway's hand-rolled JSON parser requires "method"
-    // to appear before "params" to correctly route requests.
-    //
-    // NOTE: defining encode(to:) in an extension (NOT in the struct body) is
-    // required to prevent the Swift compiler from emitting a synthesised
-    // encode(to:) for generic types that silently shadows the hand-written one.
-    enum CodingKeys: String, CodingKey {
-        case jsonrpc, id, method, params
-    }
-
-    func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(jsonrpc, forKey: .jsonrpc)
-        try container.encode(id, forKey: .id)
-        try container.encode(method, forKey: .method)
-        try container.encode(params, forKey: .params)
-    }
 }
 
 struct JSONRPCResponse<R: Decodable>: Decodable {
@@ -70,7 +49,7 @@ struct A2AMessage: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case role
         case parts
-        case contextId = "contextId"
+        case contextId
     }
 }
 

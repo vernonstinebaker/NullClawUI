@@ -39,6 +39,16 @@ actor GatewayClient {
         return URLSession(configuration: cfg)
     }()
 
+    /// Separate URLSession for SSE streams: generous resource timeout but
+    /// a tighter per-read idle timeout so a stalled stream surfaces as an
+    /// error rather than hanging indefinitely.
+    private let sseSession: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 90   // max wait for first byte / between tokens
+        cfg.timeoutIntervalForResource = 600 // max total stream duration
+        return URLSession(configuration: cfg)
+    }()
+
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .convertFromSnakeCase
@@ -136,32 +146,21 @@ actor GatewayClient {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.httpBody = try encoder.encode(rpc)
 
-        let (asyncBytes, response) = try await session.bytes(for: req)
+        let (asyncBytes, response) = try await sseSession.bytes(for: req)
         try validate(response)
         let localDecoder = decoder
 
         return AsyncThrowingStream { continuation in
             let t = Task {
                 do {
-                    var buffer = ""
+                    var buffer: [UInt8] = []
                     for try await byte in asyncBytes {
-                        guard let char = String(bytes: [byte], encoding: .utf8) else { continue }
-                        buffer += char
-                        while let range = buffer.range(of: "\n\n") {
-                            let chunk = String(buffer[buffer.startIndex..<range.lowerBound])
-                            buffer.removeSubrange(buffer.startIndex..<range.upperBound)
-                            // Strip the "data: " SSE prefix
-                            let dataLines = chunk.split(separator: "\n", omittingEmptySubsequences: true)
-                            for dataLine in dataLines {
-                                let stripped = dataLine.hasPrefix("data: ") ? String(dataLine.dropFirst(6)) : String(dataLine)
-                                if stripped == "[DONE]" { continuation.finish(); return }
-                                guard let data = stripped.data(using: .utf8) else { continue }
-                                if let event = try? localDecoder.decode(TaskStatusUpdateEvent.self, from: data) {
-                                    continuation.yield(event)
-                                }
-                            }
-                        }
+                        buffer.append(byte)
+                        try Self.yieldBufferedSSEEvents(from: &buffer, decoder: localDecoder, continuation: continuation)
                     }
+                    try Self.yieldTrailingSSEEvent(from: &buffer, decoder: localDecoder, continuation: continuation)
+                    continuation.finish()
+                } catch SSEControlSignal.done {
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -248,4 +247,144 @@ actor GatewayClient {
             throw GatewayError.decodingError(underlying: error)
         }
     }
+
+    nonisolated static func dataPayload(fromSSELines lines: [String]) -> String? {
+        let payloadLines = lines.compactMap { line -> String? in
+            guard line.hasPrefix("data:") else { return nil }
+            let value = line.dropFirst(5)
+            return value.first == " " ? String(value.dropFirst()) : String(value)
+        }
+        guard !payloadLines.isEmpty else { return nil }
+        return payloadLines.joined(separator: "\n")
+    }
+
+    private nonisolated static func sseEventLines(from bytes: [UInt8]) throws -> [String] {
+        guard let text = String(bytes: bytes, encoding: .utf8) else {
+            throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "Invalid UTF-8 SSE event")))
+        }
+        return text
+            .split(whereSeparator: \.isNewline)
+            .map(String.init)
+    }
+
+    nonisolated static func sseEventPayloads(from bytes: [UInt8]) throws -> [String] {
+        var buffer = bytes
+        var payloads: [String] = []
+        while let boundary = nextSSEEventBoundary(in: buffer) {
+            let eventBytes = Array(buffer[..<boundary.eventEnd])
+            buffer.removeFirst(boundary.consumedLength)
+            let lines = try sseEventLines(from: eventBytes)
+            if let payload = dataPayload(fromSSELines: lines) {
+                payloads.append(payload)
+            }
+        }
+        while let last = buffer.last, last == 10 || last == 13 {
+            buffer.removeLast()
+        }
+        if !buffer.isEmpty {
+            let lines = try sseEventLines(from: buffer)
+            if let payload = dataPayload(fromSSELines: lines) {
+                payloads.append(payload)
+            }
+        }
+        return payloads
+    }
+
+    nonisolated static func decodeStreamEnvelope(
+        payload: String,
+        decoder: JSONDecoder
+    ) throws -> TaskStatusUpdateEvent {
+        if payload == "[DONE]" {
+            throw SSEControlSignal.done
+        }
+        guard let data = payload.data(using: .utf8) else {
+            throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "Invalid UTF-8 SSE payload")))
+        }
+        do {
+            let envelope = try decoder.decode(JSONRPCResponse<StreamEvent>.self, from: data)
+            if let error = envelope.error {
+                throw GatewayError.jsonRPCError(code: error.code, message: error.message)
+            }
+            guard envelope.result != nil else {
+                throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
+                    .init(codingPath: [], debugDescription: "SSE event missing result")))
+            }
+            return TaskStatusUpdateEvent(id: envelope.id, result: envelope.result)
+        } catch let error as GatewayError {
+            throw error
+        } catch {
+            throw GatewayError.decodingError(underlying: error)
+        }
+    }
+
+    private nonisolated static func yieldSSEEvent(
+        from lines: [String],
+        decoder: JSONDecoder,
+        continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation
+    ) throws {
+        guard let payload = dataPayload(fromSSELines: lines) else { return }
+        do {
+            let event = try decodeStreamEnvelope(payload: payload, decoder: decoder)
+            continuation.yield(event)
+        } catch SSEControlSignal.done {
+            continuation.finish()
+            throw SSEControlSignal.done
+        }
+    }
+
+    private nonisolated static func yieldBufferedSSEEvents(
+        from buffer: inout [UInt8],
+        decoder: JSONDecoder,
+        continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation
+    ) throws {
+        while let boundary = nextSSEEventBoundary(in: buffer) {
+            let eventBytes = Array(buffer[..<boundary.eventEnd])
+            buffer.removeFirst(boundary.consumedLength)
+            let lines = try sseEventLines(from: eventBytes)
+            try yieldSSEEvent(from: lines, decoder: decoder, continuation: continuation)
+        }
+    }
+
+    private nonisolated static func yieldTrailingSSEEvent(
+        from buffer: inout [UInt8],
+        decoder: JSONDecoder,
+        continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation
+    ) throws {
+        while let last = buffer.last, last == 10 || last == 13 {
+            buffer.removeLast()
+        }
+        guard !buffer.isEmpty else { return }
+        let lines = try sseEventLines(from: buffer)
+        buffer.removeAll(keepingCapacity: false)
+        try yieldSSEEvent(from: lines, decoder: decoder, continuation: continuation)
+    }
+
+    nonisolated static func nextSSEEventBoundary(
+        in buffer: [UInt8]
+    ) -> (eventEnd: Int, consumedLength: Int)? {
+        if buffer.count >= 4 {
+            for index in 0...(buffer.count - 4) {
+                if buffer[index] == 13,
+                   buffer[index + 1] == 10,
+                   buffer[index + 2] == 13,
+                   buffer[index + 3] == 10 {
+                    return (eventEnd: index, consumedLength: index + 4)
+                }
+            }
+        }
+        if buffer.count >= 2 {
+            for index in 0...(buffer.count - 2) {
+                if buffer[index] == 10, buffer[index + 1] == 10 {
+                    return (eventEnd: index, consumedLength: index + 2)
+                }
+            }
+        }
+        return nil
+    }
+}
+
+private enum SSEControlSignal: Error {
+    case done
 }

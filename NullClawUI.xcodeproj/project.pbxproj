@@ -10,7 +10,6 @@
 		2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */; };
 		AA11BB22CC33DD44EE55FF66 /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF67 /* GatewayProfile.swift */; };
 		BB22CC33DD44EE55FF66AA11 /* GatewayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22CC33DD44EE55FF66AA12 /* GatewayStore.swift */; };
-		CC33DD44EE55FF66AA11BB22 /* GatewayListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC33DD44EE55FF66AA11BB23 /* GatewayListView.swift */; };
 		28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A879BA976476DF9DECFFA87 /* SettingsView.swift */; };
 		2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA2CB9C003C8025B742C7D /* MainTabView.swift */; };
 		3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */; };
@@ -57,7 +56,6 @@
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF67 /* GatewayProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayProfile.swift; sourceTree = "<group>"; };
 		BB22CC33DD44EE55FF66AA12 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
-		CC33DD44EE55FF66AA11BB23 /* GatewayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayListView.swift; sourceTree = "<group>"; };
 		389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUITests.swift; sourceTree = "<group>"; };
 		3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayViewModel.swift; sourceTree = "<group>"; };
 		46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A2AMessage.swift; sourceTree = "<group>"; };
@@ -164,7 +162,6 @@
 			children = (
 				BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */,
 				2211EF38611CF618453B2921 /* ContentView.swift */,
-				CC33DD44EE55FF66AA11BB23 /* GatewayListView.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
@@ -354,7 +351,6 @@
 				DD44EE55FF66AA11BB22CC33 /* ConversationRecord.swift in Sources */,
 				A8B6645D086598650A813BB8 /* ContentView.swift in Sources */,
 				DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */,
-				CC33DD44EE55FF66AA11BB22 /* GatewayListView.swift in Sources */,
 				AA11BB22CC33DD44EE55FF66 /* GatewayProfile.swift in Sources */,
 				BB22CC33DD44EE55FF66AA11 /* GatewayStore.swift in Sources */,
 				A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */,

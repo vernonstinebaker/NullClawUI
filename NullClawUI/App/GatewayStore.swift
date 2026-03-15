@@ -52,7 +52,19 @@ final class GatewayStore {
 
     func updateProfile(_ profile: GatewayProfile) {
         guard let idx = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
-        profiles[idx] = profile
+        let oldProfile = profiles[idx]
+        var updatedProfile = profile
+
+        if oldProfile.normalizedURL != updatedProfile.normalizedURL {
+            do {
+                try KeychainService.moveToken(from: oldProfile.url, to: updatedProfile.url)
+            } catch {
+                // Preserve the old token mapping if migration fails; the profile still updates.
+            }
+        }
+
+        updatedProfile.isPaired = KeychainService.hasToken(for: updatedProfile.url)
+        profiles[idx] = updatedProfile
         save()
     }
 

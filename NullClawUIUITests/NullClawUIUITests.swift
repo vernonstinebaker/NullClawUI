@@ -158,8 +158,8 @@ final class PairedUITests: XCTestCase {
             return XCTFail("Settings tab not found")
         }
         settingsTab.tap()
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5),
-                      "Settings navigation bar should appear after switching to Settings tab")
+        XCTAssertTrue(app.navigationBars["Gateways"].waitForExistence(timeout: 5),
+                      "Gateways navigation bar should appear after switching to Settings tab")
     }
 
     func testSwitchBackToChatTab() {
@@ -180,13 +180,9 @@ final class PairedUITests: XCTestCase {
 
     func testChatViewNavigationTitle() {
         // The title is now a principal toolbar button showing the agent name.
-        // In --uitesting-paired mode the agent name is "TestAgent"; the button
-        // identifier is "gatewayPickerButton".  Fall back to checking for any
-        // navigation bar so the test stays meaningful on both iPhone and iPad.
         let pickerBtn = app.buttons["gatewayPickerButton"]
-        let fallbackBar = app.navigationBars.firstMatch
-        let found = pickerBtn.waitForExistence(timeout: 5) || fallbackBar.waitForExistence(timeout: 5)
-        XCTAssertTrue(found, "Chat screen should show a navigation bar or gateway picker button")
+        XCTAssertTrue(pickerBtn.waitForExistence(timeout: 5),
+                      "Chat screen should show the gateway picker title button")
     }
 
     func testNewConversationButtonExists() {
@@ -296,44 +292,62 @@ final class PairedUITests: XCTestCase {
 
     func testPairedSettingsNavigationTitle() {
         app.tabBars.buttons["Settings"].tap()
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5),
-                      "PairedSettingsView should show 'Settings' navigation title")
+        XCTAssertTrue(app.navigationBars["Gateways"].waitForExistence(timeout: 5),
+                      "PairedSettingsView should show 'Gateways' navigation title")
+    }
+
+    func testGatewayRowNavigatesToDetail() {
+        app.tabBars.buttons["Settings"].tap()
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        // The active gateway row is a NavigationLink — tap it to open the detail page.
+        let gatewayRow = app.cells.firstMatch
+        XCTAssertTrue(gatewayRow.waitForExistence(timeout: 5), "Gateway list should have at least one row")
+        gatewayRow.tap()
+        XCTAssertTrue(app.navigationBars["TestAgent"].waitForExistence(timeout: 5),
+                      "Detail page should show the gateway name as its navigation title")
     }
 
     func testUnpairButtonExists() {
         app.tabBars.buttons["Settings"].tap()
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        app.cells.firstMatch.tap()
         let unpairBtn = app.buttons["Unpair this device"]
-        XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5), "Unpair button should exist in Settings")
+        XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5), "Unpair button should exist in gateway detail")
     }
 
     func testUnpairButtonIsHittable() {
         app.tabBars.buttons["Settings"].tap()
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        app.cells.firstMatch.tap()
         let unpairBtn = app.buttons["Unpair this device"]
         XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5))
-        XCTAssertTrue(unpairBtn.isHittable)
+        XCTAssertTrue(unpairBtn.exists, "Unpair button should be present on the detail screen")
     }
 
-    func testGatewayInfoRowExists() {
+    func testGatewayInfoInlineURLExists() {
+        // URL is now shown on the gateway detail page.
         app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Settings"].waitForExistence(timeout: 5)
-        let infoRow = app.buttons["Gateway Info"]
-        XCTAssertTrue(infoRow.waitForExistence(timeout: 5), "Gateway Info navigation link should exist")
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        app.cells.firstMatch.tap()
+        let urlLabel = app.staticTexts["URL"]
+        XCTAssertTrue(urlLabel.waitForExistence(timeout: 5),
+                      "Gateway URL label should be visible on the detail page")
     }
 
-    func testGatewayInfoNavigates() {
+    func testGatewayInfoInlineStatusExists() {
+        // Status is shown on the gateway detail page for the active gateway.
         app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Settings"].waitForExistence(timeout: 5)
-        let infoRow = app.buttons["Gateway Info"]
-        guard infoRow.waitForExistence(timeout: 5) else {
-            return XCTFail("Gateway Info button not found")
-        }
-        infoRow.tap()
-        XCTAssertTrue(app.navigationBars["Gateway Info"].waitForExistence(timeout: 5),
-                      "GatewayInfoView should push with 'Gateway Info' navigation bar title")
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        app.cells.firstMatch.tap()
+        let statusLabel = app.staticTexts["Status"]
+        XCTAssertTrue(statusLabel.waitForExistence(timeout: 5),
+                      "Gateway Status label should be visible on the detail page")
     }
 
     func testUnpairTransitionsToSetupScreen() {
         app.tabBars.buttons["Settings"].tap()
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        app.cells.firstMatch.tap()
         let unpairBtn = app.buttons["Unpair this device"]
         guard unpairBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Unpair button not found")

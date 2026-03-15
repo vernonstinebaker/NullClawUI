@@ -2,7 +2,6 @@ import SwiftUI
 
 /// Phase 6: adaptive layout (Sidebar on iPad, Stack/Tabs on iPhone).
 struct MainTabView: View {
-    @Environment(AppModel.self) private var appModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var gatewayViewModel: GatewayViewModel
@@ -19,7 +18,12 @@ struct MainTabView: View {
             if horizontalSizeClass == .regular {
                 // iPadOS: SplitView
                 NavigationSplitView {
-                    SidebarView(viewModel: chatViewModel, selectedTaskID: $selectedTaskID, showingSettings: $showingSettings)
+                    SidebarView(
+                        viewModel: chatViewModel,
+                        gatewayViewModel: gatewayViewModel,
+                        selectedTaskID: $selectedTaskID,
+                        showingSettings: $showingSettings
+                    )
                 } detail: {
                     ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
                 }
@@ -33,7 +37,7 @@ struct MainTabView: View {
                         TaskHistoryView(viewModel: chatViewModel)
                     }
                     Tab("Settings", systemImage: "gear", value: 2) {
-                        PairedSettingsView(pairingVM: makePairingVM())
+                        PairedSettingsView()
                     }
                 }
                 .onChange(of: chatViewModel.chatTabRequested) { _, _ in
@@ -43,17 +47,14 @@ struct MainTabView: View {
             }
         }
         .sheet(isPresented: $showingSettings) {
-            PairedSettingsView(pairingVM: makePairingVM())
+            PairedSettingsView()
         }
-    }
-
-    private func makePairingVM() -> PairingViewModel {
-        return PairingViewModel(appModel: appModel, client: gatewayViewModel.client)
     }
 }
 
 private struct SidebarView: View {
     var viewModel: ChatViewModel
+    var gatewayViewModel: GatewayViewModel
     @Binding var selectedTaskID: String?
     @Binding var showingSettings: Bool
     @Environment(ConversationStore.self) private var conversationStore
@@ -65,6 +66,13 @@ private struct SidebarView: View {
         return f
     }()
 
+    private static let absoluteFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f
+    }()
+
     var body: some View {
         List {
             Section("Current Chat") {
@@ -73,8 +81,7 @@ private struct SidebarView: View {
                     if let profile = gatewayStore.activeProfile {
                         viewModel.startNewConversation(gateway: profile)
                     } else {
-                        viewModel.activeTaskID = nil
-                        viewModel.messages.removeAll()
+                        viewModel.clearCurrentConversation()
                     }
                 } label: {
                     Label("New Conversation", systemImage: "plus.message")
@@ -90,13 +97,7 @@ private struct SidebarView: View {
                     ForEach(conversationStore.records) { record in
                         Button {
                             selectedTaskID = record.serverTaskID
-                            if let taskID = record.serverTaskID {
-                                Task { await viewModel.loadTask(id: taskID) }
-                            } else {
-                                viewModel.messages.removeAll()
-                                viewModel.activeTaskID = nil
-                                viewModel.activeContextID = nil
-                            }
+                            Task { await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(record.title)
@@ -133,9 +134,6 @@ private struct SidebarView: View {
         if age < 60 * 60 * 24 {
             return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
         }
-        let f = DateFormatter()
-        f.dateStyle = .short
-        f.timeStyle = .short
-        return f.string(from: date)
+        return Self.absoluteFormatter.string(from: date)
     }
 }

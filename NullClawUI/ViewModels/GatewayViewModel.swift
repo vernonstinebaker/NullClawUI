@@ -65,4 +65,10 @@ final class GatewayViewModel {
 
         return client
     }
+
+    func unpairActiveGateway() async {
+        KeychainService.deleteToken(for: appModel.gatewayURL)
+        await client.setToken(nil)
+        appModel.isPaired = false
+    }
 }

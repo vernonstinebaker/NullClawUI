@@ -17,6 +17,15 @@ struct ChatMessage: Identifiable, Sendable {
     }
 }
 
+// MARK: - GatewaySlot
+// Captures the full conversation state for one local history record.
+
+private struct GatewaySlot {
+    var messages: [ChatMessage]
+    var activeTaskID: String?
+    var activeContextID: String?
+}
+
 // MARK: - ChatViewModel
 
 /// Drives Phases 3–5: sending/streaming messages and task history.
@@ -36,13 +45,21 @@ final class ChatViewModel {
     /// Passed on every subsequent send/stream so the gateway routes to the same session.
     var activeContextID: String? = nil
     var errorMessage: String? = nil
-
-    // Phase 5
-    var taskSummaries: [TaskSummary] = []
-    /// Derived titles keyed by task ID: first N chars of the first user message.
-    var taskTitles: [String: String] = [:]
+    /// Incremented on every streaming token append so the view can reliably auto-scroll.
+    var scrollTick: Int = 0
     /// Toggled each time loadTask completes — observers switch to the Chat tab.
     var chatTabRequested: Bool = false
+
+    // MARK: - Per-record conversation slots
+    // Keyed by ConversationRecord.id so reopening history restores the correct session.
+    private var recordSlots: [UUID: GatewaySlot] = [:]
+    private var activeRecordIDByGateway: [UUID: UUID] = [:]
+
+    // Currently active profile ID — needed to save the slot on switch.
+    private var activeProfileID: UUID? = nil
+
+    // Handle to the in-flight stream Task so we can cancel it before switching gateways.
+    private var streamTask: Task<Void, Never>? = nil
 
     init(appModel: AppModel, client: GatewayClient, conversationStore: ConversationStore) {
         self.appModel = appModel
@@ -52,31 +69,29 @@ final class ChatViewModel {
 
     // MARK: - Conversation session management
 
-    /// Ensures a session record exists for the current launch / gateway.
-    /// Call on app launch (after isPaired is confirmed) and after a gateway switch.
-    func ensureSessionRecord(gateway: GatewayProfile) {
-        // Only create a new record if the most recent one has no messages yet
-        // (avoids double-creating on repeated foreground cycles).
-        if let current = conversationStore.current,
-           current.gatewayProfileID == gateway.id,
-           current.messageCount == 0 {
-            return
-        }
-        conversationStore.startNewRecord(gateway: gateway)
-    }
-
     /// Starts a fresh conversation: saves current state to the record and resets UI.
     /// Call this from the "New Conversation" button instead of wiping state inline.
     func startNewConversation(gateway: GatewayProfile) {
-        // Create a fresh record for the new conversation.
-        conversationStore.startNewRecord(gateway: gateway)
+        // Cancel any in-flight stream first.
+        cancelStream()
 
-        // Wipe in-memory chat state.
-        messages.removeAll()
-        activeTaskID = nil
-        activeContextID = nil
-        inputText = ""
-        errorMessage = nil
+        // Create a fresh record for the new conversation.
+        let record = conversationStore.startNewRecord(gateway: gateway)
+        activeProfileID = gateway.id
+        activeRecordIDByGateway[gateway.id] = record.id
+        clearCurrentConversation()
+        recordSlots[record.id] = GatewaySlot(messages: [], activeTaskID: nil, activeContextID: nil)
+    }
+
+    /// Ensures a history record exists for the current gateway before the first send/stream.
+    /// Creates one lazily if absent, or if the existing current record belongs to a different gateway.
+    private func ensureRecordForSend(gateway: GatewayProfile) {
+        if let current = conversationStore.current, current.gatewayProfileID == gateway.id {
+            activeRecordIDByGateway[gateway.id] = current.id
+            return  // existing record for this gateway — reuse it
+        }
+        let record = conversationStore.startNewRecord(gateway: gateway)
+        activeRecordIDByGateway[gateway.id] = record.id
     }
 
     // MARK: - Phase 3: send (non-streaming)
@@ -88,6 +103,11 @@ final class ChatViewModel {
         isSending = true
         errorMessage = nil
         messages.append(ChatMessage(role: "user", text: text))
+
+        // Lazily create a history record on the first send of a session.
+        if let gateway = appModel.store.activeProfile {
+            ensureRecordForSend(gateway: gateway)
+        }
 
         // Update record title from first user message.
         conversationStore.updateCurrent(firstUserText: text, incrementMessages: true)
@@ -109,6 +129,7 @@ final class ChatViewModel {
                     conversationStore.setCurrentTitle(derived)
                 }
             }
+            saveCurrentSlot()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -116,6 +137,13 @@ final class ChatViewModel {
     }
 
     // MARK: - Phase 4: stream
+
+    /// Spawns the stream as a cancellable Task and stores the handle.
+    /// Call this from the view instead of `Task { await stream() }`.
+    func beginStream() {
+        let task = Task { await stream() }
+        streamTask = task
+    }
 
     func stream() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -125,46 +153,74 @@ final class ChatViewModel {
         errorMessage = nil
         messages.append(ChatMessage(role: "user", text: text))
 
+        // Lazily create a history record on the first stream of a session.
+        if let gateway = appModel.store.activeProfile {
+            ensureRecordForSend(gateway: gateway)
+        }
+
         // Update record title from first user message.
         conversationStore.updateCurrent(firstUserText: text, incrementMessages: true)
 
         var assistantIndex: Int? = nil
         var retries = 0
         let maxRetries = 3
+        var receivedAnyStreamEvent = false
 
         let userMessage = A2AMessage(role: "user",
                                      parts: [MessagePart(text: text, kind: "text")],
                                      contextId: activeContextID)
 
         while retries <= maxRetries {
+            // Check for cancellation (e.g. gateway switch mid-stream).
+            if Task.isCancelled { break }
+
             do {
                 let stream = try await client.streamMessage(userMessage)
 
-                // Insert streaming placeholder on first attempt
+                // Insert streaming placeholder on first attempt; clear text on retries to
+                // avoid showing corrupted concatenated output from the failed attempt.
                 if assistantIndex == nil {
                     messages.append(ChatMessage(role: "assistant", text: "", isStreaming: true))
                     assistantIndex = messages.count - 1
+                } else if let idx = assistantIndex, idx < messages.count {
+                    messages[idx].text = ""
+                    messages[idx].isStreaming = true
                 }
 
                 for try await event in stream {
+                    // Gateway switch may have wiped messages — stop processing.
+                    if Task.isCancelled { break }
+
                     guard let result = event.result else { continue }
-                    // Capture context ID as soon as it appears (first event)
-                    if let cid = result.contextId, activeContextID == nil {
-                        activeContextID = cid
-                        conversationStore.updateCurrent(contextID: cid)
+                    receivedAnyStreamEvent = true
+
+                    // Always capture / update the context ID — some gateways
+                    // only send it on the first event, others on every event.
+                    if let cid = result.contextId {
+                        if activeContextID != cid {
+                            activeContextID = cid
+                            conversationStore.updateCurrent(contextID: cid)
+                        }
                     }
-                    if let idx = assistantIndex {
+
+                    // Guard index in case messages were cleared by a gateway switch.
+                    if let idx = assistantIndex, idx < messages.count {
                         switch result.kind {
                         case "artifact-update":
                             if let parts = result.artifact?.parts {
-                                let text = parts.compactMap { $0.text }.joined()
+                                let chunk = parts.compactMap { $0.text }.joined()
                                 if result.append == true {
-                                    messages[idx].text += text
+                                    messages[idx].text += chunk
                                 } else {
-                                    messages[idx].text = text
+                                    messages[idx].text = chunk
                                 }
+                                // Notify the view to scroll for each new chunk of text.
+                                scrollTick &+= 1
                             }
                         case "status-update":
+                            // Mark streaming done on the final status event.
+                            // Also handle the case where final is absent but the
+                            // stream ended (loop exits below).
                             if result.final == true {
                                 messages[idx].isStreaming = false
                             }
@@ -183,34 +239,61 @@ final class ChatViewModel {
                         conversationStore.updateCurrent(serverTaskID: taskId)
                     }
                 }
-                // Successfully finished — count the assistant reply
-                if let idx = assistantIndex { messages[idx].isStreaming = false }
+
+                if Task.isCancelled { break }
+
+                // Stream ended (server closed connection). Ensure the placeholder
+                // is no longer marked as streaming regardless of whether a
+                // final=true status-update was received — some gateways omit it.
+                if let idx = assistantIndex, idx < messages.count {
+                    messages[idx].isStreaming = false
+                }
                 conversationStore.updateCurrent(incrementMessages: true)
                 // After first assistant reply, upgrade title to a summary derived from the reply.
                 if messages.filter({ $0.role == "assistant" }).count == 1,
                    let idx = assistantIndex,
+                   idx < messages.count,
                    let derived = derivedTitle(from: messages[idx].text) {
                     conversationStore.setCurrentTitle(derived)
                 }
+                saveCurrentSlot()
                 break
 
             } catch {
+                if Task.isCancelled { break }
                 // 401 is a permanent auth failure — retrying won't help.
                 if case GatewayError.httpError(let code) = error, code == 401 {
                     errorMessage = "Authentication failed (401). Please re-pair the device in Settings."
                     appModel.isPaired = false
-                    if let idx = assistantIndex { messages[idx].isStreaming = false }
+                    if let idx = assistantIndex, idx < messages.count {
+                        messages[idx].isStreaming = false
+                    }
+                    break
+                }
+                if receivedAnyStreamEvent || activeTaskID != nil || activeContextID != nil {
+                    errorMessage = "Stream interrupted: \(error.localizedDescription)"
+                    if let idx = assistantIndex, idx < messages.count {
+                        messages[idx].isStreaming = false
+                    }
+                    saveCurrentSlot()
                     break
                 }
                 retries += 1
                 if retries > maxRetries {
                     errorMessage = "Stream failed after \(maxRetries) retries: \(error.localizedDescription)"
-                    if let idx = assistantIndex { messages[idx].isStreaming = false }
+                    if let idx = assistantIndex, idx < messages.count {
+                        messages[idx].isStreaming = false
+                    }
                 } else {
                     // Exponential backoff
                     try? await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(retries - 1))) * 1_000_000_000)
                 }
             }
+        }
+        // Always clear the ViewModel-level streaming flag, and make sure any
+        // in-flight placeholder bubble is also cleaned up (belt-and-suspenders).
+        if let idx = assistantIndex, idx < messages.count, messages[idx].isStreaming {
+            messages[idx].isStreaming = false
         }
         isStreaming = false
     }
@@ -218,20 +301,90 @@ final class ChatViewModel {
     // MARK: - Phase 9: gateway switch
 
     /// Called when the user switches to a different gateway profile.
-    /// Clears all in-memory chat and task state and points the view model at the new client.
+    /// Saves current conversation state, cancels any in-flight stream,
+    /// then restores (or starts fresh) the destination gateway's conversation.
     func resetForNewGateway(client newClient: GatewayClient, gateway: GatewayProfile) {
+        // 1. Persist the current conversation into its slot before wiping anything.
+        saveCurrentSlot()
+
+        // 2. Cancel any in-flight stream — this sets Task.isCancelled on the
+        //    stream() task, so the SSE loop will exit cleanly without touching
+        //    the now-replaced messages array.
+        cancelStream()
+
+        // 3. Switch client and clear transient send/stream flags.
         client = newClient
-        messages.removeAll()
-        taskSummaries.removeAll()
-        taskTitles.removeAll()
-        activeTaskID = nil
-        activeContextID = nil
         inputText = ""
         isSending = false
         isStreaming = false
         errorMessage = nil
-        // Start a new local record for the newly-selected gateway.
-        conversationStore.startNewRecord(gateway: gateway)
+
+        // 4. Restore the destination gateway's conversation slot (if any).
+        activeProfileID = gateway.id
+        if let recordID = activeRecordIDByGateway[gateway.id] ?? conversationStore.mostRecentRecord(for: gateway.id)?.id {
+            activeRecordIDByGateway[gateway.id] = recordID
+            conversationStore.activate(id: recordID)
+            restoreConversation(for: recordID)
+        } else {
+            clearCurrentConversation()
+        }
+
+        // No record creation here — records are created lazily on the first send/stream
+        // for this gateway. startNewConversation() remains the only explicit creator.
+    }
+
+    // MARK: - History opening
+
+    func openRecord(_ record: ConversationRecord, gatewayViewModel: GatewayViewModel) async {
+        saveCurrentSlot()
+
+        if let profile = appModel.store.profiles.first(where: { $0.id == record.gatewayProfileID }),
+           profile.id != appModel.store.activeProfile?.id {
+            let newClient = await gatewayViewModel.switchGateway(to: profile)
+            resetForNewGateway(client: newClient, gateway: profile)
+        }
+
+        activeProfileID = record.gatewayProfileID
+        activeRecordIDByGateway[record.gatewayProfileID] = record.id
+        conversationStore.activate(id: record.id)
+
+        if let taskID = record.serverTaskID {
+            await loadTask(id: taskID, recordID: record.id)
+        } else {
+            restoreConversation(for: record.id)
+            chatTabRequested.toggle()
+        }
+    }
+
+    // MARK: - Per-record slot helpers
+
+    private func saveCurrentSlot() {
+        guard let recordID = conversationStore.current?.id else { return }
+        recordSlots[recordID] = GatewaySlot(
+            messages: messages,
+            activeTaskID: activeTaskID,
+            activeContextID: activeContextID
+        )
+        if let profileID = conversationStore.current?.gatewayProfileID {
+            activeRecordIDByGateway[profileID] = recordID
+        }
+    }
+
+    /// Set the active profile ID on first connection (app launch / initial gateway).
+    func setActiveProfile(_ profile: GatewayProfile) {
+        guard activeProfileID == nil else { return }
+        activeProfileID = profile.id
+        if let recordID = conversationStore.current?.id,
+           conversationStore.current?.gatewayProfileID == profile.id {
+            activeRecordIDByGateway[profile.id] = recordID
+        }
+    }
+
+    // MARK: - Cancel in-flight stream
+
+    private func cancelStream() {
+        streamTask?.cancel()
+        streamTask = nil
     }
 
     // MARK: - Phase 5: abort
@@ -245,17 +398,6 @@ final class ChatViewModel {
             if let last = messages.indices.last { messages[last].isStreaming = false }
         } catch {
             errorMessage = error.localizedDescription
-        }
-    }
-
-    // MARK: - Phase 5: task history
-
-    func loadTaskHistory() async {
-        do {
-            taskSummaries = try await client.listTasks()
-        } catch {
-            // Silently ignore history load errors — they are non-critical background refreshes.
-            // Errors during send/stream are reported via errorMessage.
         }
     }
 
@@ -280,7 +422,19 @@ final class ChatViewModel {
         return String(trimmed.prefix(80))
     }
 
-    func loadTask(id: String) async {        do {
+    private func loadTask(id: String, recordID: UUID? = nil) async {
+        // Save the current slot so we can restore it if loadTask fails.
+        let priorCurrentID = conversationStore.current?.id
+        saveCurrentSlot()
+
+        do {
+            if let recordID {
+                conversationStore.activate(id: recordID)
+            } else if let record = conversationStore.record(serverTaskID: id) {
+                conversationStore.activate(id: record.id)
+                activeRecordIDByGateway[record.gatewayProfileID] = record.id
+                activeProfileID = record.gatewayProfileID
+            }
             let task = try await client.getTask(id: id)
             // Server returns history with role "user" and "agent" (not "assistant").
             // Map "agent" → "assistant" so the chat UI renders it correctly.
@@ -294,18 +448,43 @@ final class ChatViewModel {
             // Restore the context ID so follow-up messages continue the same conversation.
             activeContextID = task.contextId ?? allMessages.first?.contextId
 
-            // Derive a human-readable title from the first user message.
-            if taskTitles[id] == nil {
-                let firstUserText = allMessages.first(where: { $0.role == "user" })?
-                    .parts.compactMap { $0.text }.joined() ?? id
-                let title = String(firstUserText.prefix(60))
-                taskTitles[id] = title.isEmpty ? id : title
-            }
+            saveCurrentSlot()
 
             // Signal iPhone TabView to switch to the Chat tab.
             chatTabRequested.toggle()
         } catch {
+            // Restore the previous conversation on failure so the UI stays coherent.
+            if let priorID = priorCurrentID {
+                conversationStore.activate(id: priorID)
+            }
             errorMessage = error.localizedDescription
         }
+    }
+
+    func clearCurrentConversation() {
+        messages.removeAll()
+        activeTaskID = nil
+        activeContextID = nil
+        inputText = ""
+        errorMessage = nil
+        isSending = false
+        isStreaming = false
+    }
+
+    private func restoreConversation(for recordID: UUID) {
+        if let slot = recordSlots[recordID] {
+            messages = slot.messages
+            activeTaskID = slot.activeTaskID
+            activeContextID = slot.activeContextID
+        } else if let record = conversationStore.record(id: recordID) {
+            messages.removeAll()
+            activeTaskID = record.serverTaskID
+            activeContextID = record.contextID
+        } else {
+            clearCurrentConversation()
+        }
+        isSending = false
+        isStreaming = false
+        errorMessage = nil
     }
 }

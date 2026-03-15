@@ -13,8 +13,30 @@ final class AppModel {
 
     // MARK: - Per-connection transient state
 
-    /// The parsed agent card retrieved from /.well-known/agent-card.json
-    var agentCard: AgentCard? = nil
+    /// Cache key for the active profile — UUID string when available, normalized URL as fallback.
+    private var activeCacheKey: String {
+        store.activeProfileID?.uuidString ?? store.activeURL
+    }
+
+    /// The parsed agent card retrieved from /.well-known/agent-card.json.
+    /// Setting this also persists the card into the per-profile cache so the title
+    /// stays correct during reconnect.
+    var agentCard: AgentCard? {
+        didSet {
+            if let card = agentCard {
+                agentCardCache[activeCacheKey] = card
+            }
+        }
+    }
+
+    /// Cache of agent cards keyed by profile UUID (or normalized URL as fallback).
+    /// Used to show the correct agent name while a reconnect is in progress.
+    private var agentCardCache: [String: AgentCard] = [:]
+
+    /// Returns the best available agent card — live card first, then cached.
+    var effectiveAgentCard: AgentCard? {
+        agentCard ?? agentCardCache[activeCacheKey]
+    }
 
     /// Current gateway reachability state.
     var connectionStatus: ConnectionStatus = .unknown

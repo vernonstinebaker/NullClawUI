@@ -35,6 +35,7 @@ private let conversationHistoryKey = "conversationHistory"
 final class ConversationStore {
 
     var records: [ConversationRecord] = []
+    var currentRecordID: UUID? = nil
 
     // MARK: - Init
 
@@ -45,13 +46,27 @@ final class ConversationStore {
     /// Designated init for UI tests — empty store without touching UserDefaults.
     init(empty: Bool) {
         records = []
+        currentRecordID = nil
     }
 
     // MARK: - Current record
 
     /// The most-recently-created record (the "active" conversation).
     var current: ConversationRecord? {
-        records.first
+        guard let id = currentRecordID else { return records.first }
+        return records.first(where: { $0.id == id }) ?? records.first
+    }
+
+    func record(id: UUID) -> ConversationRecord? {
+        records.first(where: { $0.id == id })
+    }
+
+    func record(serverTaskID: String) -> ConversationRecord? {
+        records.first(where: { $0.serverTaskID == serverTaskID })
+    }
+
+    func mostRecentRecord(for gatewayProfileID: UUID) -> ConversationRecord? {
+        records.first(where: { $0.gatewayProfileID == gatewayProfileID })
     }
 
     // MARK: - Mutations
@@ -74,8 +89,15 @@ final class ConversationStore {
         )
         // Prepend so newest is first.
         records.insert(record, at: 0)
+        currentRecordID = record.id
         save()
         return record
+    }
+
+    func activate(id: UUID) {
+        guard records.contains(where: { $0.id == id }) else { return }
+        currentRecordID = id
+        save()
     }
 
     /// Updates the current (first) record with a server task ID and context ID.
@@ -86,30 +108,42 @@ final class ConversationStore {
         firstUserText: String? = nil,
         incrementMessages: Bool = false
     ) {
-        guard !records.isEmpty else { return }
-        if let tid = serverTaskID, records[0].serverTaskID == nil {
-            records[0].serverTaskID = tid
+        guard let currentID = currentRecordID ?? records.first?.id,
+              let index = records.firstIndex(where: { $0.id == currentID }) else { return }
+        if let tid = serverTaskID, records[index].serverTaskID == nil {
+            records[index].serverTaskID = tid
         }
-        if let cid = contextID, records[0].contextID == nil {
-            records[0].contextID = cid
+        if let cid = contextID, records[index].contextID == nil {
+            records[index].contextID = cid
         }
-        if let text = firstUserText, records[0].title == "New Conversation" {
+        if let text = firstUserText, records[index].title == "New Conversation" {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
-                records[0].title = String(trimmed.prefix(80))
+                records[index].title = String(trimmed.prefix(80))
             }
         }
         if incrementMessages {
-            records[0].messageCount += 1
-            records[0].lastMessageAt = Date()
+            records[index].messageCount += 1
+            records[index].lastMessageAt = Date()
         }
         save()
     }
 
     /// Replaces the title of the current record with an AI-generated summary.
     func setCurrentTitle(_ title: String) {
-        guard !records.isEmpty, !title.isEmpty else { return }
-        records[0].title = title
+        guard !title.isEmpty,
+              let currentID = currentRecordID ?? records.first?.id,
+              let index = records.firstIndex(where: { $0.id == currentID }) else { return }
+        records[index].title = title
+        save()
+    }
+
+    /// Deletes the record with the given ID.
+    func delete(id: UUID) {
+        records.removeAll { $0.id == id }
+        if currentRecordID == id {
+            currentRecordID = records.first?.id
+        }
         save()
     }
 
@@ -126,5 +160,6 @@ final class ConversationStore {
             return
         }
         records = decoded
+        currentRecordID = records.first?.id
     }
 }

@@ -3,21 +3,38 @@ import SwiftUI
 // MARK: - TaskHistoryView
 
 /// Shows locally-persisted conversation records with timestamps, gateway name, and title.
-/// Each record may link to a server-side task; tapping one reloads the conversation.
+/// Supports search/filter (pull-to-reveal), swipe-to-delete, and dual-format timestamps.
 struct TaskHistoryView: View {
     var viewModel: ChatViewModel
     @Environment(ConversationStore.self) private var conversationStore
+    @Environment(GatewayViewModel.self) private var gatewayViewModel
+
+    @State private var searchText: String = ""
+
+    private var filteredRecords: [ConversationRecord] {
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return conversationStore.records
+        }
+        let query = searchText.lowercased()
+        return conversationStore.records.filter {
+            $0.title.lowercased().contains(query) ||
+            $0.gatewayName.lowercased().contains(query)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if conversationStore.records.isEmpty {
                     emptyState
+                } else if filteredRecords.isEmpty {
+                    noResultsState
                 } else {
                     recordList
                 }
             }
             .navigationTitle("History")
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search conversations")
         }
     }
 
@@ -41,26 +58,46 @@ struct TaskHistoryView: View {
         .padding()
     }
 
+    // MARK: - No search results state
+
+    private var noResultsState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 48, weight: .ultraLight))
+                .foregroundStyle(.quaternary)
+            Text("No Results")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text("No conversations match \"\(searchText)\".")
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+
     // MARK: - Record list
 
     private var recordList: some View {
-        List(conversationStore.records) { record in
-            Button {
-                if let taskID = record.serverTaskID {
-                    Task { await viewModel.loadTask(id: taskID) }
-                } else {
-                    // Empty session — just clear the chat to let the user start fresh
-                    viewModel.messages.removeAll()
-                    viewModel.activeTaskID = nil
-                    viewModel.activeContextID = nil
-                    viewModel.chatTabRequested.toggle()
+        List {
+            ForEach(filteredRecords) { record in
+                Button {
+                    Task { await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
+                } label: {
+                    ConversationRow(record: record)
                 }
-            } label: {
-                ConversationRow(record: record)
+                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                .accessibilityLabel("Conversation with \(record.gatewayName): \(record.title)")
+                .accessibilityHint(record.serverTaskID != nil ? "Tap to reload this conversation in Chat" : "Tap to start a new conversation")
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        conversationStore.delete(id: record.id)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
             }
-            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-            .accessibilityLabel("Conversation with \(record.gatewayName): \(record.title)")
-            .accessibilityHint(record.serverTaskID != nil ? "Tap to reload this conversation in Chat" : "Tap to start a new conversation")
         }
         .listStyle(.insetGrouped)
     }
@@ -103,8 +140,8 @@ private struct ConversationRow: View {
                     .lineLimit(2)
                     .foregroundStyle(.primary)
 
+                // Gateway badge + message count
                 HStack(spacing: 6) {
-                    // Gateway badge
                     Text(record.gatewayName)
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 6)
@@ -112,21 +149,17 @@ private struct ConversationRow: View {
                         .background(Color.accentColor.opacity(0.1), in: Capsule())
                         .foregroundStyle(Color.accentColor)
 
-                    // Timestamp
-                    Text(timestamp(for: record.startedAt))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-
-                    // Message count (if any)
                     if record.messageCount > 0 {
-                        Text("·")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
                         Text("\(record.messageCount) msg\(record.messageCount == 1 ? "" : "s")")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                // Dual timestamp: relative + absolute
+                Text(dualTimestamp(for: record.startedAt))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
 
             Spacer(minLength: 0)
@@ -137,14 +170,11 @@ private struct ConversationRow: View {
         }
     }
 
-    private func timestamp(for date: Date) -> String {
-        let age = Date().timeIntervalSince(date)
-        if age < 60 * 60 * 24 {
-            // Within 24 h — relative
-            return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
-        } else {
-            // Older — absolute
-            return Self.absoluteFormatter.string(from: date)
-        }
+    /// Returns "5 min ago · Mar 15, 2026, 3:45 PM" (both relative and absolute).
+    /// For very recent items (< 60 s) just shows "Just now · <absolute>".
+    private func dualTimestamp(for date: Date) -> String {
+        let relative = Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
+        let absolute = Self.absoluteFormatter.string(from: date)
+        return "\(relative) · \(absolute)"
     }
 }

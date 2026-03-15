@@ -6,7 +6,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(GatewayStore.self) private var store
-    @State private var gatewayVM: GatewayViewModel?
+    @Environment(GatewayViewModel.self) private var gatewayVM
     @State private var pairingVM: PairingViewModel?
     @State private var isConnecting = false
     /// Editable copy of the active profile URL (bound to the text field).
@@ -48,17 +48,12 @@ struct SettingsView: View {
         .task {
             // Initialise the editable URL from the active profile.
             editableURL = store.activeURL
-            let gvm = GatewayViewModel(appModel: appModel)
-            gatewayVM = gvm
-            if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
-               !tok.isEmpty {
-                await gvm.client.setToken(tok)
-                appModel.isPaired = true
+            if pairingVM == nil {
+                pairingVM = PairingViewModel(appModel: appModel, client: gatewayVM.client)
             }
-            await gvm.connect()
-            if let gvm = gatewayVM {
-                pairingVM = PairingViewModel(appModel: appModel, client: gvm.client)
-            }
+        }
+        .onChange(of: store.activeURL) { _, newURL in
+            editableURL = newURL
         }
     }
 
@@ -163,7 +158,7 @@ struct SettingsView: View {
                     Button {
                         isConnecting = true
                         Task {
-                            await gatewayVM?.connect()
+                            await gatewayVM.connect()
                             isConnecting = false
                         }
                     } label: {

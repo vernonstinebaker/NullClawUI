@@ -30,10 +30,7 @@ struct ChatView: View {
                             if let profile = store.activeProfile {
                                 viewModel.startNewConversation(gateway: profile)
                             } else {
-                                viewModel.messages.removeAll()
-                                viewModel.activeTaskID = nil
-                                viewModel.activeContextID = nil
-                                viewModel.inputText = ""
+                                viewModel.clearCurrentConversation()
                             }
                         }
                     } label: {
@@ -83,7 +80,7 @@ struct ChatView: View {
     // MARK: - Gateway picker button (title bar)
 
     @ViewBuilder private var gatewayPickerButton: some View {
-        let agentName = gatewayViewModel.appModel.agentCard?.name
+        let agentName = gatewayViewModel.appModel.effectiveAgentCard?.name
             ?? store.activeProfile?.name
             ?? "Chat"
         let hasMultiple = store.profiles.count > 1
@@ -104,6 +101,7 @@ struct ChatView: View {
         }
         .disabled(!hasMultiple)
         .accessibilityLabel(hasMultiple ? "Gateway: \(agentName). Tap to switch." : agentName)
+        .accessibilityIdentifier("gatewayPickerButton")
     }
 
     // MARK: - Message list
@@ -125,6 +123,8 @@ struct ChatView: View {
                            (viewModel.isStreaming && viewModel.messages.last?.role != "assistant") {
                             thinkingBubble
                         }
+                        // Invisible anchor used as the scroll target for auto-scroll.
+                        Color.clear.frame(height: 1).id("bottomAnchor")
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 12)
@@ -133,18 +133,32 @@ struct ChatView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .onTapGesture { isInputFocused = false }
+            // Scroll when a new message is added (count change).
             .onChange(of: viewModel.messages.count) { _, _ in
-                if let last = viewModel.messages.last {
-                    withAnimation(.spring(duration: 0.35, bounce: 0.1)) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
-                }
+                scrollToBottom(proxy: proxy, animated: true)
             }
-            .onChange(of: viewModel.messages.last?.text) { _, _ in
-                if let last = viewModel.messages.last {
-                    proxy.scrollTo(last.id, anchor: .bottom)
-                }
+            // Scroll on every streaming token — scrollTick increments per chunk.
+            .onChange(of: viewModel.scrollTick) { _, _ in
+                scrollToBottom(proxy: proxy, animated: false)
             }
+            // Scroll when streaming ends (thinking bubble disappears).
+            .onChange(of: viewModel.isStreaming) { _, _ in
+                scrollToBottom(proxy: proxy, animated: true)
+            }
+            // Scroll when keyboard appears / input bar changes height.
+            .onChange(of: isInputFocused) { _, focused in
+                if focused { scrollToBottom(proxy: proxy, animated: true) }
+            }
+        }
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        if animated {
+            withAnimation(.spring(duration: 0.3, bounce: 0.1)) {
+                proxy.scrollTo("bottomAnchor", anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo("bottomAnchor", anchor: .bottom)
         }
     }
 
@@ -248,7 +262,7 @@ struct ChatView: View {
 
     private func sendAction() {
         isInputFocused = false
-        Task { await viewModel.stream() }
+        viewModel.beginStream()
     }
 
     // MARK: - Avatar helper
@@ -261,18 +275,6 @@ struct ChatView: View {
             Image(systemName: "brain.head.profile.fill")
                 .font(.system(size: size * 0.45, weight: .light))
                 .foregroundStyle(Color.accentColor)
-        }
-    }
-}
-
-// MARK: - ConnectionStatus helpers
-
-extension ConnectionStatus {
-    var label: String {
-        switch self {
-        case .online:  "online"
-        case .offline: "offline"
-        case .unknown: "unknown"
         }
     }
 }
@@ -412,7 +414,7 @@ struct MessageBubble: View {
             if isUser {
                 Text(message.text)
                     .textSelection(.enabled)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(accentColor.contrastingForeground)
             } else if message.text.isEmpty && message.isStreaming {
                 // Waiting for first token — invisible placeholder keeps layout stable
                 Text(" ")
@@ -435,11 +437,11 @@ struct MessageBubble: View {
     private var agentAvatar: some View {
         ZStack {
             Circle()
-                .fill(Color.accentColor.opacity(0.15))
+                .fill(accentColor.opacity(0.15))
                 .frame(width: 28, height: 28)
             Image(systemName: "brain.head.profile.fill")
                 .font(.system(size: 13, weight: .light))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(accentColor)
         }
     }
 }

@@ -107,6 +107,9 @@ struct NullClawUIApp: App {
             }
         }
         .onChange(of: appModel.isPaired) { _, isPaired in
+            // Skip during UI tests — the test harness pre-seeds the token directly.
+            let args = CommandLine.arguments
+            guard !args.contains("--uitesting"), !args.contains("--uitesting-paired") else { return }
             if isPaired {
                 Task {
                     if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
@@ -125,13 +128,22 @@ struct NullClawUIApp: App {
         let args = CommandLine.arguments
         guard !args.contains("--uitesting"), !args.contains("--uitesting-paired") else { return }
 
+        // Register the active profile ID so per-gateway slot tracking works from launch.
+        if let profile = appModel.store.activeProfile {
+            chatVM.setActiveProfile(profile)
+        }
+
+        // If a valid token exists for the active gateway, mark it paired.
+        // The onChange(of: appModel.isPaired) observer will call setToken.
         if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
            !tok.isEmpty {
+            // Set token directly — the observer is guarded against UI-test args and this is
+            // the normal launch path, so it will re-read and setToken. To avoid the double
+            // Keychain read we set the token here and mark paired without going through isPaired's
+            // setter (which would re-trigger the observer on the same run-loop pass).
             await gatewayVM.client.setToken(tok)
-            appModel.isPaired = true
-            // Create a new session record for this app launch.
-            if let profile = appModel.store.activeProfile {
-                chatVM.ensureSessionRecord(gateway: profile)
+            if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
+                appModel.store.setProfilePaired(id, isPaired: true)
             }
         }
 
