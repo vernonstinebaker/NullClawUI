@@ -145,6 +145,16 @@ struct NullClawUIApp: App {
             if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
                 appModel.store.setProfilePaired(id, isPaired: true)
             }
+        } else {
+            // No stored token — probe the gateway to see if pairing is disabled.
+            // pair(code:) returns "" and sets pairingMode = .notRequired on a 403 response.
+            let probeResult = try? await gatewayVM.client.pair(code: "")
+            if probeResult == "" {
+                // Gateway has require_pairing: false — mark paired without a token.
+                if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
+                    appModel.store.setProfilePaired(id, isPaired: true)
+                }
+            }
         }
 
         await gatewayVM.connect()

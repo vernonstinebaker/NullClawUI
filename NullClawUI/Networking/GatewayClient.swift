@@ -22,6 +22,15 @@ enum GatewayError: Error, LocalizedError, Sendable {
     }
 }
 
+// MARK: - Pairing Mode
+
+/// Whether the gateway requires a bearer token.
+/// Set to .notRequired when the gateway responds 403 to /pair (require_pairing: false).
+enum PairingMode: Sendable, Equatable {
+    case required
+    case notRequired
+}
+
 // MARK: - GatewayClient
 
 /// Thread-safe, async/await client for the NullClaw Gateway.
@@ -31,23 +40,12 @@ actor GatewayClient {
     // MARK: State
     private(set) var baseURL: URL
     private var bearerToken: String?
+    /// Reflects whether the gateway requires a bearer token.
+    /// Flipped to .notRequired when /pair returns 403 (require_pairing: false on the gateway).
+    private(set) var pairingMode: PairingMode = .required
 
-    private let session: URLSession = {
-        let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 30
-        cfg.timeoutIntervalForResource = 300 // long enough for SSE streams
-        return URLSession(configuration: cfg)
-    }()
-
-    /// Separate URLSession for SSE streams: generous resource timeout but
-    /// a tighter per-read idle timeout so a stalled stream surfaces as an
-    /// error rather than hanging indefinitely.
-    private let sseSession: URLSession = {
-        let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 90   // max wait for first byte / between tokens
-        cfg.timeoutIntervalForResource = 600 // max total stream duration
-        return URLSession(configuration: cfg)
-    }()
+    private var session: URLSession
+    private var sseSession: URLSession
 
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
@@ -64,9 +62,22 @@ actor GatewayClient {
 
     // MARK: Init
 
-    init(baseURL: URL, token: String? = nil) {
+    init(baseURL: URL, token: String? = nil, mockSessionConfig: URLSessionConfiguration? = nil) {
         self.baseURL = baseURL
         self.bearerToken = token
+        if let cfg = mockSessionConfig {
+            self.session = URLSession(configuration: cfg)
+            self.sseSession = URLSession(configuration: cfg)
+        } else {
+            let defaultCfg = URLSessionConfiguration.default
+            defaultCfg.timeoutIntervalForRequest = 30
+            defaultCfg.timeoutIntervalForResource = 300
+            self.session = URLSession(configuration: defaultCfg)
+            let sseCfg = URLSessionConfiguration.default
+            sseCfg.timeoutIntervalForRequest = 90    // max wait for first byte / between tokens
+            sseCfg.timeoutIntervalForResource = 600  // max total stream duration
+            self.sseSession = URLSession(configuration: sseCfg)
+        }
     }
 
     // MARK: Configuration
@@ -102,16 +113,22 @@ actor GatewayClient {
         var req = try makeRequest(url: url, method: "POST")
         req.setValue(code, forHTTPHeaderField: "X-Pairing-Code")
         let (data, response) = try await session.data(for: req)
+        // 403 means require_pairing: false on the gateway — no token is issued.
+        if let http = response as? HTTPURLResponse, http.statusCode == 403 {
+            pairingMode = .notRequired
+            return ""
+        }
         try validate(response)
         let result = try decode(PairResponse.self, from: data)
         bearerToken = result.token
+        pairingMode = .required
         return result.token
     }
 
     // MARK: - Phase 3: message/send
 
     func sendMessage(_ message: A2AMessage) async throws -> NullClawTask {
-        guard bearerToken != nil else { throw GatewayError.unpaired }
+        guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
         let params  = MessageSendParams(message: message)
         let rpc     = JSONRPCRequest(id: UUID().uuidString,
                                      method: "message/send",
@@ -134,7 +151,7 @@ actor GatewayClient {
     /// Streams a message via SSE (method: message/stream) using URLSession.bytes.
     /// Each yielded SSEEnvelope wraps a StreamEvent (kind: task | artifact-update | status-update).
     func streamMessage(_ message: A2AMessage) async throws -> AsyncThrowingStream<TaskStatusUpdateEvent, Error> {
-        guard let token = bearerToken else { throw GatewayError.unpaired }
+        guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
         let params = MessageSendParams(message: message)
         let rpc    = JSONRPCRequest(id: UUID().uuidString,
                                     method: "message/stream",
@@ -143,7 +160,9 @@ actor GatewayClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let token = bearerToken {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         req.httpBody = try encoder.encode(rpc)
 
         let (asyncBytes, response) = try await sseSession.bytes(for: req)
@@ -175,7 +194,7 @@ actor GatewayClient {
     // Methods: tasks/list, tasks/get, tasks/cancel — all POSTed to /a2a.
 
     func listTasks() async throws -> [TaskSummary] {
-        guard bearerToken != nil else { throw GatewayError.unpaired }
+        guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
         let rpc = JSONRPCRequest(id: UUID().uuidString,
                                  method: "tasks/list",
                                  params: TaskListParams())
@@ -190,7 +209,7 @@ actor GatewayClient {
     }
 
     func getTask(id: String) async throws -> NullClawTask {
-        guard bearerToken != nil else { throw GatewayError.unpaired }
+        guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
         let rpc = JSONRPCRequest(id: UUID().uuidString,
                                  method: "tasks/get",
                                  params: TaskIDParams(id: id))
@@ -209,7 +228,7 @@ actor GatewayClient {
     }
 
     func cancelTask(id: String) async throws {
-        guard bearerToken != nil else { throw GatewayError.unpaired }
+        guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
         let rpc = JSONRPCRequest(id: UUID().uuidString,
                                  method: "tasks/cancel",
                                  params: TaskIDParams(id: id))

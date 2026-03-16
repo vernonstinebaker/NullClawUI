@@ -28,8 +28,12 @@ final class PairingViewModel {
 
         do {
             let token = try await client.pair(code: pairingCode.trimmingCharacters(in: .whitespacesAndNewlines))
-            try KeychainService.storeToken(token, for: appModel.gatewayURL)
-            await client.setToken(token)
+            // token is empty when the gateway has require_pairing: false (returned 403).
+            // In that case pairingMode is already set to .notRequired on the client; skip Keychain.
+            if !token.isEmpty {
+                try KeychainService.storeToken(token, for: appModel.gatewayURL)
+                await client.setToken(token)
+            }
             appModel.isPaired = true
         } catch {
             errorMessage = error.localizedDescription
