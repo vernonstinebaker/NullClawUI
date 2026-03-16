@@ -19,13 +19,22 @@ A native iOS/iPadOS client for interacting with a [NullClaw](https://github.com/
 
 | Phase | Name | Status |
 |---|---|---|
-| 0 | Project Setup | 🔲 Planned |
-| 1 | Foundation & Discovery | 🔲 Planned |
-| 2 | Secure Pairing | 🔲 Planned |
-| 3 | Simple Interaction (Chat) | 🔲 Planned |
-| 4 | Real-time Streaming | 🔲 Planned |
-| 5 | Task Management & History | 🔲 Planned |
-| 6 | Polish & Native Integration | 🔲 Planned |
+| 0 | Project Setup | ✅ Complete |
+| 1 | Foundation & Discovery | ✅ Complete |
+| 2 | Secure Pairing | ✅ Complete |
+| 3 | Simple Interaction (Chat) | ✅ Complete |
+| 4 | Real-time Streaming | ✅ Complete |
+| 5 | Task Management & History | ✅ Complete |
+| 6 | Polish & Native Integration | ✅ Complete |
+| 7 | Code Quality & UX Bugs | ✅ Complete |
+| 8 | UI Polish & New Chat | ✅ Complete |
+| 9 | Multiple Gateways | ✅ Complete |
+| 10 | UX Hardening & Settings Redesign | ✅ Complete |
+| 11 | SwiftData Migration & iCloud Sync | ❌ Not started |
+| 12 | LAN Gateway Discovery | ❌ Not started |
+| 13 | macOS Menubar App | ❌ Not started |
+| 14 | Voice Input | ❌ Not started |
+| 15 | Health Monitoring & Reconnect | ❌ Not started |
 
 See [`PLAN.md`](./PLAN.md) for full details on each phase.
 

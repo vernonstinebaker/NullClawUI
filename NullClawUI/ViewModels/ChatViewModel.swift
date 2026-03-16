@@ -26,6 +26,42 @@ private struct GatewaySlot {
     var activeContextID: String?
 }
 
+// MARK: - LRU slot cache
+// Keeps at most maxSlots full conversation transcripts in memory.
+// When the cap is reached, the least-recently-used entry is evicted.
+private struct SlotCache {
+    static let maxSlots = 10
+    /// Ordered from most-recently-used (index 0) to least (last).
+    private var order: [UUID] = []
+    private var dict:  [UUID: GatewaySlot] = [:]
+
+    subscript(id: UUID) -> GatewaySlot? {
+        get { dict[id] }
+    }
+
+    mutating func store(_ slot: GatewaySlot, for id: UUID) {
+        // Move to front (or insert).
+        order.removeAll { $0 == id }
+        order.insert(id, at: 0)
+        dict[id] = slot
+        // Evict LRU entries beyond the cap.
+        while order.count > Self.maxSlots {
+            let evicted = order.removeLast()
+            dict.removeValue(forKey: evicted)
+        }
+    }
+
+    mutating func remove(_ id: UUID) {
+        order.removeAll { $0 == id }
+        dict.removeValue(forKey: id)
+    }
+
+    mutating func removeAll() {
+        order.removeAll()
+        dict.removeAll()
+    }
+}
+
 // MARK: - ChatViewModel
 
 /// Drives Phases 3–5: sending/streaming messages and task history.
@@ -49,10 +85,15 @@ final class ChatViewModel {
     var scrollTick: Int = 0
     /// Toggled each time loadTask completes — observers switch to the Chat tab.
     var chatTabRequested: Bool = false
+    /// True while a history record is being fetched from the server (openRecord → loadTask).
+    var isLoadingHistory: Bool = false
+    /// The record ID that is currently loaded in the chat — used to highlight the active row.
+    var activeRecordID: UUID? = nil
 
     // MARK: - Per-record conversation slots
     // Keyed by ConversationRecord.id so reopening history restores the correct session.
-    private var recordSlots: [UUID: GatewaySlot] = [:]
+    // Bounded to SlotCache.maxSlots (10) most-recently-used entries to cap memory use.
+    private var recordSlots: SlotCache = SlotCache()
     private var activeRecordIDByGateway: [UUID: UUID] = [:]
 
     // Currently active profile ID — needed to save the slot on switch.
@@ -80,7 +121,7 @@ final class ChatViewModel {
         activeProfileID = gateway.id
         activeRecordIDByGateway[gateway.id] = record.id
         clearCurrentConversation()
-        recordSlots[record.id] = GatewaySlot(messages: [], activeTaskID: nil, activeContextID: nil)
+        recordSlots.store(GatewaySlot(messages: [], activeTaskID: nil, activeContextID: nil), for: record.id)
     }
 
     /// Ensures a history record exists for the current gateway before the first send/stream.
@@ -141,6 +182,8 @@ final class ChatViewModel {
     /// Spawns the stream as a cancellable Task and stores the handle.
     /// Call this from the view instead of `Task { await stream() }`.
     func beginStream() {
+        // Cancel any orphaned task before spawning a new one.
+        cancelStream()
         let task = Task { await stream() }
         streamTask = task
     }
@@ -323,6 +366,7 @@ final class ChatViewModel {
         activeProfileID = gateway.id
         if let recordID = activeRecordIDByGateway[gateway.id] ?? conversationStore.mostRecentRecord(for: gateway.id)?.id {
             activeRecordIDByGateway[gateway.id] = recordID
+            activeRecordID = recordID
             conversationStore.activate(id: recordID)
             restoreConversation(for: recordID)
         } else {
@@ -347,9 +391,12 @@ final class ChatViewModel {
         activeProfileID = record.gatewayProfileID
         activeRecordIDByGateway[record.gatewayProfileID] = record.id
         conversationStore.activate(id: record.id)
+        activeRecordID = record.id
 
         if let taskID = record.serverTaskID {
+            isLoadingHistory = true
             await loadTask(id: taskID, recordID: record.id)
+            isLoadingHistory = false
         } else {
             restoreConversation(for: record.id)
             chatTabRequested.toggle()
@@ -360,11 +407,11 @@ final class ChatViewModel {
 
     private func saveCurrentSlot() {
         guard let recordID = conversationStore.current?.id else { return }
-        recordSlots[recordID] = GatewaySlot(
+        recordSlots.store(GatewaySlot(
             messages: messages,
             activeTaskID: activeTaskID,
             activeContextID: activeContextID
-        )
+        ), for: recordID)
         if let profileID = conversationStore.current?.gatewayProfileID {
             activeRecordIDByGateway[profileID] = recordID
         }
@@ -402,6 +449,17 @@ final class ChatViewModel {
     }
 
     // MARK: - Title derivation
+
+    /// Maximum number of messages kept in memory for any single conversation.
+    /// Older messages (from the top) are dropped when this limit is exceeded.
+    static let maxMessages = 200
+
+    /// Trims `messages` to `maxMessages`, dropping the oldest entries from the front.
+    private func trimMessagesIfNeeded() {
+        if messages.count > Self.maxMessages {
+            messages.removeFirst(messages.count - Self.maxMessages)
+        }
+    }
 
     /// Derives a short, meaningful title from an assistant reply.
     /// Takes the first sentence (up to 80 chars), stripping markdown noise.
@@ -444,6 +502,8 @@ final class ChatViewModel {
                 let text = msg.parts.compactMap { $0.text }.joined()
                 return ChatMessage(role: role, text: text)
             }
+            // Cap to maxMessages — server history may be very long.
+            trimMessagesIfNeeded()
             activeTaskID = id
             // Restore the context ID so follow-up messages continue the same conversation.
             activeContextID = task.contextId ?? allMessages.first?.contextId
@@ -465,6 +525,7 @@ final class ChatViewModel {
         messages.removeAll()
         activeTaskID = nil
         activeContextID = nil
+        activeRecordID = nil
         inputText = ""
         errorMessage = nil
         isSending = false
@@ -486,5 +547,38 @@ final class ChatViewModel {
         isSending = false
         isStreaming = false
         errorMessage = nil
+    }
+
+    // MARK: - Memory management
+
+    /// Called when the user deletes a history record from the list.
+    /// Evicts the in-memory slot and the gateway-lookup entry so stale data is released.
+    func deleteRecord(id: UUID) {
+        recordSlots.remove(id)
+        // Remove the gateway pointer if it was pointing to this record.
+        for (profileID, recordID) in activeRecordIDByGateway where recordID == id {
+            activeRecordIDByGateway.removeValue(forKey: profileID)
+        }
+        conversationStore.delete(id: id)
+        if activeRecordID == id {
+            activeRecordID = nil
+        }
+    }
+
+    /// Drops all cached slots to reclaim memory on app background / memory pressure.
+    /// The current conversation's messages are preserved; all others are released.
+    func handleMemoryPressure() {
+        let currentID = conversationStore.current?.id
+        // Persist the live conversation so it can be restored.
+        saveCurrentSlot()
+        // Wipe everything, then restore only the current slot.
+        recordSlots.removeAll()
+        if let id = currentID {
+            recordSlots.store(GatewaySlot(
+                messages: messages,
+                activeTaskID: activeTaskID,
+                activeContextID: activeContextID
+            ), for: id)
+        }
     }
 }

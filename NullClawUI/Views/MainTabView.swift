@@ -95,27 +95,43 @@ private struct SidebarView: View {
                         .font(.caption)
                 } else {
                     ForEach(conversationStore.records) { record in
+                        let isActive  = viewModel.activeRecordID == record.id
+                        let isLoading = isActive && viewModel.isLoadingHistory
                         Button {
+                            guard !viewModel.isLoadingHistory else { return }
                             selectedTaskID = record.serverTaskID
                             Task { await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
                         } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(record.title)
-                                    .font(.subheadline)
-                                    .lineLimit(2)
-                                HStack(spacing: 5) {
-                                    Text(record.gatewayName)
-                                        .font(.caption2.weight(.semibold))
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(record.title)
+                                        .font(.subheadline)
+                                        .lineLimit(2)
+                                        .foregroundStyle(isActive ? Color.accentColor : .primary)
+                                    HStack(spacing: 5) {
+                                        Text(record.gatewayName)
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(Color.accentColor)
+                                        Text("·")
+                                            .font(.caption2)
+                                            .foregroundStyle(.quaternary)
+                                        Text(relativeTimestamp(for: record.startedAt))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if isLoading {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else if isActive {
+                                    Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(Color.accentColor)
-                                    Text("·")
-                                        .font(.caption2)
-                                        .foregroundStyle(.quaternary)
-                                    Text(relativeTimestamp(for: record.startedAt))
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
                                 }
                             }
                         }
+                        .listRowBackground(isActive ? Color.accentColor.opacity(0.08) : nil)
                     }
                 }
             }

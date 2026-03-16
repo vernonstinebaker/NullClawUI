@@ -158,11 +158,10 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 10: UX Hardening & Settings Redesign 🔜
+## Phase 10: UX Hardening & Settings Redesign ✅
 
 - **Goal**: Fix accumulated UX issues and complete the Settings redesign.
-- **Status**: Implemented, not yet committed.
-- **What was done**:
+- **What exists**:
 
   ### Bug fixes
   - **Chat title flicker**: `AppModel` now caches the last-known `AgentCard` per gateway URL in `agentCardCache: [String: AgentCard]`. `effectiveAgentCard` returns the live card or the cached one during reconnect. Title no longer drops to the profile name while the gateway is connecting.

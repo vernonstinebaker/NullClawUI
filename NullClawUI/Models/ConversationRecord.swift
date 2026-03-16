@@ -27,6 +27,9 @@ struct ConversationRecord: Codable, Identifiable, Sendable {
 // MARK: - ConversationStore
 
 private let conversationHistoryKey = "conversationHistory"
+/// Maximum number of conversation records kept in UserDefaults.
+/// The oldest records (at the end of the array) are pruned when this is exceeded.
+private let maxConversationRecords = 100
 
 /// Manages locally-persisted conversation records.
 /// Parallels GatewayStore — same UserDefaults JSON approach, @Observable.
@@ -72,9 +75,18 @@ final class ConversationStore {
     // MARK: - Mutations
 
     /// Creates a new record for the given gateway profile and makes it the current one.
-    /// Returns the new record.
+    /// If the current record is an unsent "New Conversation" for the same gateway, it is
+    /// reused rather than creating a duplicate empty record.
+    /// Returns the new (or reused) record.
     @discardableResult
     func startNewRecord(gateway: GatewayProfile) -> ConversationRecord {
+        // Reuse if the current record is a blank placeholder for the same gateway.
+        if let existing = current,
+           existing.gatewayProfileID == gateway.id,
+           existing.messageCount == 0,
+           existing.title == "New Conversation" {
+            return existing
+        }
         let record = ConversationRecord(
             id: UUID(),
             serverTaskID: nil,
@@ -90,6 +102,10 @@ final class ConversationStore {
         // Prepend so newest is first.
         records.insert(record, at: 0)
         currentRecordID = record.id
+        // Prune oldest records beyond the cap.
+        if records.count > maxConversationRecords {
+            records.removeLast(records.count - maxConversationRecords)
+        }
         save()
         return record
     }
@@ -159,7 +175,8 @@ final class ConversationStore {
               let decoded = try? JSONDecoder().decode([ConversationRecord].self, from: data) else {
             return
         }
-        records = decoded
+        // Cap on load to handle records that accumulated before the limit was introduced.
+        records = Array(decoded.prefix(maxConversationRecords))
         currentRecordID = records.first?.id
     }
 }

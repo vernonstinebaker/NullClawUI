@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @main
 struct NullClawUIApp: App {
@@ -100,6 +103,9 @@ struct NullClawUIApp: App {
                 .task {
                     await setupGateway()
                 }
+                .onReceive(memoryWarningPublisher) { _ in
+                    chatVM.handleMemoryPressure()
+                }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -121,6 +127,19 @@ struct NullClawUIApp: App {
                 Task { await gatewayVM.client.setToken(nil) }
             }
         }
+    }
+
+    // MARK: - Memory pressure
+
+    /// Publisher that fires when iOS sends a memory warning.
+    /// Uses the UIApplication notification name via canImport to stay cross-platform safe.
+    private var memoryWarningPublisher: NotificationCenter.Publisher {
+        #if canImport(UIKit)
+        return NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
+        #else
+        // Fallback for macOS / visionOS previews — never fires in practice.
+        return NotificationCenter.default.publisher(for: Notification.Name("_NullClaw_NoOp_MemoryWarning"))
+        #endif
     }
 
     @MainActor

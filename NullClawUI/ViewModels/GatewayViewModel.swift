@@ -48,8 +48,11 @@ final class GatewayViewModel {
         appModel.connectionStatus = .unknown
 
         // Build a fresh client for the new URL.
+        // Invalidate the old sessions first to cancel in-flight requests immediately.
+        let oldClient = client
         let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
         client = GatewayClient(baseURL: url)
+        await oldClient.invalidate()
 
         // Restore token if the profile is already paired.
         if profile.isPaired,
@@ -70,5 +73,16 @@ final class GatewayViewModel {
         KeychainService.deleteToken(for: appModel.gatewayURL)
         await client.setToken(nil)
         appModel.isPaired = false
+    }
+
+    /// Unpairs any gateway profile by deleting its Keychain token.
+    /// If it is the active gateway, also clears the in-memory token and marks the app unpaired.
+    func unpairGateway(_ profile: GatewayProfile) async {
+        KeychainService.deleteToken(for: profile.url)
+        appModel.store.setProfilePaired(profile.id, isPaired: false)
+        if profile.id == appModel.store.activeProfileID {
+            await client.setToken(nil)
+            appModel.isPaired = false
+        }
     }
 }

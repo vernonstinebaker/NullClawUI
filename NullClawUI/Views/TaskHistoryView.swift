@@ -82,17 +82,24 @@ struct TaskHistoryView: View {
     private var recordList: some View {
         List {
             ForEach(filteredRecords) { record in
+                let isActive = viewModel.activeRecordID == record.id
+                let isLoading = isActive && viewModel.isLoadingHistory
+
                 Button {
+                    guard !viewModel.isLoadingHistory else { return }
                     Task { await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
                 } label: {
-                    ConversationRow(record: record)
+                    ConversationRow(record: record, isActive: isActive, isLoading: isLoading)
                 }
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                .listRowBackground(isActive ? Color.accentColor.opacity(0.08) : Color.clear)
                 .accessibilityLabel("Conversation with \(record.gatewayName): \(record.title)")
                 .accessibilityHint(record.serverTaskID != nil ? "Tap to reload this conversation in Chat" : "Tap to start a new conversation")
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        conversationStore.delete(id: record.id)
+                        // Use ChatViewModel.deleteRecord so the in-memory slot is
+                        // also evicted, not just the persisted ConversationStore entry.
+                        viewModel.deleteRecord(id: record.id)
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
@@ -107,6 +114,8 @@ struct TaskHistoryView: View {
 
 private struct ConversationRow: View {
     let record: ConversationRecord
+    var isActive: Bool = false
+    var isLoading: Bool = false
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
@@ -164,9 +173,22 @@ private struct ConversationRow: View {
 
             Spacer(minLength: 0)
 
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.quaternary)
+            // Trailing indicator: spinner while loading, accent dot when active, chevron otherwise
+            Group {
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.quaternary)
+                }
+            }
+            .frame(width: 20)
         }
     }
 

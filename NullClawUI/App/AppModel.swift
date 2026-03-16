@@ -31,11 +31,17 @@ final class AppModel {
 
     /// Cache of agent cards keyed by profile UUID (or normalized URL as fallback).
     /// Used to show the correct agent name while a reconnect is in progress.
+    /// Bounded to the number of known profiles; stale entries are removed on profile deletion.
     private var agentCardCache: [String: AgentCard] = [:]
 
     /// Returns the best available agent card — live card first, then cached.
     var effectiveAgentCard: AgentCard? {
         agentCard ?? agentCardCache[activeCacheKey]
+    }
+
+    /// Removes the cached agent card for a deleted profile so stale data is not served.
+    func evictAgentCard(for profileID: UUID) {
+        agentCardCache.removeValue(forKey: profileID.uuidString)
     }
 
     /// Current gateway reachability state.

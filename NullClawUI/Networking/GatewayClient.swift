@@ -85,6 +85,13 @@ actor GatewayClient {
     func setBaseURL(_ url: URL) { self.baseURL = url }
     func setToken(_ token: String?) { self.bearerToken = token.flatMap { $0.isEmpty ? nil : $0 } }
 
+    /// Cancels all in-flight requests and invalidates both URLSessions.
+    /// Call this on the old client before replacing it with a new one on gateway switch.
+    func invalidate() {
+        session.invalidateAndCancel()
+        sseSession.invalidateAndCancel()
+    }
+
     // MARK: - Phase 1: Health & Agent Card
 
     /// GET /health  → HTTP 200 means online.
@@ -148,6 +155,10 @@ actor GatewayClient {
 
     // MARK: - Phase 4: message/stream (SSE via AsyncBytes)
 
+    /// Maximum SSE byte-buffer size (4 MB). If a single response body exceeds this
+    /// without an SSE event boundary, the stream is aborted to prevent OOM.
+    private static let sseMaxBufferBytes = 4 * 1024 * 1024
+
     /// Streams a message via SSE (method: message/stream) using URLSession.bytes.
     /// Each yielded SSEEnvelope wraps a StreamEvent (kind: task | artifact-update | status-update).
     func streamMessage(_ message: A2AMessage) async throws -> AsyncThrowingStream<TaskStatusUpdateEvent, Error> {
@@ -172,10 +183,37 @@ actor GatewayClient {
         return AsyncThrowingStream { continuation in
             let t = Task {
                 do {
-                    var buffer: [UInt8] = []
+                    // Use a Data buffer with pre-reserved capacity for O(1) append.
+                    // An index cursor advances instead of removeFirst (which is O(n)).
+                    var buffer = Data()
+                    buffer.reserveCapacity(4096)
+                    var cursor = 0   // index of the first unprocessed byte in `buffer`
+
                     for try await byte in asyncBytes {
                         buffer.append(byte)
-                        try Self.yieldBufferedSSEEvents(from: &buffer, decoder: localDecoder, continuation: continuation)
+
+                        // Guard against a runaway response with no SSE delimiter.
+                        if buffer.count - cursor > Self.sseMaxBufferBytes {
+                            continuation.finish(throwing: GatewayError.networkError(
+                                underlying: NSError(domain: "GatewayClient", code: -1,
+                                    userInfo: [NSLocalizedDescriptionKey: "SSE buffer exceeded 4 MB — aborting stream"])))
+                            return
+                        }
+
+                        try Self.yieldBufferedSSEEvents(buffer: buffer, cursor: &cursor, decoder: localDecoder, continuation: continuation)
+
+                        // Compact the buffer periodically to reclaim memory consumed
+                        // by already-processed bytes, without doing it on every byte.
+                        if cursor > 65536 {
+                            buffer = buffer.subdata(in: cursor ..< buffer.count)
+                            cursor = 0
+                        }
+                    }
+
+                    // Compact any remaining processed bytes before the trailing-event pass.
+                    if cursor > 0 {
+                        buffer = buffer.subdata(in: cursor ..< buffer.count)
+                        cursor = 0
                     }
                     try Self.yieldTrailingSSEEvent(from: &buffer, decoder: localDecoder, continuation: continuation)
                     continuation.finish()
@@ -354,20 +392,21 @@ actor GatewayClient {
     }
 
     private nonisolated static func yieldBufferedSSEEvents(
-        from buffer: inout [UInt8],
+        buffer: Data,
+        cursor: inout Int,
         decoder: JSONDecoder,
         continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation
     ) throws {
-        while let boundary = nextSSEEventBoundary(in: buffer) {
-            let eventBytes = Array(buffer[..<boundary.eventEnd])
-            buffer.removeFirst(boundary.consumedLength)
+        while let boundary = nextSSEEventBoundary(in: buffer, from: cursor) {
+            let eventBytes = Array(buffer[cursor ..< (cursor + boundary.eventEnd)])
+            cursor += boundary.consumedLength
             let lines = try sseEventLines(from: eventBytes)
             try yieldSSEEvent(from: lines, decoder: decoder, continuation: continuation)
         }
     }
 
     private nonisolated static func yieldTrailingSSEEvent(
-        from buffer: inout [UInt8],
+        from buffer: inout Data,
         decoder: JSONDecoder,
         continuation: AsyncThrowingStream<TaskStatusUpdateEvent, Error>.Continuation
     ) throws {
@@ -375,7 +414,8 @@ actor GatewayClient {
             buffer.removeLast()
         }
         guard !buffer.isEmpty else { return }
-        let lines = try sseEventLines(from: buffer)
+        let bytes = Array(buffer)
+        let lines = try sseEventLines(from: bytes)
         buffer.removeAll(keepingCapacity: false)
         try yieldSSEEvent(from: lines, decoder: decoder, continuation: continuation)
     }
@@ -383,20 +423,55 @@ actor GatewayClient {
     nonisolated static func nextSSEEventBoundary(
         in buffer: [UInt8]
     ) -> (eventEnd: Int, consumedLength: Int)? {
-        if buffer.count >= 4 {
-            for index in 0...(buffer.count - 4) {
+        nextSSEEventBoundary(in: buffer, from: 0)
+    }
+
+    nonisolated static func nextSSEEventBoundary(
+        in buffer: [UInt8],
+        from start: Int
+    ) -> (eventEnd: Int, consumedLength: Int)? {
+        let count = buffer.count
+        if count - start >= 4 {
+            for index in start...(count - 4) {
                 if buffer[index] == 13,
                    buffer[index + 1] == 10,
                    buffer[index + 2] == 13,
                    buffer[index + 3] == 10 {
-                    return (eventEnd: index, consumedLength: index + 4)
+                    return (eventEnd: index - start, consumedLength: index - start + 4)
                 }
             }
         }
-        if buffer.count >= 2 {
-            for index in 0...(buffer.count - 2) {
+        if count - start >= 2 {
+            for index in start...(count - 2) {
                 if buffer[index] == 10, buffer[index + 1] == 10 {
-                    return (eventEnd: index, consumedLength: index + 2)
+                    return (eventEnd: index - start, consumedLength: index - start + 2)
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Cursor-based boundary search for use with `Data` buffers.
+    /// Returns offsets relative to `start`.
+    private nonisolated static func nextSSEEventBoundary(
+        in buffer: Data,
+        from start: Int
+    ) -> (eventEnd: Int, consumedLength: Int)? {
+        let count = buffer.count
+        if count - start >= 4 {
+            for index in start...(count - 4) {
+                if buffer[index] == 13,
+                   buffer[index + 1] == 10,
+                   buffer[index + 2] == 13,
+                   buffer[index + 3] == 10 {
+                    return (eventEnd: index - start, consumedLength: index - start + 4)
+                }
+            }
+        }
+        if count - start >= 2 {
+            for index in start...(count - 2) {
+                if buffer[index] == 10, buffer[index + 1] == 10 {
+                    return (eventEnd: index - start, consumedLength: index - start + 2)
                 }
             }
         }

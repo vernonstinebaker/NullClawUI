@@ -14,11 +14,8 @@ struct ChatView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                messageList
-                inputBar
-            }
-            .navigationBarTitleDisplayMode(.inline)
+            messageList
+                .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Gateway picker in the title position
                 ToolbarItem(placement: .principal) {
@@ -128,10 +125,14 @@ struct ChatView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 12)
-                    .padding(.bottom, 108)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // Reserve space for the floating input bar so content is never hidden behind it.
+                // Using safeAreaInset means this adapts automatically to any device's safe area.
+                inputBar
+            }
             .onTapGesture { isInputFocused = false }
             // Scroll when a new message is added (count change).
             .onChange(of: viewModel.messages.count) { _, _ in
@@ -148,6 +149,10 @@ struct ChatView: View {
             // Scroll when keyboard appears / input bar changes height.
             .onChange(of: isInputFocused) { _, focused in
                 if focused { scrollToBottom(proxy: proxy, animated: true) }
+            }
+            // Scroll when a history record finishes loading into the chat.
+            .onChange(of: viewModel.chatTabRequested) { _, _ in
+                scrollToBottom(proxy: proxy, animated: false)
             }
         }
     }
