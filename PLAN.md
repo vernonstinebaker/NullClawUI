@@ -188,7 +188,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 11: SwiftData Migration & iCloud Sync ❌
+## Phase 11: SwiftData Migration & iCloud Sync ✅
 
 - **Goal**: Replace the current UserDefaults JSON persistence with SwiftData + CloudKit so that gateway configuration and conversation history sync automatically across devices (iOS app ↔ future macOS menubar app).
 - **Motivation**:

@@ -149,6 +149,14 @@ private struct ConversationRow: View {
                     .lineLimit(2)
                     .foregroundStyle(.primary)
 
+                // Preview of last message (if available)
+                if let preview = record.lastMessagePreview, !preview.isEmpty {
+                    Text(preview)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
                 // Gateway badge + message count
                 HStack(spacing: 6) {
                     Text(record.gatewayName)

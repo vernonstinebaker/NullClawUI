@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 #if canImport(UIKit)
 import UIKit
 #endif
+
+// MARK: - NullClawUIApp
 
 @main
 struct NullClawUIApp: App {
@@ -12,33 +15,46 @@ struct NullClawUIApp: App {
     @State private var chatVM: ChatViewModel
     @Environment(\.scenePhase) private var scenePhase
 
+    // Shared SwiftData container — held here so it stays alive for the app lifetime.
+    private let container: ModelContainer
+
     init() {
         let args = CommandLine.arguments
 
-        // --uitesting-paired: start the app already paired with a stubbed profile and agent card.
-        if args.contains("--uitesting-paired") {
+        // --uitesting-paired / --uitesting: use an in-memory container so tests
+        // never touch the real CloudKit store.
+        if args.contains("--uitesting-paired") || args.contains("--uitesting") {
+            let cfg = ModelConfiguration(isStoredInMemoryOnly: true)
+            let c = try! ModelContainer(for: GatewayProfile.self, ConversationRecord.self,
+                                        configurations: cfg)
+            container = c
+
             let fakeProfile = GatewayProfile(
                 id: UUID(),
-                name: "TestAgent",
+                name: args.contains("--uitesting-paired") ? "TestAgent" : "Local",
                 url: "http://127.0.0.1:19999",
-                isPaired: true
+                isPaired: args.contains("--uitesting-paired")
             )
             let s = GatewayStore(testProfile: fakeProfile)
-            let cs = ConversationStore(empty: true)
+            let cs = ConversationStore(inMemory: true)
             let m = AppModel(store: s)
-            m.isPaired = true
-            m.connectionStatus = .online
-            m.agentCard = AgentCard(
-                name: "TestAgent",
-                version: "0.0.1",
-                description: "Stub agent for UI tests",
-                capabilities: AgentCard.AgentCapabilities(
-                    streaming: true,
-                    multiModal: nil,
-                    history: true
-                ),
-                accentColor: nil
-            )
+
+            if args.contains("--uitesting-paired") {
+                m.isPaired = true
+                m.connectionStatus = .online
+                m.agentCard = AgentCard(
+                    name: "TestAgent",
+                    version: "0.0.1",
+                    description: "Stub agent for UI tests",
+                    capabilities: AgentCard.AgentCapabilities(
+                        streaming: true,
+                        multiModal: nil,
+                        history: true
+                    ),
+                    accentColor: nil
+                )
+            }
+
             let gvm = GatewayViewModel(appModel: m)
             let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
             _store = State(wrappedValue: s)
@@ -49,37 +65,48 @@ struct NullClawUIApp: App {
             return
         }
 
-        // --uitesting: clean unpaired state.
-        if args.contains("--uitesting") {
-            let fakeProfile = GatewayProfile(
-                id: UUID(),
-                name: "Local",
-                url: "http://127.0.0.1:19999",
-                isPaired: false
-            )
-            let s = GatewayStore(testProfile: fakeProfile)
-            let cs = ConversationStore(empty: true)
-            let m = AppModel(store: s)
-            let gvm = GatewayViewModel(appModel: m)
-            let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
-            _store = State(wrappedValue: s)
-            _conversationStore = State(wrappedValue: cs)
-            _appModel = State(wrappedValue: m)
-            _gatewayVM = State(wrappedValue: gvm)
-            _chatVM = State(wrappedValue: cvm)
-            return
+        // Normal launch: create the CloudKit-backed SwiftData container.
+        // The App Group container path ensures the future macOS menubar target can
+        // share the same ModelContainer via the group identifier.
+        let schema = Schema([GatewayProfile.self, ConversationRecord.self])
+        let cloudKitConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .automatic
+        )
+        let c: ModelContainer
+        do {
+            c = try ModelContainer(for: schema, configurations: cloudKitConfig)
+        } catch {
+            // Fallback to local-only if CloudKit is unavailable (e.g., simulator without
+            // a signed-in iCloud account, or unit-test host where Application Support
+            // directory may not yet exist).
+            do {
+                let localConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                c = try ModelContainer(for: schema, configurations: localConfig)
+            } catch {
+                // Final fallback: in-memory only (test hosts, fresh simulators).
+                let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                c = try! ModelContainer(for: schema, configurations: memConfig)
+            }
         }
+        container = c
 
-        // Normal launch: migrate legacy single-gateway UserDefaults if needed.
-        let s = GatewayStore()
+        let ctx = c.mainContext
+        let s = GatewayStore(context: ctx)
+
+        // Migration chain: Phase 9 UserDefaults JSON → SwiftData, then legacy single-URL key.
+        s.migrateFromUserDefaultsIfNeeded()
         s.migrateFromLegacyIfNeeded()
 
-        // If no profiles exist at all, seed a default one.
+        // Seed a default profile if none exist after migration.
         if s.profiles.isEmpty {
             _ = s.addProfile(name: "Local", url: "http://localhost:5111")
         }
 
-        let cs = ConversationStore()
+        let cs = ConversationStore(context: ctx)
+        cs.migrateFromUserDefaultsIfNeeded()
+
         let m = AppModel(store: s)
         let gvm = GatewayViewModel(appModel: m)
         let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
@@ -113,7 +140,6 @@ struct NullClawUIApp: App {
             }
         }
         .onChange(of: appModel.isPaired) { _, isPaired in
-            // Skip during UI tests — the test harness pre-seeds the token directly.
             let args = CommandLine.arguments
             guard !args.contains("--uitesting"), !args.contains("--uitesting-paired") else { return }
             if isPaired {
@@ -131,13 +157,10 @@ struct NullClawUIApp: App {
 
     // MARK: - Memory pressure
 
-    /// Publisher that fires when iOS sends a memory warning.
-    /// Uses the UIApplication notification name via canImport to stay cross-platform safe.
     private var memoryWarningPublisher: NotificationCenter.Publisher {
         #if canImport(UIKit)
         return NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
         #else
-        // Fallback for macOS / visionOS previews — never fires in practice.
         return NotificationCenter.default.publisher(for: Notification.Name("_NullClaw_NoOp_MemoryWarning"))
         #endif
     }
@@ -147,29 +170,19 @@ struct NullClawUIApp: App {
         let args = CommandLine.arguments
         guard !args.contains("--uitesting"), !args.contains("--uitesting-paired") else { return }
 
-        // Register the active profile ID so per-gateway slot tracking works from launch.
         if let profile = appModel.store.activeProfile {
             chatVM.setActiveProfile(profile)
         }
 
-        // If a valid token exists for the active gateway, mark it paired.
-        // The onChange(of: appModel.isPaired) observer will call setToken.
         if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
            !tok.isEmpty {
-            // Set token directly — the observer is guarded against UI-test args and this is
-            // the normal launch path, so it will re-read and setToken. To avoid the double
-            // Keychain read we set the token here and mark paired without going through isPaired's
-            // setter (which would re-trigger the observer on the same run-loop pass).
             await gatewayVM.client.setToken(tok)
             if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
                 appModel.store.setProfilePaired(id, isPaired: true)
             }
         } else {
-            // No stored token — probe the gateway to see if pairing is disabled.
-            // pair(code:) returns "" and sets pairingMode = .notRequired on a 403 response.
             let probeResult = try? await gatewayVM.client.pair(code: "")
             if probeResult == "" {
-                // Gateway has require_pairing: false — mark paired without a token.
                 if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
                     appModel.store.setProfilePaired(id, isPaired: true)
                 }

@@ -78,9 +78,15 @@ final class GatewayViewModel {
     /// Unpairs any gateway profile by deleting its Keychain token.
     /// If it is the active gateway, also clears the in-memory token and marks the app unpaired.
     func unpairGateway(_ profile: GatewayProfile) async {
-        KeychainService.deleteToken(for: profile.url)
-        appModel.store.setProfilePaired(profile.id, isPaired: false)
-        if profile.id == appModel.store.activeProfileID {
+        // Capture plain values before any SwiftData mutation to avoid accessing
+        // the @Model instance after its backing context is mutated/reset.
+        let profileID  = profile.id
+        let profileURL = profile.url
+        let isActive   = profileID == appModel.store.activeProfileID
+
+        KeychainService.deleteToken(for: profileURL)
+        appModel.store.setProfilePaired(profileID, isPaired: false)
+        if isActive {
             await client.setToken(nil)
             appModel.isPaired = false
         }

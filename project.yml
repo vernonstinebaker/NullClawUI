@@ -43,7 +43,7 @@ targets:
       - package: swift-markdown-ui
         product: MarkdownUI
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.nullclaw.nullclawui
+      PRODUCT_BUNDLE_IDENTIFIER: plus.agillity.nullclawui
       SWIFT_VERSION: "6.0"
       SWIFT_STRICT_CONCURRENCY: complete
       IPHONEOS_DEPLOYMENT_TARGET: "26.0"

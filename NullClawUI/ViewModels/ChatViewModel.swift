@@ -163,7 +163,8 @@ final class ChatViewModel {
             conversationStore.updateCurrent(serverTaskID: task.id, contextID: task.contextId)
             let replyText = task.replyText
             messages.append(ChatMessage(role: "assistant", text: replyText))
-            conversationStore.updateCurrent(incrementMessages: true)
+            conversationStore.updateCurrent(incrementMessages: true,
+                                            lastMessagePreview: String(replyText.prefix(120)))
             // After first assistant reply, upgrade title to a summary derived from the reply.
             if messages.filter({ $0.role == "assistant" }).count == 1 {
                 if let derived = derivedTitle(from: replyText) {
@@ -291,7 +292,9 @@ final class ChatViewModel {
                 if let idx = assistantIndex, idx < messages.count {
                     messages[idx].isStreaming = false
                 }
-                conversationStore.updateCurrent(incrementMessages: true)
+                let preview = assistantIndex.flatMap { $0 < messages.count ? messages[$0].text : nil }
+                conversationStore.updateCurrent(incrementMessages: true,
+                                                lastMessagePreview: preview.map { String($0.prefix(120)) })
                 // After first assistant reply, upgrade title to a summary derived from the reply.
                 if messages.filter({ $0.role == "assistant" }).count == 1,
                    let idx = assistantIndex,
