@@ -2,13 +2,13 @@ import SwiftUI
 
 // MARK: - GatewayStatusView
 
-/// Phase 14 (redesigned): fast multi-gateway health overview.
-/// Fires a GET /health against every known profile simultaneously — no A2A prompts,
-/// results appear in under a second on LAN.
+/// Phase 14: fast multi-gateway health overview.
+/// Shows reachability for all known gateways simultaneously via concurrent GET /health.
+/// This is a pure health view — it does not surface which gateway is selected for chat,
+/// since that concept only matters inside the Chat tab.
 struct GatewayStatusView: View {
 
     @Environment(GatewayStore.self) private var store
-    @Environment(GatewayViewModel.self) private var gatewayVM
     var statusVM: GatewayStatusViewModel
 
     var body: some View {
@@ -28,7 +28,7 @@ struct GatewayStatusView: View {
                     }
                 }
             }
-            .navigationTitle("Gateways")
+            .navigationTitle("Gateway Health")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -60,7 +60,6 @@ struct GatewayStatusView: View {
     @ViewBuilder
     private func gatewayRow(_ profile: GatewayProfile) -> some View {
         let state = statusVM.healthState(for: profile)
-        let isActive = profile.id == store.activeProfile?.id
 
         HStack(spacing: 14) {
             // Status dot
@@ -78,19 +77,9 @@ struct GatewayStatusView: View {
             .frame(width: 12)
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(profile.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    if isActive {
-                        Text("Active")
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.15), in: Capsule())
-                            .foregroundStyle(.tint)
-                    }
-                }
+                Text(profile.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
                 Text(profile.displayHost)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -103,23 +92,29 @@ struct GatewayStatusView: View {
 
             Spacer()
 
-            // Quick-switch button for inactive gateways
-            if !isActive {
-                Button {
-                    Task { await switchTo(profile) }
-                } label: {
-                    Image(systemName: "arrow.trianglehead.2.clockwise")
-                        .font(.subheadline)
-                        .foregroundStyle(.tint)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Switch to \(profile.name)")
-                .accessibilityHint("Makes this gateway the active one")
-            }
+            statusLabel(state.status)
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel(profile: profile, state: state, isActive: isActive))
+        .accessibilityLabel(accessibilityLabel(profile: profile, state: state))
+    }
+
+    // MARK: - Status label (text beside the dot)
+
+    @ViewBuilder
+    private func statusLabel(_ status: ConnectionStatus) -> some View {
+        switch status {
+        case .online:
+            Text("Online")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.green)
+        case .offline:
+            Text("Offline")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.red)
+        case .unknown:
+            EmptyView()
+        }
     }
 
     // MARK: - Empty State
@@ -150,11 +145,7 @@ struct GatewayStatusView: View {
         }
     }
 
-    private func accessibilityLabel(
-        profile: GatewayProfile,
-        state: ProfileHealthState,
-        isActive: Bool
-    ) -> String {
+    private func accessibilityLabel(profile: GatewayProfile, state: ProfileHealthState) -> String {
         let statusWord: String
         if state.isChecking {
             statusWord = "checking"
@@ -165,11 +156,6 @@ struct GatewayStatusView: View {
             case .unknown: statusWord = "unknown"
             }
         }
-        let activeWord = isActive ? ", active" : ""
-        return "\(profile.name), \(profile.displayHost)\(activeWord), \(statusWord)"
-    }
-
-    private func switchTo(_ profile: GatewayProfile) async {
-        _ = await gatewayVM.switchGateway(to: profile)
+        return "\(profile.name), \(profile.displayHost), \(statusWord)"
     }
 }
