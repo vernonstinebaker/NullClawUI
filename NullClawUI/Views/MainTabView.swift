@@ -13,6 +13,18 @@ struct MainTabView: View {
     // For iPhone TabView — tracks the active tab so we can switch to Chat programmatically.
     @State private var selectedTab: Int = 0
 
+    // Search state lifted to TabView level so iOS 26 places the field at the bottom of the screen.
+    @State private var searchText: String = ""
+
+    /// Prompt changes depending on the active tab.
+    private var searchPrompt: String {
+        switch selectedTab {
+        case 1:  return "Search conversations"
+        case 2:  return "Search gateways"
+        default: return "Search"
+        }
+    }
+
     var body: some View {
         Group {
             if horizontalSizeClass == .regular {
@@ -29,16 +41,25 @@ struct MainTabView: View {
                 }
             } else {
                 // iPhone: TabView with programmatic tab selection.
+                // .searchable is placed here (on the TabView) so iOS 26 routes the
+                // search field to the bottom of the screen, above the tab bar —
+                // the correct Liquid Glass placement per WWDC25 session 323.
                 TabView(selection: $selectedTab) {
                     Tab("Chat", systemImage: "bubble.left.and.bubble.right.fill", value: 0) {
                         ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
                     }
                     Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: 1) {
-                        TaskHistoryView(viewModel: chatViewModel)
+                        TaskHistoryView(viewModel: chatViewModel, searchText: $searchText)
                     }
                     Tab("Settings", systemImage: "gear", value: 2) {
-                        PairedSettingsView()
+                        PairedSettingsView(searchText: $searchText)
                     }
+                }
+                .searchable(text: $searchText, placement: .toolbar, prompt: searchPrompt)
+                .searchToolbarBehavior(.minimize)
+                .onChange(of: selectedTab) { _, _ in
+                    // Clear search when switching tabs so stale results don't carry over.
+                    searchText = ""
                 }
                 .onChange(of: chatViewModel.chatTabRequested) { _, _ in
                     // Switch to the Chat tab whenever a history task is loaded.

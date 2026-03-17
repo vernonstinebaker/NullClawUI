@@ -3,13 +3,15 @@ import SwiftUI
 // MARK: - TaskHistoryView
 
 /// Shows locally-persisted conversation records with timestamps, gateway name, and title.
-/// Supports search/filter (pull-to-reveal), swipe-to-delete, and dual-format timestamps.
+/// Supports search/filter (driven by the parent TabView's bottom search field), swipe-to-delete,
+/// and dual-format timestamps.
 struct TaskHistoryView: View {
     var viewModel: ChatViewModel
+    /// Search text bound from the parent TabView's .searchable modifier so the
+    /// iOS 26 bottom-of-screen search field drives filtering in this tab.
+    @Binding var searchText: String
     @Environment(ConversationStore.self) private var conversationStore
     @Environment(GatewayViewModel.self) private var gatewayViewModel
-
-    @State private var searchText: String = ""
 
     private var filteredRecords: [ConversationRecord] {
         guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -34,8 +36,6 @@ struct TaskHistoryView: View {
                 }
             }
             .navigationTitle("History")
-            .searchable(text: $searchText, placement: .toolbar, prompt: "Search conversations")
-            .searchToolbarBehavior(.minimize)
         }
     }
 
