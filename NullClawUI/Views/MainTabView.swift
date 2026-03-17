@@ -56,7 +56,6 @@ struct MainTabView: View {
                     }
                 }
                 .searchable(text: $searchText, placement: .toolbar, prompt: searchPrompt)
-                .searchToolbarBehavior(.minimize)
                 .onChange(of: selectedTab) { _, _ in
                     // Clear search when switching tabs so stale results don't carry over.
                     searchText = ""
