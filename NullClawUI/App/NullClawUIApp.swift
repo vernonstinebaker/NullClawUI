@@ -13,6 +13,8 @@ struct NullClawUIApp: App {
     @State private var appModel: AppModel
     @State private var gatewayVM: GatewayViewModel
     @State private var chatVM: ChatViewModel
+    // Phase 13: periodic health monitor — nil during UI testing (no real gateway).
+    @State private var healthMonitor: GatewayHealthMonitor? = nil
     @Environment(\.scenePhase) private var scenePhase
 
     // Shared SwiftData container — held here so it stays alive for the app lifetime.
@@ -62,6 +64,7 @@ struct NullClawUIApp: App {
             _appModel = State(wrappedValue: m)
             _gatewayVM = State(wrappedValue: gvm)
             _chatVM = State(wrappedValue: cvm)
+            // healthMonitor stays nil for UI tests — no real gateway to poll.
             return
         }
 
@@ -116,6 +119,8 @@ struct NullClawUIApp: App {
         _appModel = State(wrappedValue: m)
         _gatewayVM = State(wrappedValue: gvm)
         _chatVM = State(wrappedValue: cvm)
+        // healthMonitor is created in setupGateway() so it can close over the @State
+        // objects that are fully initialised by the time the first .task fires.
     }
 
     var body: some Scene {
@@ -135,8 +140,17 @@ struct NullClawUIApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                Task { await gatewayVM.connect() }
+            switch newPhase {
+            case .active:
+                // Immediate check so the status badge updates without waiting for the
+                // next 30 s tick. The monitor's loop itself also resumes from here.
+                healthMonitor?.checkNow()
+                healthMonitor?.start()
+            case .background, .inactive:
+                // Pause polling while backgrounded to conserve battery / network.
+                healthMonitor?.stop()
+            default:
+                break
             }
         }
         .onChange(of: appModel.isPaired) { _, isPaired in
@@ -189,6 +203,25 @@ struct NullClawUIApp: App {
             }
         }
 
+        // Initial connect (health + agent card fetch).
         await gatewayVM.connect()
+
+        // Phase 13: start the health monitor after the initial connect so the first
+        // status is always driven by the explicit connect() call above.
+        // The monitor fires chatVM.beginStream() on reconnect only if a stream was
+        // in-progress when the gateway went offline.
+        healthMonitor = GatewayHealthMonitor(
+            appModel: appModel,
+            clientProvider: { [gatewayVM] in gatewayVM.client },
+            onReconnect: { [chatVM] in
+                // Resume a stream that was interrupted by a gateway outage.
+                // Only restart if there is unsent/unfinished input — the user
+                // would need to re-send in any other case.
+                if chatVM.isStreaming {
+                    chatVM.beginStream()
+                }
+            }
+        )
+        healthMonitor?.start()
     }
 }

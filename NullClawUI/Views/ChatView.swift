@@ -9,6 +9,7 @@ struct ChatView: View {
     var gatewayViewModel: GatewayViewModel
 
     @Environment(GatewayStore.self) private var store
+    @Environment(AppModel.self) private var appModel
     @FocusState private var isInputFocused: Bool
     @State private var showingGatewayPicker = false
 
@@ -106,6 +107,10 @@ struct ChatView: View {
     @ViewBuilder private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
+                // Phase 13: non-intrusive offline banner shown at the top of the
+                // scroll content when the gateway is unreachable.
+                offlineBanner
+
                 if viewModel.messages.isEmpty {
                     emptyState
                 } else {
@@ -171,6 +176,33 @@ struct ChatView: View {
         if index >= msgs.count { return true }
         if index == msgs.count - 1 { return true }
         return msgs[index].role != msgs[index + 1].role
+    }
+
+    // MARK: - Phase 13: Offline banner
+
+    /// Non-intrusive banner that slides in from the top when the gateway is unreachable.
+    /// It sits inside the scroll view so it doesn't overlay the input bar or toolbar.
+    @ViewBuilder private var offlineBanner: some View {
+        // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
+        let isOffline = appModel.connectionStatus == .offline
+        if isOffline {
+            HStack(spacing: 8) {
+                Image(systemName: "wifi.slash")
+                    .font(.footnote.weight(.semibold))
+                Text("Gateway offline — reconnecting…")
+                    .font(.footnote.weight(.medium))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            .background(.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .animation(.spring(duration: 0.35, bounce: 0.2), value: isOffline)
+            .accessibilityLabel("Gateway offline. Reconnecting automatically.")
+        }
     }
 
     // MARK: - Empty state

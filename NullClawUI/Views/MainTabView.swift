@@ -42,6 +42,8 @@ struct MainTabView: View {
                 }
                 .onChange(of: chatViewModel.chatTabRequested) { _, _ in
                     // Switch to the Chat tab whenever a history task is loaded.
+                    // Using an Int counter (not a Bool toggle) so rapid increments
+                    // are never coalesced and dropped by SwiftUI.
                     selectedTab = 0
                 }
             }

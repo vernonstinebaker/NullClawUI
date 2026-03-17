@@ -93,12 +93,17 @@ final class ConversationStore {
 
     // MARK: - Private
 
+    /// Retained so the ModelContainer (and its underlying Core Data stack) is not
+    /// deallocated while this store is alive. Without this strong reference, ARC
+    /// would release the container immediately after init, invalidating the ModelContext.
+    private var _container: ModelContainer?
     private var context: ModelContext
 
     // MARK: - Init
 
     /// Normal init — takes the shared ModelContext from the app container.
     init(context: ModelContext) {
+        self._container = nil   // Caller manages container lifetime.
         self.context = context
         loadRecords()
     }
@@ -107,6 +112,7 @@ final class ConversationStore {
     init(inMemory: Bool = false) {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: ConversationRecord.self, GatewayProfile.self, configurations: config)
+        self._container = container  // Retain so ARC does not release the container after init.
         self.context = container.mainContext
         // records stays empty — no load needed for tests
     }
@@ -147,8 +153,7 @@ final class ConversationStore {
         let record = ConversationRecord(
             gatewayProfileID: gateway.id,
             gatewayName: gateway.name,
-            gatewayURL: gateway.url,
-            gateway: gateway
+            gatewayURL: gateway.url
         )
         context.insert(record)
 
@@ -235,9 +240,10 @@ final class ConversationStore {
         let descriptor = FetchDescriptor<ConversationRecord>(
             sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
         )
-        guard var all = try? context.fetch(descriptor),
-              all.count >= maxConversationRecords else { return }
-        let toDelete = all.dropFirst(maxConversationRecords - 1)
+        guard let all = try? context.fetch(descriptor),
+              all.count > maxConversationRecords else { return }
+        // Keep the newest maxConversationRecords entries; delete the rest.
+        let toDelete = all.dropFirst(maxConversationRecords)
         for rec in toDelete { context.delete(rec) }
     }
 }

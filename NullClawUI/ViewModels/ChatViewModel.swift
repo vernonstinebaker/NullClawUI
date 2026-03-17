@@ -83,8 +83,10 @@ final class ChatViewModel {
     var errorMessage: String? = nil
     /// Incremented on every streaming token append so the view can reliably auto-scroll.
     var scrollTick: Int = 0
-    /// Toggled each time loadTask completes — observers switch to the Chat tab.
-    var chatTabRequested: Bool = false
+    /// Incremented each time loadTask completes — observers switch to the Chat tab.
+    /// Using an Int counter instead of a Bool toggle avoids SwiftUI missing rapid
+    /// back-to-back changes when the value is set and reset in the same run-loop tick.
+    var chatTabRequested: Int = 0
     /// True while a history record is being fetched from the server (openRecord → loadTask).
     var isLoadingHistory: Bool = false
     /// The record ID that is currently loaded in the chat — used to highlight the active row.
@@ -402,7 +404,7 @@ final class ChatViewModel {
             isLoadingHistory = false
         } else {
             restoreConversation(for: record.id)
-            chatTabRequested.toggle()
+            chatTabRequested += 1
         }
     }
 
@@ -514,7 +516,7 @@ final class ChatViewModel {
             saveCurrentSlot()
 
             // Signal iPhone TabView to switch to the Chat tab.
-            chatTabRequested.toggle()
+            chatTabRequested += 1
         } catch {
             // Restore the previous conversation on failure so the UI stays coherent.
             if let priorID = priorCurrentID {

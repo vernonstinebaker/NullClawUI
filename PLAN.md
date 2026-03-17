@@ -7,12 +7,12 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 | Property | Value |
 |---|---|
 | **iOS / iPadOS Target** | 26.0 (no backward compatibility) |
-| **macOS Target** | 26.0 Tahoe (future — see Phase 13) |
+| **macOS Target** | 26.0 Tahoe (future — see Phase 24) |
 | **Swift Version** | Swift 6 (strict concurrency) |
 | **UI Paradigm** | Liquid Glass (iOS 26 material system) |
 | **State Management** | `@Observable` macro (Swift 6) |
 | **Networking** | URLSession + AsyncSequence for SSE |
-| **Persistence** | UserDefaults (JSON) + System Keychain — see Phase 13 for planned migration |
+| **Persistence** | UserDefaults (JSON) + System Keychain — see Phase 11 for SwiftData migration |
 | **Markdown** | swift-markdown-ui |
 | **Xcode** | 26+ |
 | **Preferred Simulator** | iPhone 17 Pro Max, iOS 26.2, UDID `C0F9071A-AC90-42B7-9083-219DB8CD8297` |
@@ -210,33 +210,148 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 12: LAN Gateway Discovery ❌
+## Phase 12: LAN Gateway Discovery ✅
 
 - **Goal**: Auto-discover NullClaw gateways on the local network without manual URL entry.
-- **Tasks**:
-  1. Implement `GatewayDiscoveryModel` using `Network.framework` (`NWBrowser`).
-  2. Surface discovered gateways in the "Add Gateway" sheet as a tap-to-add list.
-  3. Fall back gracefully to manual URL entry if no gateways are found.
-  4. Add `NSBonjourServices` key to `Info.plist`.
-- **Validation**: With NullClaw running on the same LAN, the app discovers it without typing the IP address.
+- **What exists**:
+  - `GatewayDiscoveryModel` using `Network.framework` (`NWBrowser`) — browses for `_nullclaw._tcp` Bonjour services, resolves host/port from TXT records, falls back to `.local` mDNS name.
+  - Discovered gateways surface in the "Add Gateway" sheet above the manual URL field.
+  - Scanning indicator shown while browser is running.
+  - Falls back gracefully to manual URL entry if no gateways are found.
+  - `NSBonjourServices` key in `Info.plist`.
 
 ---
 
-## Phase 13: macOS Menubar App ❌
+## Phase 13: Health Monitoring & Reconnect ✅
 
-- **Goal**: A native macOS menubar app that shares gateway configuration and conversation history with the iOS app via iCloud (Phase 11 is a prerequisite).
+- **Goal**: Robust real-time gateway health tracking with automatic reconnect.
 - **Tasks**:
-  1. Add a macOS target to the Xcode project (menubar app, `LSUIElement = YES`).
-  2. Share the SwiftData `ModelContainer` (App Group container, same CloudKit database).
-  3. Implement a compact `NSStatusItem` popover with chat input + last-N messages.
-  4. Reuse `GatewayClient`, `ChatViewModel`, and SSE streaming logic (already platform-agnostic).
-  5. Support multiple gateways via the same `GatewayStore`.
-  6. Keychain tokens stored separately per device (same key scheme, not synced).
-- **Validation**: Chat on iOS, see the same conversation on macOS within one sync cycle.
+  1. Implement `GatewayHealthMonitor` — periodic `GET /health` polling (default 30 s).
+  2. Pause polling in background; resume on foreground (`scenePhase` observer already in place).
+  3. Surface health failure as a non-intrusive banner (not a modal alert).
+  4. On reconnect success, automatically resume any interrupted SSE stream.
+- **Validation**: Killing and restarting NullClaw while the app is open causes the status badge to go red then green automatically.
 
 ---
 
-## Phase 14: Voice Input ❌
+## Phase 14: Gateway Status Dashboard ❌
+
+- **Goal**: Provide a read-only native dashboard showing live gateway state — model, provider, uptime, MCP server health, and channel connection status — without requiring any new server-side API endpoints.
+- **Background**: The gateway exposes no REST management endpoints beyond `/health` and `/agent-card.json`. All structured information is retrieved by sending pre-composed prompts to the agent via A2A and parsing the response. The agent understands queries like "what model and provider are you using?" or "list your MCP tools and their status".
+- **Tasks**:
+  1. Add a **"Status" tab** (or Settings section) in the app. On iPhone: new tab in `TabView`. On iPad: new column or section in the sidebar.
+  2. Compose and send a gateway-info prompt on tab open; parse the agent's reply and render: active model name, provider, uptime string, and a summary list of MCP servers (name + connected/failed indicator).
+  3. Compose and send a channels prompt; render a read-only list of configured channel integrations (Discord, Mattermost, Telegram, etc.) and their connection state.
+  4. Add a manual "Refresh" button and auto-refresh on foreground transition.
+- **Constraint**: All data is fetched via A2A chat — no direct file or config API access.
+- **Validation**: Opening the Status tab shows current model, provider, MCP server list, and channel list populated from real gateway responses.
+
+---
+
+## Phase 15: Cron Job Manager ❌
+
+- **Goal**: Let users view, pause/resume, trigger, add, and delete gateway cron jobs from native UI.
+- **Background**: The gateway stores cron jobs in `cron.json`. The agent understands commands like "list my cron jobs", "pause cron job heartbeat-1", "run cron job heartbeat-1 now", and "delete cron job heartbeat-1". Adding a job requires the agent to write a new entry; the app composes the appropriate prompt.
+- **Cron job schema** (for UI field mapping):
+  - `id`, `expression` (cron string), `command` / `prompt`, `model`, `job_type` (`shell` or `agent`), `paused`, `enabled`, `one_shot`, `delete_after_run`
+  - `delivery_mode`, `delivery_channel`, `delivery_to`
+  - `last_run_secs`, `last_status`, `next_run_secs`
+- **Tasks**:
+  1. On "Cron Jobs" section open, send "list cron jobs in JSON" to the agent; parse the response into a `[CronJob]` model and render a native `List` with id, schedule expression, last-run time, last status, and paused/enabled badge.
+  2. Swipe actions per row: **Pause / Resume**, **Run Now**, **Delete** (each sends the appropriate natural-language command and refreshes the list).
+  3. "Add Job" sheet: fields for id, cron expression, type (Shell command vs. Agent prompt), command/prompt text, optional model override, delivery channel/target. On submit, compose and send an "Add cron job: …" prompt to the agent.
+  4. Show `next_run_secs` as a human-readable countdown ("in 47 min").
+- **Validation**: User can pause, trigger, and add cron jobs entirely from the native UI; changes persist across app restarts (confirmed by re-fetching the list).
+
+---
+
+## Phase 16: Agent Configuration ❌
+
+- **Goal**: Let users inspect and adjust live-editable agent settings from a native form.
+- **Background**: The gateway's `config_mutator` allows certain paths to be changed at runtime (no restart needed). Live-editable paths relevant to the agent include: `agents.defaults.model.primary`, `default_temperature`, tool iteration limits, message timeout, parallel tool count, compaction settings, and memory/session knobs.
+- **Tasks**:
+  1. On "Agent Config" section open, send "show agent configuration" to the agent and parse the reply into typed fields.
+  2. Render a native `Form` with grouped sections:
+     - **Model**: model-name text field + provider picker.
+     - **Sampling**: temperature slider (0.0–2.0).
+     - **Limits**: max tool iterations stepper, message timeout stepper, parallel tools toggle.
+     - **Memory / Compaction**: compaction enabled toggle, compaction threshold stepper.
+  3. On any field change, compose and send the appropriate config-set prompt (e.g. "Set default temperature to 0.7"). Show a confirmation banner on success.
+  4. Paths that require a gateway restart are marked with a ⚠️ "Requires restart" label and a disabled edit control.
+- **Validation**: Changing the temperature slider from 1.0 → 0.5 causes subsequent agent responses to be visibly more deterministic; reverting to 1.0 restores prior behavior.
+
+---
+
+## Phase 17: Autonomy & Safety Controls ❌
+
+- **Goal**: Surface the gateway's autonomy and safety settings in a dedicated native UI so users can quickly raise or lower the agent's operating permissions.
+- **Background**: The gateway has an `autonomy` config block: `level` (e.g. `low`, `medium`, `high`), `max_actions_per_hour`, `allowed_commands`, `block_high_risk_commands`, `require_approval_for_medium_risk`. These can be updated via agent prompts.
+- **Tasks**:
+  1. On section open, send "show autonomy configuration" and parse the reply.
+  2. Render:
+     - **Autonomy Level**: segmented control (`Low / Medium / High`) with a color-coded risk indicator (green / yellow / red).
+     - **Max actions / hour**: stepper.
+     - **Block high-risk commands**: toggle.
+     - **Require approval for medium-risk**: toggle.
+     - **Allowed commands list**: read-only tag cloud with an "Edit" button that opens a text-entry sheet.
+  3. On any change, compose and send the config-set prompt and confirm success via a banner.
+- **Validation**: Switching autonomy level from `high` → `low` causes the agent to request approval before executing shell commands.
+
+---
+
+## Phase 18: MCP Server Management ❌
+
+- **Goal**: Let users view registered MCP servers, their connection state, and add or remove servers from the native UI.
+- **Background**: MCP servers are configured in the gateway's `mcp_servers` config block. Each entry has: `name`, `transport` (`stdio` or `http`), `command`, `args`, `env`, `headers`, `url`, `timeout_ms`. Connection status (connected / failed) is visible in gateway logs and surfaced by the agent when queried.
+- **Tasks**:
+  1. On section open, send "list MCP servers and their status" and parse the reply into a `[MCPServer]` list. Render each with name, transport type, and connection badge (connected / failed / unknown).
+  2. "Add MCP Server" sheet: fields for name, transport selector (stdio / http), command + args (stdio) or URL (http), optional timeout.
+  3. Row swipe action: **Remove** (sends "Remove MCP server <name>" to the agent).
+  4. Tap a row to view raw config details (read-only).
+- **Validation**: Adding a new MCP server entry causes it to appear in the list on refresh; removing it causes it to disappear.
+
+---
+
+## Phase 19: Cost & Usage Monitoring ❌
+
+- **Goal**: Show token usage and cost data so users can monitor spend and set limits.
+- **Background**: The gateway has a `cost` config block with `enabled`, `daily_limit`, `monthly_limit`, and `warn_at_percent`. Usage stats can be retrieved from the agent via a `/usage` or "show usage stats" prompt.
+- **Tasks**:
+  1. On section open, send "show usage statistics" and parse the reply: total tokens today, total tokens this month, estimated cost today/month.
+  2. Render a native summary card: today's usage progress bar vs. daily limit, month-to-date bar vs. monthly limit, cost enabled toggle.
+  3. Editable fields: daily limit, monthly limit, warn-at percent — each change sends a config-set prompt.
+  4. Show a local notification when the gateway reports a cost warning (parse cost-warning events from SSE stream).
+- **Validation**: Viewing the Cost section shows non-zero usage data after a conversation; setting a very low daily limit causes a warning banner to appear.
+
+---
+
+## Phase 20: Channel Status & Management ❌
+
+- **Goal**: Show the connection state of all configured gateway communication channels (Discord, Mattermost, Telegram, Slack, WhatsApp, IRC, Matrix, etc.) and surface read-only config details.
+- **Background**: The gateway supports many channel integrations, each configured in the `channels` block. The agent can report their status when asked. Editing channel config generally requires a gateway restart; this phase is read-only status + a clear "restart required" affordance for any config changes.
+- **Tasks**:
+  1. On section open, send "show channel status" and parse the reply into a `[ChannelStatus]` list. Render each channel with icon, name, and connected/disconnected badge.
+  2. Tap a channel row to see a read-only detail view: relevant config fields (server URL, bot name, etc. — no secrets shown).
+  3. Show a persistent banner at the top of the section: "Channel configuration changes require a gateway restart."
+  4. Future enhancement (Phase 20+): expose an "Edit" button wired to a restart-aware flow.
+- **Validation**: Opening the Channel Status section shows all configured channels with accurate connection states.
+
+---
+
+## Phase 21: APNs Notifications ❌
+
+- **Goal**: Let the gateway proactively push notifications to the device via Apple Push Notification service (APNs).
+- **Background**: Pushover notifications are already fully operational at the gateway layer — the `pushover` tool (contributed by this project, nullclaw commit `20d7b97`, March 1 2026) can be called by the agent from cron jobs or on demand. No iOS app changes are needed for Pushover; users configure `PUSHOVER_TOKEN` and `PUSHOVER_USER_KEY` in the server's `.env` directly. APNs is the remaining work and requires both iOS app and gateway changes.
+- **Tasks**:
+  1. Register for remote notifications on launch (`UNUserNotificationCenter`); request permission.
+  2. Send the APNs device token to the gateway via a new `/register-device` endpoint (requires gateway-side APNs integration — new gateway work, out of scope for the iOS app alone).
+  3. Handle incoming push payloads — deep-link into the relevant conversation when the notification is tapped.
+  4. Display rich notifications with conversation title and truncated first line of agent response.
+- **Validation**: A completed background cron job pushes a notification that deep-links into the relevant conversation when tapped.
+
+---
+
+## Phase 22: Voice Input ❌
 
 - **Goal**: Let users dictate messages using their voice.
 - **Tasks**:
@@ -248,15 +363,32 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 15: Health Monitoring & Reconnect ❌
+## Phase 23: Multi-modal Input ❌
 
-- **Goal**: Robust real-time gateway health tracking with automatic reconnect.
+- **Goal**: Allow users to attach images and files to messages, not just text.
+- **Background**: The A2A protocol supports non-text `parts` in a message (e.g. `{ "inlineData": { "mimeType": "image/jpeg", "data": "<base64>" } }`). The gateway has `multimodal.zig` for handling these. Vision-capable models (GPT-4o, Claude 3.x, Gemini) already work end-to-end once the client sends the right payload shape.
 - **Tasks**:
-  1. Implement `GatewayHealthMonitor` — periodic `GET /health` polling (default 30 s).
-  2. Pause polling in background; resume on foreground (`scenePhase` observer already in place).
-  3. Surface health failure as a non-intrusive banner (not a modal alert).
-  4. On reconnect success, automatically resume any interrupted SSE stream.
-- **Validation**: Killing and restarting NullClaw while the app is open causes the status badge to go red then green automatically.
+  1. Add a paperclip / photo button to the chat input bar.
+  2. Use `PhotosUI.PhotosPicker` for image selection; `UniformTypeIdentifiers` + `UIDocumentPickerViewController` for file selection.
+  3. Encode selected image as base64 and append as an `inlineData` part alongside the text part.
+  4. Render inbound image parts in assistant bubbles (gateway may echo or describe images).
+  5. Request `NSPhotoLibraryUsageDescription` permission.
+- **Validation**: Attach a photo and ask "what is in this image?" — the agent describes it correctly using the attached image data.
+
+---
+
+## Phase 24: macOS Menubar App ❌
+
+- **Goal**: A native macOS menubar app that shares gateway configuration and conversation history with the iOS app via iCloud (Phase 11 is a prerequisite).
+- **Deprioritization note**: Chat is well-covered on desktop via Mattermost/Discord/Telegram. The unique value of this phase is a fast, keyboard-driven chat popover without opening a browser. Implement only after Phases 14–23 are complete.
+- **Tasks**:
+  1. Add a macOS target to the Xcode project (menubar app, `LSUIElement = YES`).
+  2. Share the SwiftData `ModelContainer` (App Group container, same CloudKit database).
+  3. Implement a compact `NSStatusItem` popover with chat input + last-N messages.
+  4. Reuse `GatewayClient`, `ChatViewModel`, and SSE streaming logic (already platform-agnostic).
+  5. Support multiple gateways via the same `GatewayStore`.
+  6. Keychain tokens stored separately per device (same key scheme, not synced).
+- **Validation**: Chat on iOS, see the same conversation on macOS within one sync cycle.
 
 ---
 
