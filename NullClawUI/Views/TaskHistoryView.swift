@@ -34,7 +34,8 @@ struct TaskHistoryView: View {
                 }
             }
             .navigationTitle("History")
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search conversations")
+            .searchable(text: $searchText, placement: .toolbar, prompt: "Search conversations")
+            .searchToolbarBehavior(.minimize)
         }
     }
 
