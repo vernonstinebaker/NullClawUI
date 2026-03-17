@@ -234,17 +234,18 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 14: Gateway Status Dashboard ❌
+## Phase 14: Gateway Status Dashboard ✅
 
-- **Goal**: Provide a read-only native dashboard showing live gateway state — model, provider, uptime, MCP server health, and channel connection status — without requiring any new server-side API endpoints.
-- **Background**: The gateway exposes no REST management endpoints beyond `/health` and `/agent-card.json`. All structured information is retrieved by sending pre-composed prompts to the agent via A2A and parsing the response. The agent understands queries like "what model and provider are you using?" or "list your MCP tools and their status".
-- **Tasks**:
-  1. Add a **"Status" tab** (or Settings section) in the app. On iPhone: new tab in `TabView`. On iPad: new column or section in the sidebar.
-  2. Compose and send a gateway-info prompt on tab open; parse the agent's reply and render: active model name, provider, uptime string, and a summary list of MCP servers (name + connected/failed indicator).
-  3. Compose and send a channels prompt; render a read-only list of configured channel integrations (Discord, Mattermost, Telegram, etc.) and their connection state.
-  4. Add a manual "Refresh" button and auto-refresh on foreground transition.
-- **Constraint**: All data is fetched via A2A chat — no direct file or config API access.
-- **Validation**: Opening the Status tab shows current model, provider, MCP server list, and channel list populated from real gateway responses.
+- **Goal**: Multi-gateway health overview + on-demand live status in Settings detail.
+- **Design** (redesigned from original A2A-prompt approach):
+  - **Status tab** (`GatewayStatusView`): fast, lightweight list of all gateway profiles. Fires concurrent `GET /health` against every profile simultaneously — no A2A prompts, results appear in under a second. Each row shows: status dot (green/red/grey), name, host, "Active" badge, last-checked relative time, and a quick-switch button for inactive gateways. Pull-to-refresh supported.
+  - **Live Status section** in `GatewayDetailView` (Settings → tap a gateway): on-demand MCP servers and channels list, loaded by tapping "Load Live Status". Uses A2A prompt streaming against the active gateway only. Reload button appears once loaded.
+- **Files**:
+  - `GatewayStatusViewModel.swift` — per-profile `/health` poller using `TaskGroup`; holds `[UUID: ProfileHealthState]`
+  - `GatewayStatusView.swift` — multi-gateway health list with pull-to-refresh
+  - `PairedSettingsView.swift` — `GatewayDetailView` enhanced with `GatewayLiveStatus`, `MCPServerStatus`, `ChannelStatus` models and on-demand A2A section
+  - `MainTabView.swift` — Status tab at index 2 (`gauge.with.dots.needle.67percent`)
+- **Validation**: Status tab immediately shows all gateways with live health dots. GatewayDetailView Live Status section loads MCP/channels on demand for the active gateway.
 
 ---
 

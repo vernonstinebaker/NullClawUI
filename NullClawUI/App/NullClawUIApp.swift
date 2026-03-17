@@ -15,6 +15,8 @@ struct NullClawUIApp: App {
     @State private var chatVM: ChatViewModel
     // Phase 13: periodic health monitor — nil during UI testing (no real gateway).
     @State private var healthMonitor: GatewayHealthMonitor? = nil
+    // Phase 14: gateway status dashboard view model.
+    @State private var statusVM: GatewayStatusViewModel
     @Environment(\.scenePhase) private var scenePhase
 
     // Shared SwiftData container — held here so it stays alive for the app lifetime.
@@ -59,11 +61,13 @@ struct NullClawUIApp: App {
 
             let gvm = GatewayViewModel(appModel: m)
             let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
+            let svm = GatewayStatusViewModel(store: s)
             _store = State(wrappedValue: s)
             _conversationStore = State(wrappedValue: cs)
             _appModel = State(wrappedValue: m)
             _gatewayVM = State(wrappedValue: gvm)
             _chatVM = State(wrappedValue: cvm)
+            _statusVM = State(wrappedValue: svm)
             // healthMonitor stays nil for UI tests — no real gateway to poll.
             return
         }
@@ -113,12 +117,14 @@ struct NullClawUIApp: App {
         let m = AppModel(store: s)
         let gvm = GatewayViewModel(appModel: m)
         let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
+        let svm = GatewayStatusViewModel(store: s)
 
         _store = State(wrappedValue: s)
         _conversationStore = State(wrappedValue: cs)
         _appModel = State(wrappedValue: m)
         _gatewayVM = State(wrappedValue: gvm)
         _chatVM = State(wrappedValue: cvm)
+        _statusVM = State(wrappedValue: svm)
         // healthMonitor is created in setupGateway() so it can close over the @State
         // objects that are fully initialised by the time the first .task fires.
     }
@@ -131,6 +137,7 @@ struct NullClawUIApp: App {
                 .environment(appModel)
                 .environment(gatewayVM)
                 .environment(chatVM)
+                .environment(statusVM)
                 .tint(appModel.agentCard?.accentColor.flatMap(Color.init(hex:)) ?? .accentColor)
                 .task {
                     await setupGateway()
