@@ -31,8 +31,6 @@ final class GatewayStatusViewModel {
 
     /// Provides all known profiles in display order.
     var store: GatewayStore
-    /// Returns the active profile ID.
-    var activeProfileID: UUID? { store.activeProfile?.id }
     /// Optional: if a custom session config is injected (for tests), use it.
     var mockSessionConfig: URLSessionConfiguration?
 
