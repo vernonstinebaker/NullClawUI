@@ -3,7 +3,6 @@ import SwiftUI
 /// Phase 6: adaptive layout (Sidebar on iPad, Stack/Tabs on iPhone).
 struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(GatewayStatusViewModel.self) private var statusVM
 
     var gatewayViewModel: GatewayViewModel
     var chatViewModel: ChatViewModel
@@ -37,10 +36,7 @@ struct MainTabView: View {
                     Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: 1) {
                         TaskHistoryView(viewModel: chatViewModel)
                     }
-                    Tab("Status", systemImage: "gauge.with.dots.needle.67percent", value: 2) {
-                        GatewayStatusView(statusVM: statusVM)
-                    }
-                    Tab("Settings", systemImage: "gear", value: 3) {
+                    Tab("Settings", systemImage: "gear", value: 2) {
                         PairedSettingsView()
                     }
                 }

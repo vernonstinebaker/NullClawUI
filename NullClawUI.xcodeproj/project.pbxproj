@@ -34,7 +34,6 @@
 		E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */; };
 		EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* GatewayStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* GatewayStatusViewModel.swift */; };
-		F2A3B4C5D6E7F8A9B0C1D2E3 /* GatewayStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* GatewayStatusView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,7 +79,6 @@
 		CA050EC7586B87B2D60FC214 /* GatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClient.swift; sourceTree = "<group>"; };
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GatewayStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStatusViewModel.swift; sourceTree = "<group>"; };
-		B2C3D4E5F6A7B8C9D0E1F2A3 /* GatewayStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStatusView.swift; sourceTree = "<group>"; };
 		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedSettingsView.swift; sourceTree = "<group>"; };
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
@@ -173,7 +171,6 @@
 				BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */,
 				2211EF38611CF618453B2921 /* ContentView.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
-				B2C3D4E5F6A7B8C9D0E1F2A3 /* GatewayStatusView.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
 				8A879BA976476DF9DECFFA87 /* SettingsView.swift */,
@@ -367,7 +364,6 @@
 				E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */,
 				792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */,
 				9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */,
-				F2A3B4C5D6E7F8A9B0C1D2E3 /* GatewayStatusView.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* GatewayStatusViewModel.swift in Sources */,
 				A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */,
 				D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */,
