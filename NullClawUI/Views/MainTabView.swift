@@ -1,5 +1,27 @@
 import SwiftUI
 
+// MARK: - Tab selection
+
+/// Tab identifiers for the iPhone tab bar.
+/// .search is used only to remember which tab the user was on before
+/// tapping the search tab — it is not used as a TabView selection value.
+enum AppTab: Hashable {
+    case chat
+    case history
+    case settings
+    case search
+}
+
+// MARK: - iPad Sidebar Selection
+
+/// Identifies what is selected in the iPad sidebar.
+enum SidebarSelection: Hashable {
+    case history
+    case settings
+}
+
+// MARK: - MainTabView
+
 /// Phase 6: adaptive layout (Sidebar on iPad, Stack/Tabs on iPhone).
 struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -9,67 +31,85 @@ struct MainTabView: View {
 
     // For SplitView navigation
     @State private var selectedTaskID: String? = nil
-    @State private var showingSettings = false
+    /// iPad sidebar selection: .history (default) or .settings.
+    @State private var sidebarSelection: SidebarSelection = .history
     // For iPhone TabView — tracks the active tab so we can switch to Chat programmatically.
-    @State private var selectedTab: Int = 0
+    @State private var selectedTab: AppTab = .chat
+    // Remembers which content tab was active before the user tapped Search,
+    // so SearchResultsView can scope its results to the relevant context.
+    @State private var previousTab: AppTab = .chat
 
-    // Search state lifted to TabView level so iOS 26 places the field at the bottom of the screen.
-    @State private var searchText: String = ""
-
-    /// Prompt changes depending on the active tab.
-    private var searchPrompt: String {
-        switch selectedTab {
-        case 1:  return "Search conversations"
-        case 2:  return "Search gateways"
-        default: return "Search"
+    var body: some View {
+        if horizontalSizeClass == .regular {
+            ipadBody
+        } else {
+            iphoneBody
         }
     }
 
-    var body: some View {
-        Group {
-            if horizontalSizeClass == .regular {
-                // iPadOS: SplitView
-                NavigationSplitView {
-                    SidebarView(
-                        viewModel: chatViewModel,
-                        gatewayViewModel: gatewayViewModel,
-                        selectedTaskID: $selectedTaskID,
-                        showingSettings: $showingSettings
-                    )
-                } detail: {
-                    ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
-                }
-            } else {
-                // iPhone: TabView with programmatic tab selection.
-                // .searchable is placed here (on the TabView) so iOS 26 routes the
-                // search field to the bottom of the screen, above the tab bar —
-                // the correct Liquid Glass placement per WWDC25 session 323.
-                TabView(selection: $selectedTab) {
-                    Tab("Chat", systemImage: "bubble.left.and.bubble.right.fill", value: 0) {
-                        ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
-                    }
-                    Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: 1) {
-                        TaskHistoryView(viewModel: chatViewModel, searchText: $searchText)
-                    }
-                    Tab("Settings", systemImage: "gear", value: 2) {
-                        PairedSettingsView(searchText: $searchText)
-                    }
-                }
-                .searchable(text: $searchText, placement: .toolbar, prompt: searchPrompt)
-                .onChange(of: selectedTab) { _, _ in
-                    // Clear search when switching tabs so stale results don't carry over.
-                    searchText = ""
-                }
-                .onChange(of: chatViewModel.chatTabRequested) { _, _ in
-                    // Switch to the Chat tab whenever a history task is loaded.
-                    // Using an Int counter (not a Bool toggle) so rapid increments
-                    // are never coalesced and dropped by SwiftUI.
-                    selectedTab = 0
+    // iPad: three-column NavigationSplitView.
+    //   Column 1 (sidebar):  conversation history + gear button
+    //   Column 2 (content):  settings list (when sidebarSelection == .settings)
+    //   Column 3 (detail):   chat view (default) or gateway detail
+    //
+    // When the user taps the gear icon, sidebarSelection flips to .settings and
+    // the content column slides in with PairedSettingsView — no sheet, no dismiss button needed.
+    // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
+    @ViewBuilder
+    private var ipadBody: some View {
+        NavigationSplitView {
+            SidebarView(
+                viewModel: chatViewModel,
+                gatewayViewModel: gatewayViewModel,
+                selectedTaskID: $selectedTaskID,
+                sidebarSelection: $sidebarSelection
+            )
+        } content: {
+            switch sidebarSelection {
+            case .settings:
+                PairedSettingsView()
+            case .history:
+                // Content column is unused in history mode; show an empty placeholder
+                // so NavigationSplitView keeps the three-column layout stable.
+                Color.clear
+            }
+        } detail: {
+            ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
+        }
+    }
+
+    // iPhone: plain TabView with Tab(role: .search) following the Apple WishList sample pattern.
+    // No .tabViewStyle(.sidebarAdaptable) — that style routes .searchable into every nav bar.
+    // The search tab tracks which content tab was previously selected so results are scoped.
+    // NOTE: No pure layout test — covered by visual inspection in Simulator.
+    @ViewBuilder
+    private var iphoneBody: some View {
+        TabView(selection: $selectedTab) {
+            Tab("Chat", systemImage: "bubble.left.and.bubble.right.fill", value: AppTab.chat) {
+                ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
+            }
+            Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: AppTab.history) {
+                TaskHistoryView(viewModel: chatViewModel)
+            }
+            Tab("Settings", systemImage: "gear", value: AppTab.settings) {
+                // NavigationStack is required here since PairedSettingsView no longer
+                // wraps itself (on iPad, the NavigationSplitView content column provides it).
+                NavigationStack {
+                    PairedSettingsView()
                 }
             }
+            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
+                SearchResultsView(chatViewModel: chatViewModel, sourceTab: previousTab)
+            }
         }
-        .sheet(isPresented: $showingSettings) {
-            PairedSettingsView()
+        .onChange(of: selectedTab) { old, new in
+            // Remember the last non-search tab so SearchResultsView can scope results.
+            if old != .search {
+                previousTab = old
+            }
+        }
+        .onChange(of: chatViewModel.chatTabRequested) { _, _ in
+            selectedTab = .chat
         }
     }
 }
@@ -78,7 +118,7 @@ private struct SidebarView: View {
     var viewModel: ChatViewModel
     var gatewayViewModel: GatewayViewModel
     @Binding var selectedTaskID: String?
-    @Binding var showingSettings: Bool
+    @Binding var sidebarSelection: SidebarSelection
     @Environment(ConversationStore.self) private var conversationStore
     @Environment(GatewayStore.self) private var gatewayStore
 
@@ -162,7 +202,13 @@ private struct SidebarView: View {
         .navigationTitle("NullClaw")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showingSettings = true } label: { Label("Settings", systemImage: "gear") }
+                Button {
+                    // Toggle between history and settings in the content column.
+                    sidebarSelection = sidebarSelection == .settings ? .history : .settings
+                } label: {
+                    Label("Settings", systemImage: sidebarSelection == .settings ? "gear.badge.checkmark" : "gear")
+                }
+                .accessibilityLabel(sidebarSelection == .settings ? "Close Settings" : "Open Settings")
             }
         }
     }
@@ -173,5 +219,156 @@ private struct SidebarView: View {
             return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
         }
         return Self.absoluteFormatter.string(from: date)
+    }
+}
+
+// MARK: - SearchResultsView
+
+/// Content shown in the dedicated search tab (Tab role: .search).
+/// Follows the Apple WishList sample pattern: .searchable is placed on the
+/// NavigationStack inside this view, not on the TabView. This confines the
+/// search bar to this tab only — no leakage into other tabs' nav bars.
+///
+/// Results are scoped to the tab the user came from:
+///   • History → search conversations only
+///   • Settings → search gateways only
+///   • Chat (or unknown) → search both
+private struct SearchResultsView: View {
+    var chatViewModel: ChatViewModel
+    /// The tab that was active before the user tapped Search.
+    var sourceTab: AppTab
+
+    @State private var searchText: String = ""
+    @Environment(ConversationStore.self) private var conversationStore
+    @Environment(GatewayStore.self) private var gatewayStore
+    @Environment(GatewayViewModel.self) private var gatewayViewModel
+
+    private var searchPrompt: String {
+        switch sourceTab {
+        case .history: return "Search conversations"
+        case .settings: return "Search gateways"
+        default: return "Search conversations & gateways"
+        }
+    }
+
+    private var showConversations: Bool { sourceTab != .settings }
+    private var showGateways: Bool { sourceTab != .history }
+
+    private var filteredRecords: [ConversationRecord] {
+        guard showConversations else { return [] }
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return conversationStore.records }
+        return conversationStore.records.filter {
+            $0.title.lowercased().contains(q) || $0.gatewayName.lowercased().contains(q)
+        }
+    }
+
+    private var filteredProfiles: [GatewayProfile] {
+        guard showGateways else { return [] }
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return gatewayStore.profiles }
+        return gatewayStore.profiles.filter {
+            $0.name.lowercased().contains(q) || $0.displayHost.lowercased().contains(q)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ContentUnavailableView(
+                        "Search",
+                        systemImage: "magnifyingglass",
+                        description: Text(emptyPromptDescription)
+                    )
+                } else if filteredRecords.isEmpty && filteredProfiles.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                } else {
+                    List {
+                        if !filteredRecords.isEmpty {
+                            Section("Conversations") {
+                                ForEach(filteredRecords) { record in
+                                    let isActive = chatViewModel.activeRecordID == record.id
+                                    let isLoading = isActive && chatViewModel.isLoadingHistory
+                                    Button {
+                                        guard !chatViewModel.isLoadingHistory else { return }
+                                        Task { await chatViewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Circle()
+                                                .fill(Color.accentColor.opacity(0.12))
+                                                .frame(width: 36, height: 36)
+                                                .overlay {
+                                                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                                                        .font(.system(size: 14, weight: .medium))
+                                                        .foregroundStyle(Color.accentColor)
+                                                }
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(record.title)
+                                                    .font(.subheadline.weight(.medium))
+                                                    .lineLimit(1)
+                                                Text(record.gatewayName)
+                                                    .font(.caption2.weight(.semibold))
+                                                    .foregroundStyle(Color.accentColor)
+                                            }
+                                            Spacer(minLength: 0)
+                                            if isLoading {
+                                                ProgressView().controlSize(.small)
+                                            } else if isActive {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundStyle(Color.accentColor)
+                                                    .font(.caption)
+                                            }
+                                        }
+                                    }
+                                    .accessibilityLabel("Conversation: \(record.title) on \(record.gatewayName)")
+                                    .accessibilityHint("Tap to open this conversation in Chat")
+                                }
+                            }
+                        }
+                        if !filteredProfiles.isEmpty {
+                            Section("Gateways") {
+                                ForEach(filteredProfiles) { profile in
+                                    NavigationLink {
+                                        GatewayDetailView(profile: profile)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Circle()
+                                                .fill(Color(.systemFill))
+                                                .frame(width: 36, height: 36)
+                                                .overlay {
+                                                    Image(systemName: "server.rack")
+                                                        .font(.system(size: 14, weight: .medium))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(profile.name)
+                                                    .font(.subheadline.weight(.medium))
+                                                Text(profile.displayHost)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+                                    .accessibilityLabel("Gateway: \(profile.name) at \(profile.displayHost)")
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                }
+            }
+            .navigationTitle("Search")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, prompt: searchPrompt)
+        }
+    }
+
+    private var emptyPromptDescription: String {
+        switch sourceTab {
+        case .history: return "Search your conversation history."
+        case .settings: return "Search your configured gateways."
+        default: return "Search conversations and gateways."
+        }
     }
 }

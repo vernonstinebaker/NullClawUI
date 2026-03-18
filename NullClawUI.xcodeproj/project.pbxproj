@@ -12,13 +12,16 @@
 		2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA2CB9C003C8025B742C7D /* MainTabView.swift */; };
 		3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */; };
 		3E64ABF9FD76A909E6875619 /* NullClawUIUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C9B668A10A66138C052549 /* NullClawUIUITests.swift */; };
+		4C0AC42B91F7ED0360B8D394 /* CronJobListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86331E234CC107BD5471DBE7 /* CronJobListView.swift */; };
 		51D91DC2B8D5B19632AC55EB /* TaskHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */; };
 		599CCF57DCC74EEA49AAF9B8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */; };
 		792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4586808D41B6CE56D04176A0 /* GatewayProfile.swift */; };
 		7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */; };
+		84691A62A851F7883071C557 /* CronJobViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53862F9DC7908CB505A84627 /* CronJobViewModel.swift */; };
 		879851702FDB296A7AA8EF8D /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 926367C0C86587FB306CDD2C /* MarkdownUI */; };
 		919E77BC06606B0AB5A82C48 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */; };
 		95B6DB68141F596399C77651 /* NullClawUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */; };
+		9BC494860EB9CB61196054F6 /* GatewayStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */; };
 		9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F344154517C845148851E370 /* GatewayStore.swift */; };
 		A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */; };
 		A8B6645D086598650A813BB8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2211EF38611CF618453B2921 /* ContentView.swift */; };
@@ -30,10 +33,10 @@
 		C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A727AFB0435F24F2346AE65C /* KeychainService.swift */; };
 		C9F21BCC5224D6A98DC17D83 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03240766199909EB8710D1B /* ChatViewModel.swift */; };
 		D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A2F5B1789710AF160D8545 /* GlassCard.swift */; };
+		D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B541BEB81F62E4F0D3174FA /* CronJob.swift */; };
 		DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050EC7586B87B2D60FC214 /* GatewayClient.swift */; };
 		E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */; };
 		EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */; };
-		F1A2B3C4D5E6F7A8B9C0D1E2 /* GatewayStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* GatewayStatusViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,12 +65,16 @@
 		365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayHealthMonitor.swift; sourceTree = "<group>"; };
 		389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUITests.swift; sourceTree = "<group>"; };
 		3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayViewModel.swift; sourceTree = "<group>"; };
+		3B541BEB81F62E4F0D3174FA /* CronJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJob.swift; sourceTree = "<group>"; };
 		4586808D41B6CE56D04176A0 /* GatewayProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayProfile.swift; sourceTree = "<group>"; };
 		46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A2AMessage.swift; sourceTree = "<group>"; };
 		4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewModel.swift; sourceTree = "<group>"; };
+		53862F9DC7908CB505A84627 /* CronJobViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobViewModel.swift; sourceTree = "<group>"; };
+		5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStatusViewModel.swift; sourceTree = "<group>"; };
 		5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		72DA2CB9C003C8025B742C7D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		86331E234CC107BD5471DBE7 /* CronJobListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobListView.swift; sourceTree = "<group>"; };
 		8A879BA976476DF9DECFFA87 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskHistoryView.swift; sourceTree = "<group>"; };
 		A03240766199909EB8710D1B /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
@@ -78,8 +85,7 @@
 		BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		CA050EC7586B87B2D60FC214 /* GatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClient.swift; sourceTree = "<group>"; };
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* GatewayStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStatusViewModel.swift; sourceTree = "<group>"; };
-		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedSettingsView.swift; sourceTree = "<group>"; };
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
 		F344154517C845148851E370 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
@@ -104,6 +110,7 @@
 				46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */,
 				BAA0E8EAD82E62F5C960BD12 /* AgentCard.swift */,
 				0F27D4DC37FD7A7C678D285C /* ConversationRecord.swift */,
+				3B541BEB81F62E4F0D3174FA /* CronJob.swift */,
 				4586808D41B6CE56D04176A0 /* GatewayProfile.swift */,
 			);
 			path = Models;
@@ -170,6 +177,7 @@
 			children = (
 				BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */,
 				2211EF38611CF618453B2921 /* ContentView.swift */,
+				86331E234CC107BD5471DBE7 /* CronJobListView.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
@@ -207,8 +215,9 @@
 			isa = PBXGroup;
 			children = (
 				A03240766199909EB8710D1B /* ChatViewModel.swift */,
+				53862F9DC7908CB505A84627 /* CronJobViewModel.swift */,
+				5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */,
 				3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */,
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* GatewayStatusViewModel.swift */,
 				4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */,
 			);
 			path = ViewModels;
@@ -359,12 +368,15 @@
 				EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */,
 				A8B6645D086598650A813BB8 /* ContentView.swift in Sources */,
 				AD3D252E3AB29E03F2448155 /* ConversationRecord.swift in Sources */,
+				D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */,
+				4C0AC42B91F7ED0360B8D394 /* CronJobListView.swift in Sources */,
+				84691A62A851F7883071C557 /* CronJobViewModel.swift in Sources */,
 				DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */,
 				BDC30F6F064666E142A7B659 /* GatewayDiscoveryModel.swift in Sources */,
 				E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */,
 				792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */,
+				9BC494860EB9CB61196054F6 /* GatewayStatusViewModel.swift in Sources */,
 				9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */,
-				F1A2B3C4D5E6F7A8B9C0D1E2 /* GatewayStatusViewModel.swift in Sources */,
 				A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */,
 				D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */,
 				C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */,
@@ -603,7 +615,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = ;
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -626,7 +637,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = ;
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (

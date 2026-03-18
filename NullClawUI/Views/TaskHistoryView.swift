@@ -3,25 +3,15 @@ import SwiftUI
 // MARK: - TaskHistoryView
 
 /// Shows locally-persisted conversation records with timestamps, gateway name, and title.
-/// Supports search/filter (driven by the parent TabView's bottom search field), swipe-to-delete,
-/// and dual-format timestamps.
+/// Supports swipe-to-delete and dual-format timestamps.
+/// Search is handled exclusively via the dedicated Search tab (Tab role: .search).
 struct TaskHistoryView: View {
     var viewModel: ChatViewModel
-    /// Search text bound from the parent TabView's .searchable modifier so the
-    /// iOS 26 bottom-of-screen search field drives filtering in this tab.
-    @Binding var searchText: String
     @Environment(ConversationStore.self) private var conversationStore
     @Environment(GatewayViewModel.self) private var gatewayViewModel
 
-    private var filteredRecords: [ConversationRecord] {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return conversationStore.records
-        }
-        let query = searchText.lowercased()
-        return conversationStore.records.filter {
-            $0.title.lowercased().contains(query) ||
-            $0.gatewayName.lowercased().contains(query)
-        }
+    private var records: [ConversationRecord] {
+        conversationStore.records
     }
 
     var body: some View {
@@ -29,8 +19,6 @@ struct TaskHistoryView: View {
             Group {
                 if conversationStore.records.isEmpty {
                     emptyState
-                } else if filteredRecords.isEmpty {
-                    noResultsState
                 } else {
                     recordList
                 }
@@ -59,30 +47,11 @@ struct TaskHistoryView: View {
         .padding()
     }
 
-    // MARK: - No search results state
-
-    private var noResultsState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 48, weight: .ultraLight))
-                .foregroundStyle(.quaternary)
-            Text("No Results")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text("No conversations match \"\(searchText)\".")
-                .font(.subheadline)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-    }
-
     // MARK: - Record list
 
     private var recordList: some View {
         List {
-            ForEach(filteredRecords) { record in
+            ForEach(records) { record in
                 let isActive = viewModel.activeRecordID == record.id
                 let isLoading = isActive && viewModel.isLoadingHistory
 

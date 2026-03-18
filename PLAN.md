@@ -249,7 +249,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 15: Cron Job Manager ❌
+## Phase 15: Cron Job Manager ✅
 
 - **Goal**: Let users view, pause/resume, trigger, add, and delete gateway cron jobs from native UI.
 - **Background**: The gateway stores cron jobs in `cron.json`. The agent understands commands like "list my cron jobs", "pause cron job heartbeat-1", "run cron job heartbeat-1 now", and "delete cron job heartbeat-1". Adding a job requires the agent to write a new entry; the app composes the appropriate prompt.
