@@ -234,7 +234,7 @@ final class ConversationStore {
     // MARK: - Persistence
 
     private func save() {
-        try? context.save()
+        do { try context.save() } catch { print("[ConversationStore] Save failed: \(error)") }
     }
 
     private func loadRecords() {

@@ -33,7 +33,7 @@ struct AgentConfigView: View {
                     Label("Pair this gateway to view agent configuration.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && viewModel.config == AgentConfig() {
+            } else if viewModel.isLoading && !viewModel.isLoaded {
                 Section {
                     HStack {
                         ProgressView()
@@ -79,7 +79,7 @@ struct AgentConfigView: View {
         }
         .task {
             guard profile.isPaired else { return }
-            if viewModel.config == AgentConfig() {
+            if !viewModel.isLoaded {
                 await viewModel.load()
                 syncDrafts()
             }

@@ -61,7 +61,7 @@ final class GatewayStore {
         self._container = container
         self.context = container.mainContext
         context.insert(testProfile)
-        try? context.save()
+        do { try context.save() } catch { print("[GatewayStore] Warning: failed to save test profile: \(error)") }
         profiles = [testProfile]
         activeProfileID = testProfile.id
     }
@@ -152,7 +152,7 @@ final class GatewayStore {
     // MARK: - Persistence
 
     private func save() {
-        try? context.save()
+        do { try context.save() } catch { print("[GatewayStore] Save failed: \(error)") }
     }
 
     private func saveActiveID() {

@@ -128,7 +128,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
   - Token double-unwrap bug in `SettingsView.swift` fixed.
   - `TypingIndicator` rewritten with per-dot `@State var isUp` + `.repeatForever` animations.
   - `ConnectionBadge` demoted to non-interactive static status display.
-  - 174 unit tests passing.
+  - 174 unit tests passing (now 407+ with Phases 16-19 and regression coverage).
 
 ---
 
@@ -140,7 +140,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
   - **ChatView**: asymmetric bubble corners, per-role avatar dots, `ultraThinMaterial` input bar.
   - **PairedSettingsView**: hero header with agent avatar, `ConnectionBadge` inline.
   - **New Conversation**: pencil icon in `ChatView` navbar; sidebar button on iPad.
-  - `--uitesting-paired` launch mode for UI tests; 36 UI tests (3 skipped), 0 failures.
+  - `--uitesting-paired` launch mode for UI tests; 37 UI tests (3 skipped), 0 failures.
 
 ---
 
@@ -187,7 +187,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
   ### Test updates
   - Settings tests updated for new navigation title (`"Gateways"`) and detail-page flow.
   - New test: `testGatewayRowNavigatesToDetail` — verifies `NavigationLink` pushes detail with correct title.
-  - All 36 UI tests pass (3 skipped), 0 failures.
+  - All 37 UI tests pass (3 skipped), 0 failures.
 
 ---
 
@@ -368,7 +368,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 - **`MCPServerViewModel`** (`ViewModels/MCPServerViewModel.swift`): `@Observable @MainActor` class. `load()` sends structured one-shot prompt and parses into `[MCPServer]`. Parser handles both bare JSON array and `{ "mcp_servers": [...] }` wrapped object. `remove(_:)` sends deletion prompt and re-fetches. `addServer(_:)` sends creation prompt and re-fetches. `removingName` tracks which server is being deleted (for per-row spinner). `confirmationMessage` / `errorMessage` banners.
 - **`MCPServerListView`** (`Views/MCPServerListView.swift`): `NavigationLink` target in `PairedSettingsView`. Shows all servers with transport icon (globe for HTTP, terminal for stdio), transport badge pill, endpoint summary, and connection status (green/red/grey). Swipe-left to remove. Tap row → `MCPServerDetailView` (read-only: transport, endpoint, timeout, env keys masked). Add toolbar button → `AddMCPServerSheet` (name, transport picker, command+args for stdio, URL for http, optional timeout). Pull-to-refresh reloads.
 - **NavigationLink** added to `GatewayDetailView` in `PairedSettingsView.swift` (label: "MCP Servers", icon: `puzzlepiece.extension.fill`).
-- **19 unit tests** in `MCPServerViewModelTests`: parse happy path (array), parse happy path (wrapped object), connected nil when absent, empty array, no-JSON throws, prose prefix, `load()` nil client, reentrancy guard, `remove()` nil client, `MCPServer` computed helpers (transportLabel ×3, endpointDescription ×3, id), `MCPServerDraft.toPrompt()` (stdio, http), `loadPrompt` content, `MCPServerParseError` descriptions. Total test count: **208**.
+- **19 unit tests** in `MCPServerViewModelTests`: parse happy path (array), parse happy path (wrapped object), connected nil when absent, empty array, no-JSON throws, prose prefix, `load()` nil client, reentrancy guard, `remove()` nil client, `MCPServer` computed helpers (transportLabel ×3, endpointDescription ×3, id), `MCPServerDraft.toPrompt()` (stdio, http), `loadPrompt` content, `MCPServerParseError` descriptions. Total test count at Phase 18: **208** (now 407+).
 
 ---
 

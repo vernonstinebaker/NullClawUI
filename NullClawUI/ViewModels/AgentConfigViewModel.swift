@@ -48,6 +48,7 @@ final class AgentConfigViewModel {
     private(set) var config: AgentConfig = AgentConfig()
     private(set) var isLoading: Bool = false
     private(set) var isSaving: Bool = false
+    private(set) var isLoaded: Bool = false
     var errorMessage: String? = nil
     var confirmationMessage: String? = nil
 
@@ -78,6 +79,7 @@ final class AgentConfigViewModel {
         do {
             let reply = try await c.sendOneShot(Self.loadPrompt)
             config = try parseConfig(from: reply)
+            isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
         }

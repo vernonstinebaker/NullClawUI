@@ -31,7 +31,7 @@ struct AutonomyView: View {
                     Label("Pair this gateway to view autonomy configuration.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && viewModel.config == AutonomyConfig() {
+            } else if viewModel.isLoading && !viewModel.isLoaded {
                 Section {
                     HStack {
                         ProgressView()
@@ -77,7 +77,7 @@ struct AutonomyView: View {
         }
         .task {
             guard profile.isPaired else { return }
-            if viewModel.config == AutonomyConfig() {
+            if !viewModel.isLoaded {
                 await viewModel.load()
                 syncDrafts()
             }
