@@ -62,9 +62,12 @@ actor GatewayClient {
 
     // MARK: Init
 
-    init(baseURL: URL, token: String? = nil, mockSessionConfig: URLSessionConfiguration? = nil) {
+    init(baseURL: URL, token: String? = nil, requiresPairing: Bool = true, mockSessionConfig: URLSessionConfiguration? = nil) {
         self.baseURL = baseURL
-        self.bearerToken = token
+        self.bearerToken = token.flatMap { $0.isEmpty ? nil : $0 }
+        // Open gateways (requiresPairing: false) never issue tokens. Setting pairingMode
+        // to .notRequired here allows all API calls to proceed without a bearer token.
+        self.pairingMode = requiresPairing ? .required : .notRequired
         if let cfg = mockSessionConfig {
             self.session = URLSession(configuration: cfg)
             self.sseSession = URLSession(configuration: cfg)
@@ -168,12 +171,7 @@ actor GatewayClient {
                                     method: "message/stream",
                                     params: params)
         let url = baseURL.appendingPathComponent("a2a")
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = bearerToken {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(rpc)
 
         let (asyncBytes, response) = try await sseSession.bytes(for: req)
@@ -275,6 +273,34 @@ actor GatewayClient {
         req.httpBody = try encoder.encode(rpc)
         let (_, response) = try await session.data(for: req)
         try validate(response)
+    }
+
+    // MARK: - Phase 16+: sendOneShot helper (used by config/status/cron ViewModels)
+
+    /// Sends a one-shot user prompt via `message/stream` and collects the complete reply text.
+    /// Assembles `artifact-update` chunks in order; non-artifact events are ignored.
+    /// Throws if the client is unpaired or the network call fails.
+    func sendOneShot(_ prompt: String) async throws -> String {
+        let message = A2AMessage(
+            role: "user",
+            parts: [MessagePart(text: prompt, kind: "text")],
+            contextId: nil
+        )
+        let stream = try await streamMessage(message)
+        var reply = ""
+        for try await event in stream {
+            guard let result = event.result else { continue }
+            if result.kind == "artifact-update",
+               let parts = result.artifact?.parts {
+                let chunk = parts.compactMap { $0.text }.joined()
+                if result.append == true {
+                    reply += chunk
+                } else {
+                    reply = chunk
+                }
+            }
+        }
+        return reply
     }
 
     // MARK: - Helpers
@@ -452,30 +478,15 @@ actor GatewayClient {
     }
 
     /// Cursor-based boundary search for use with `Data` buffers.
-    /// Returns offsets relative to `start`.
+    /// Delegates to the `[UInt8]` overload to avoid duplicating the search logic.
     private nonisolated static func nextSSEEventBoundary(
         in buffer: Data,
         from start: Int
     ) -> (eventEnd: Int, consumedLength: Int)? {
-        let count = buffer.count
-        if count - start >= 4 {
-            for index in start...(count - 4) {
-                if buffer[index] == 13,
-                   buffer[index + 1] == 10,
-                   buffer[index + 2] == 13,
-                   buffer[index + 3] == 10 {
-                    return (eventEnd: index - start, consumedLength: index - start + 4)
-                }
-            }
-        }
-        if count - start >= 2 {
-            for index in start...(count - 2) {
-                if buffer[index] == 10, buffer[index + 1] == 10 {
-                    return (eventEnd: index - start, consumedLength: index - start + 2)
-                }
-            }
-        }
-        return nil
+        // Convert only the unprocessed suffix so that the [UInt8] overload's
+        // index arithmetic (which is always relative to the slice start) is correct.
+        let slice = Array(buffer[start...])
+        return nextSSEEventBoundary(in: slice, from: 0)
     }
 }
 

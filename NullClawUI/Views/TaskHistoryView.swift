@@ -73,6 +73,7 @@ struct TaskHistoryView: View {
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
+                    .tint(.red)
                 }
             }
         }

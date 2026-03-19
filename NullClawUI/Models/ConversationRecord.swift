@@ -181,25 +181,34 @@ final class ConversationStore {
     ) {
         guard let rec = current else { return }
 
+        var didMutate = false
+
         if let tid = serverTaskID, rec.serverTaskID == nil {
             rec.serverTaskID = tid
+            didMutate = true
         }
         if let cid = contextID, rec.contextID == nil {
             rec.contextID = cid
+            didMutate = true
         }
         if let text = firstUserText, rec.title == "New Conversation" {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 rec.title = String(trimmed.prefix(80))
+                didMutate = true
             }
         }
         if incrementMessages {
             rec.messageCount += 1
             rec.lastMessageAt = Date()
+            didMutate = true
         }
         if let preview = lastMessagePreview {
             rec.lastMessagePreview = String(preview.prefix(120))
+            didMutate = true
         }
+
+        guard didMutate else { return }
         save()
         loadRecords()
     }

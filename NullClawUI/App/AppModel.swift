@@ -47,6 +47,10 @@ final class AppModel {
     /// Current gateway reachability state.
     var connectionStatus: ConnectionStatus = .unknown
 
+    /// True while the app is performing the initial open-gateway probe at launch.
+    /// ContentView shows a loading spinner instead of SettingsView during this window.
+    var isCheckingGateway: Bool = true
+
     // MARK: - Convenience passthroughs (keep callers compatible)
 
     /// URL of the currently-active gateway profile.

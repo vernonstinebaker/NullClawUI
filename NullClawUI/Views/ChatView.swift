@@ -12,6 +12,8 @@ struct ChatView: View {
     @Environment(AppModel.self) private var appModel
     @FocusState private var isInputFocused: Bool
     @State private var showingGatewayPicker = false
+    /// Tracks the in-flight gateway-switch task so rapid taps can't stack up concurrent switches.
+    @State private var switchGatewayTask: Task<Void, Never>? = nil
 
     var body: some View {
         NavigationStack {
@@ -56,7 +58,8 @@ struct ChatView: View {
                 ForEach(store.profiles) { profile in
                     Button {
                         guard profile.id != store.activeProfile?.id else { return }
-                        Task {
+                        switchGatewayTask?.cancel()
+                        switchGatewayTask = Task {
                             let newClient = await gatewayViewModel.switchGateway(to: profile)
                             viewModel.resetForNewGateway(client: newClient, gateway: profile)
                         }

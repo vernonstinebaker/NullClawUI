@@ -117,6 +117,7 @@ final class GatewayStatusViewModel {
             session = URLSession(configuration: cfg)
         }
 
+        defer { session.invalidateAndCancel() }
         do {
             let (_, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse,

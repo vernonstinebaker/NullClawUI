@@ -17,6 +17,9 @@ struct NullClawUIApp: App {
     @State private var healthMonitor: GatewayHealthMonitor? = nil
     // Phase 14: gateway status dashboard view model.
     @State private var statusVM: GatewayStatusViewModel
+    /// Tracks the in-flight setToken task spawned by the isPaired observer so we can
+    /// cancel a previous one before starting a new one (avoids racing token writes).
+    @State private var setTokenTask: Task<Void, Never>? = nil
     @Environment(\.scenePhase) private var scenePhase
 
     // Shared SwiftData container — held here so it stays alive for the app lifetime.
@@ -45,6 +48,7 @@ struct NullClawUIApp: App {
 
             if args.contains("--uitesting-paired") {
                 m.isPaired = true
+                m.isCheckingGateway = false
                 m.connectionStatus = .online
                 m.agentCard = AgentCard(
                     name: "TestAgent",
@@ -62,6 +66,10 @@ struct NullClawUIApp: App {
             let gvm = GatewayViewModel(appModel: m)
             let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
             let svm = GatewayStatusViewModel(store: s)
+            // For unpaired UI tests, skip the probe — show SettingsView immediately.
+            if !args.contains("--uitesting-paired") {
+                m.isCheckingGateway = false
+            }
             _store = State(wrappedValue: s)
             _conversationStore = State(wrappedValue: cs)
             _appModel = State(wrappedValue: m)
@@ -105,6 +113,8 @@ struct NullClawUIApp: App {
         // Migration chain: Phase 9 UserDefaults JSON → SwiftData, then legacy single-URL key.
         s.migrateFromUserDefaultsIfNeeded()
         s.migrateFromLegacyIfNeeded()
+        // Fix requiresPairing for open (no-token) gateways that pre-date this field.
+        s.migrateOpenGatewayFlagsIfNeeded()
 
         // Seed a default profile if none exist after migration.
         if s.profiles.isEmpty {
@@ -163,15 +173,16 @@ struct NullClawUIApp: App {
         .onChange(of: appModel.isPaired) { _, isPaired in
             let args = CommandLine.arguments
             guard !args.contains("--uitesting"), !args.contains("--uitesting-paired") else { return }
+            setTokenTask?.cancel()
             if isPaired {
-                Task {
+                setTokenTask = Task {
                     if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
                        !tok.isEmpty {
                         await gatewayVM.client.setToken(tok)
                     }
                 }
             } else {
-                Task { await gatewayVM.client.setToken(nil) }
+                setTokenTask = Task { await gatewayVM.client.setToken(nil) }
             }
         }
     }
@@ -204,11 +215,18 @@ struct NullClawUIApp: App {
         } else {
             let probeResult = try? await gatewayVM.client.pair(code: "")
             if probeResult == "" {
+                // Gateway returned 403 — open gateway, no token needed.
+                // Mark requiresPairing=false so updateProfile never re-derives isPaired
+                // from the Keychain (which would clobber it since no token is stored).
                 if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
+                    appModel.store.setProfileRequiresPairing(id, requiresPairing: false)
                     appModel.store.setProfilePaired(id, isPaired: true)
                 }
             }
         }
+
+        // Probe complete — ContentView can now route to MainTabView or SettingsView.
+        appModel.isCheckingGateway = false
 
         // Initial connect (health + agent card fetch).
         await gatewayVM.connect()
@@ -220,10 +238,11 @@ struct NullClawUIApp: App {
         healthMonitor = GatewayHealthMonitor(
             appModel: appModel,
             clientProvider: { [gatewayVM] in gatewayVM.client },
-            onReconnect: { [chatVM] in
+            onReconnect: { [weak chatVM] in
                 // Resume a stream that was interrupted by a gateway outage.
                 // Only restart if there is unsent/unfinished input — the user
                 // would need to re-send in any other case.
+                guard let chatVM else { return }
                 if chatVM.isStreaming {
                     chatVM.beginStream()
                 }

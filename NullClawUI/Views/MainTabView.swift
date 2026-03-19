@@ -47,13 +47,12 @@ struct MainTabView: View {
         }
     }
 
-    // iPad: three-column NavigationSplitView.
-    //   Column 1 (sidebar):  conversation history + gear button
-    //   Column 2 (content):  settings list (when sidebarSelection == .settings)
-    //   Column 3 (detail):   chat view (default) or gateway detail
+    // iPad: two-column NavigationSplitView.
+    //   Column 1 (sidebar):  conversation history list + gear button
+    //   Column 2 (detail):   chat view (default) — switches to PairedSettingsView when gear is tapped
     //
-    // When the user taps the gear icon, sidebarSelection flips to .settings and
-    // the content column slides in with PairedSettingsView — no sheet, no dismiss button needed.
+    // Using two columns instead of three avoids an empty content column in history mode.
+    // Settings occupies the full detail area; when closed the chat view returns.
     // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
     @ViewBuilder
     private var ipadBody: some View {
@@ -64,17 +63,16 @@ struct MainTabView: View {
                 selectedTaskID: $selectedTaskID,
                 sidebarSelection: $sidebarSelection
             )
-        } content: {
+        } detail: {
             switch sidebarSelection {
             case .settings:
-                PairedSettingsView()
+                // Wrap in NavigationStack so gateway detail NavigationLinks work inside.
+                NavigationStack {
+                    PairedSettingsView()
+                }
             case .history:
-                // Content column is unused in history mode; show an empty placeholder
-                // so NavigationSplitView keeps the three-column layout stable.
-                Color.clear
+                ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
             }
-        } detail: {
-            ChatView(viewModel: chatViewModel, gatewayViewModel: gatewayViewModel)
         }
     }
 

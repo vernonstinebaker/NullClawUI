@@ -12,7 +12,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 | **UI Paradigm** | Liquid Glass (iOS 26 material system) |
 | **State Management** | `@Observable` macro (Swift 6) |
 | **Networking** | URLSession + AsyncSequence for SSE |
-| **Persistence** | UserDefaults (JSON) + System Keychain — see Phase 11 for SwiftData migration |
+| **Persistence** | SwiftData + CloudKit (Phase 11) + System Keychain |
 | **Markdown** | swift-markdown-ui |
 | **Xcode** | 26+ |
 | **Preferred Simulator** | iPhone 17 Pro Max, iOS 26.2, UDID `C0F9071A-AC90-42B7-9083-219DB8CD8297` |
@@ -112,7 +112,8 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 - **What exists**:
   - **Markdown rendering**: `swift-markdown-ui` with `.gitHub` theme.
   - **Adaptive accent color**: parsed from `agent-card.json`; falls back to system tint.
-  - **iPadOS layout**: `NavigationSplitView` (sidebar = history list, detail = chat); `TabView` on iPhone.
+  - **iPadOS layout**: three-column `NavigationSplitView` — sidebar (history + gear toggle), content column (Settings when gear is active, `Color.clear` otherwise), detail (chat). Gear icon toggles to `gear.badge.checkmark` while Settings is open; no sheet or dismiss button needed.
+  - **iPhone layout**: `TabView` with Chat / History / Settings / Search (role: `.search`) tabs. `SearchResultsView` uses `Tab(role: .search)` pattern; `.searchable` is confined to that tab only and scopes results based on which tab was previously active.
   - **Accessibility**: `accessibilityLabel` and `accessibilityHint` throughout.
   - **Liquid Glass materials**: `GlassCard` uses `.glassEffect(.regular, in: RoundedRectangle(...))`.
   - **Contrast-safe user bubble**: `Color+Extensions.swift` computes `contrastingForeground`.
@@ -127,7 +128,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
   - Token double-unwrap bug in `SettingsView.swift` fixed.
   - `TypingIndicator` rewritten with per-dot `@State var isUp` + `.repeatForever` animations.
   - `ConnectionBadge` demoted to non-interactive static status display.
-  - 29 unit tests passing.
+  - 174 unit tests passing.
 
 ---
 
@@ -147,9 +148,11 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 - **Goal**: Connect to and switch between multiple NullClaw gateway instances.
 - **What exists**:
-  - `GatewayProfile` struct (`id`, `name`, `url`, `isPaired`, `normalizedURL`, `displayHost`).
-  - `GatewayStore`: add, edit, delete, activate profiles; JSON-persisted in UserDefaults.
-  - One Keychain token per gateway, keyed by `normalizedURL`.
+  - `GatewayProfile` `@Model` class (`id`, `name`, `url`, `isPaired`, `requiresPairing`, `normalizedURL`, `displayHost`).
+  - `GatewayStore`: add, edit, delete, activate profiles; SwiftData-backed (Phase 11).
+  - `requiresPairing: Bool` (default `true`) — set to `false` by `completeOpenGateway` when the gateway responds 403 to `/pair`. Persisted so that `updateProfile` does not re-derive `isPaired` from the Keychain for open gateways (which never issue a token). Migration `migrateOpenGatewayFlagsIfNeeded` fixes pre-existing profiles on first launch after upgrade.
+  - One Keychain token per gateway, keyed by `normalizedURL`. Open gateways (requiresPairing=false) never store a token.
+  - **Open gateway `requiresPairing` invariant** (critical — see Appendix): `requiresPairing` MUST be set to `false` before `isPaired` is set to `true` for any open gateway. If `requiresPairing` is still `true` when `updateProfile` is called, it will re-derive `isPaired` from the Keychain, find no token, and set `isPaired = false` — causing the app to drop back to the pairing screen.
   - Legacy migration: pre-Phase-9 single `"gatewayURL"` UserDefaults key → first `GatewayProfile`.
   - Gateway switcher in `ChatView` toolbar (confirmation dialog when > 1 profile).
   - `GatewaySlot` in `ChatViewModel`: saves/restores `messages`, `activeTaskID`, `activeContextID` per gateway — switching away and back preserves full context.
@@ -190,23 +193,16 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ## Phase 11: SwiftData Migration & iCloud Sync ✅
 
-- **Goal**: Replace the current UserDefaults JSON persistence with SwiftData + CloudKit so that gateway configuration and conversation history sync automatically across devices (iOS app ↔ future macOS menubar app).
-- **Motivation**:
-  - UserDefaults has no query capability, no schema migrations, and a size limit unsuitable for large history.
-  - iCloud sync via `NSUbiquitousKeyValueStore` has a 1 MB cap — impractical for history.
-  - SwiftData's `cloudKitDatabase: .automatic` gives sync in one line; sharing a `ModelContainer` via an App Group is the path to the macOS companion app.
-  - Multi-modal message content (future images/files) cannot be stored in UserDefaults.
-- **Tasks**:
-  1. Add an App Group entitlement (`group.plus.agillity.nullclawui`) to the main target — required for shared container between iOS and macOS targets.
-  2. Convert `GatewayProfile` → `@Model` class; `ConversationRecord` → `@Model` class. Add `@Relationship` between record and profile.
-  3. Replace `GatewayStore` with a SwiftData-backed store using `ModelContext`. Replace `ConversationStore` similarly.
-  4. Configure `ModelContainer` in `NullClawUIApp` with `cloudKitDatabase: .automatic` (requires an iCloud-capable provisioning profile).
-  5. Write a one-time migration: on first launch after upgrade, read UserDefaults JSON blobs, insert as SwiftData records, then delete the old keys.
-  6. Update `ConversationStore.current` query and all `updateCurrent` / `startNewRecord` call sites.
-  7. Keychain items remain as-is (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`) — tokens are per-device and must never sync via CloudKit.
-  8. Verify UI tests still pass (inject an in-memory `ModelContainer` for `--uitesting` paths).
+- **Goal**: Replace UserDefaults JSON persistence with SwiftData + CloudKit so that gateway configuration and conversation history sync automatically across devices (iOS app ↔ future macOS menubar app).
+- **What exists**:
+  - `GatewayProfile` and `ConversationRecord` converted to `@Model` classes.
+  - `GatewayStore` and `ConversationStore` backed by SwiftData `ModelContext`.
+  - `NullClawUIApp` configures `ModelContainer` with `cloudKitDatabase: .automatic`; falls back to local-only if CloudKit is unavailable (e.g., simulator without signed-in iCloud account).
+  - One-time migration: reads legacy UserDefaults JSON blobs on first post-upgrade launch and inserts them as SwiftData records.
+  - Unit tests use an in-memory `ModelContainer` (no disk or CloudKit access).
+  - Keychain items are per-device and explicitly excluded from CloudKit sync.
 - **Dependencies**: iCloud-capable App ID and provisioning profile; Apple Developer account with CloudKit enabled.
-- **Validation**: Add a gateway on the iPhone; confirm it appears on the Mac companion target within ~30 s. Delete a conversation on one device; confirm it disappears on the other.
+- **Note**: Cross-device sync validation requires two physical devices sharing the same iCloud account.
 
 ---
 
@@ -237,83 +233,146 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 ## Phase 14: Gateway Status Dashboard ✅
 
 - **Goal**: Multi-gateway health overview + on-demand live status in Settings detail.
-- **Design** (redesigned from original A2A-prompt approach):
-  - **Status tab** (`GatewayStatusView`): fast, lightweight list of all gateway profiles. Fires concurrent `GET /health` against every profile simultaneously — no A2A prompts, results appear in under a second. Each row shows: status dot (green/red/grey), name, host, "Active" badge, last-checked relative time, and a quick-switch button for inactive gateways. Pull-to-refresh supported.
-  - **Live Status section** in `GatewayDetailView` (Settings → tap a gateway): on-demand MCP servers and channels list, loaded by tapping "Load Live Status". Uses A2A prompt streaming against the active gateway only. Reload button appears once loaded.
+- **What exists**:
+  - **Gateway list in `PairedSettingsView`**: each row shows a coloured status dot (green/red/grey), name, host, last-checked time. Health is polled via concurrent `GET /health` against all profiles simultaneously on appear and on pull-to-refresh. Driven by `GatewayStatusViewModel`.
+  - **Live Status** in `GatewayDetailView` (Settings → tap a gateway → "Live Status"): `GatewayLiveStatusView` sends an A2A prompt to the gateway asking for MCP server and channel status, parses the structured JSON reply, and renders connected/failed rows. Pull-to-refresh reloads. Available for all gateways (paired **and** open — not gated on `isPaired`).
+
+### Live Status prompt strategy
+
+- **`loadPrompt`** (static constant, visible for tests): instructs the agent to read `~/.nullclaw/config.json` and reply with a JSON object containing `"mcp_servers"` and `"channels"` arrays derived directly from the config structure. Stored as `GatewayLiveStatusView.loadPrompt`.
+  - **Do not use** a vague NL introspection prompt like `"List your actual runtime status"` — this causes a full LLM round-trip (20+ seconds) and is unreliable; the agent may report wrong status or fail with `GatewayError.jsonRPCError` on retry.
+- **Parser**: `parseJSONStatus(from:)` (internal static, testable) extracts the first `{…}` block, decodes via `LiveStatusRaw`, and maps to `[MCPServerStatus]` / `[ChannelStatus]`. `"connected"` defaults to `true` when the key is absent (channel entries in the config have no status — they are always configured).
+- **Legacy fallback**: `parseMCP` and `parseChannels` fall back to the old `MCP: <name> connected/failed` / `Channel: <name> connected/failed` line format if no JSON block is found.
+- **Known limitation**: HTTP-transport MCP servers (e.g. `mcp_mattermost` on Mac, `mattermost` on OrangePi) are not listed by the agent because they have no `"command"` field in the config. The prompt explicitly filters for subprocess-type MCPs. This is correct/expected.
+- **OrangePi hostname caveat**: if the gateway profile URL uses a hostname (e.g. `http://orangepi:5111`), the iOS device may not be able to resolve it via mDNS. Use an IP address in the profile URL if the gateway is unreachable by name.
+
 - **Files**:
   - `GatewayStatusViewModel.swift` — per-profile `/health` poller using `TaskGroup`; holds `[UUID: ProfileHealthState]`
-  - `GatewayStatusView.swift` — multi-gateway health list with pull-to-refresh
-  - `PairedSettingsView.swift` — `GatewayDetailView` enhanced with `GatewayLiveStatus`, `MCPServerStatus`, `ChannelStatus` models and on-demand A2A section
-  - `MainTabView.swift` — Status tab at index 2 (`gauge.with.dots.needle.67percent`)
-- **Validation**: Status tab immediately shows all gateways with live health dots. GatewayDetailView Live Status section loads MCP/channels on demand for the active gateway.
+  - `PairedSettingsView.swift` — gateway list with health dots; `GatewayDetailView` with `GatewayLiveStatusView`, `GatewayLiveStatus`, `MCPServerStatus`, `ChannelStatus` models, `LiveStatusRaw` JSON decoding shim
+- **Note**: There is no separate `GatewayStatusView.swift` or dedicated Status tab. Health status is integrated directly into the Settings gateway list.
 
 ---
 
 ## Phase 15: Cron Job Manager ✅
 
-- **Goal**: Let users view, pause/resume, trigger, add, and delete gateway cron jobs from native UI.
-- **Background**: The gateway stores cron jobs in `cron.json`. The agent understands commands like "list my cron jobs", "pause cron job heartbeat-1", "run cron job heartbeat-1 now", and "delete cron job heartbeat-1". Adding a job requires the agent to write a new entry; the app composes the appropriate prompt.
-- **Cron job schema** (for UI field mapping):
-  - `id`, `expression` (cron string), `command` / `prompt`, `model`, `job_type` (`shell` or `agent`), `paused`, `enabled`, `one_shot`, `delete_after_run`
-  - `delivery_mode`, `delivery_channel`, `delivery_to`
-  - `last_run_secs`, `last_status`, `next_run_secs`
-- **Tasks**:
-  1. On "Cron Jobs" section open, send "list cron jobs in JSON" to the agent; parse the response into a `[CronJob]` model and render a native `List` with id, schedule expression, last-run time, last status, and paused/enabled badge.
-  2. Swipe actions per row: **Pause / Resume**, **Run Now**, **Delete** (each sends the appropriate natural-language command and refreshes the list).
-  3. "Add Job" sheet: fields for id, cron expression, type (Shell command vs. Agent prompt), command/prompt text, optional model override, delivery channel/target. On submit, compose and send an "Add cron job: …" prompt to the agent.
-  4. Show `next_run_secs` as a human-readable countdown ("in 47 min").
-- **Validation**: User can pause, trigger, and add cron jobs entirely from the native UI; changes persist across app restarts (confirmed by re-fetching the list).
+- **Goal**: Let users view, pause/resume, trigger, add, edit, and delete gateway cron jobs from native UI.
+
+### Prompt strategy (verified against live gateway)
+
+- **`load()`**: `"Read ~/.nullclaw/cron.json and respond with ONLY its raw contents as a valid JSON array, no extra text before or after."` — agent reads the file directly and returns clean JSON. Reliable. Stored as `CronJobViewModel.loadPrompt` static constant.
+  - **Do not use** a vague NL prompt like `"List all cron jobs as a JSON array"` — this causes the agent to invoke the `schedule` tool with `{"action":"list"}` which returns `success=false`, causing the agent to return `[]`.
+- **`pause` / `resume`**: `"Pause/Resume the cron job with id \"X\" in ~/.nullclaw/cron.json."` — explicit file path required.
+- **`runNow`**: `"Run the cron job with id \"X\" immediately."` — triggers the scheduler.
+- **`delete`**: `"Delete the cron job with id \"X\" from ~/.nullclaw/cron.json."` — explicit file path required.
+- **`addJob`**: constructed from `CronJobDraft.toPrompt()` — describes all fields.
+- **`editJob`**: constructed from `CronJobDraft.toEditPrompt(replacing:)` — specifies the existing job ID and all new field values explicitly, including `one_shot` and `delete_after_run` as `true`/`false` even when false (unlike `toPrompt()` which omits them).
+
+### What exists
+
+  - `CronJob` model (`Models/CronJob.swift`) — `Codable, Identifiable, Sendable` struct matching the gateway `cron.json` schema; computed helpers for `displayTitle`, `nextRunCountdown`, timestamps.
+  - `CronJobViewModel` (`ViewModels/CronJobViewModel.swift`) — `@Observable @MainActor`; `load()` uses `Self.loadPrompt` (direct file-read) and parses the `[…]` array from the reply; `pause`, `resume`, `runNow`, `delete`, `addJob`, `editJob` each send the appropriate natural-language command then re-fetch.
+  - `CronJobListView` (`Views/CronJobListView.swift`) — colour-coded rows (teal = agent, indigo = shell, grey = paused), badge pills, cron expression + next-run countdown + last status; leading swipe: **Pause/Resume** + **Run Now**; trailing swipe: **Delete** (red); tap row to edit; pull-to-refresh; Add toolbar button.
+  - `AddCronJobSheet` — Form with all fields: id, expression, type picker, command/prompt, model override, one-shot / delete-after-run toggles, delivery channel + recipient.
+  - `EditCronJobSheet` — Same form layout as `AddCronJobSheet`, pre-populated from the tapped `CronJob`; "Save" sends `toEditPrompt(replacing:)` via `editJob(_:draft:)`; navigation title "Edit Cron Job".
+  - Entry point: `NavigationLink → CronJobListView` inside `GatewayDetailView` in `PairedSettingsView`.
+  - 28 unit tests covering model decode, `parseCronJobs`, `toPrompt`, `toEditPrompt`, `editJob` ViewModel state, and regression tests for `loadPrompt` content and explicit boolean encoding.
 
 ---
 
-## Phase 16: Agent Configuration ❌
+## Phase 16: Agent Configuration ✅
 
 - **Goal**: Let users inspect and adjust live-editable agent settings from a native form.
-- **Background**: The gateway's `config_mutator` allows certain paths to be changed at runtime (no restart needed). Live-editable paths relevant to the agent include: `agents.defaults.model.primary`, `default_temperature`, tool iteration limits, message timeout, parallel tool count, compaction settings, and memory/session knobs.
-- **Tasks**:
-  1. On "Agent Config" section open, send "show agent configuration" to the agent and parse the reply into typed fields.
-  2. Render a native `Form` with grouped sections:
-     - **Model**: model-name text field + provider picker.
-     - **Sampling**: temperature slider (0.0–2.0).
-     - **Limits**: max tool iterations stepper, message timeout stepper, parallel tools toggle.
-     - **Memory / Compaction**: compaction enabled toggle, compaction threshold stepper.
-  3. On any field change, compose and send the appropriate config-set prompt (e.g. "Set default temperature to 0.7"). Show a confirmation banner on success.
-  4. Paths that require a gateway restart are marked with a ⚠️ "Requires restart" label and a disabled edit control.
-- **Validation**: Changing the temperature slider from 1.0 → 0.5 causes subsequent agent responses to be visibly more deterministic; reverting to 1.0 restores prior behavior.
+- **Background**: The gateway exposes live-editable config paths. The real schema keys (verified against live `~/.nullclaw/config.json`) are: `agents.defaults.model.primary`, `default_temperature` (top-level), `agent.max_tool_iterations`, `agent.message_timeout_secs`, `agent.parallel_tools`, `agent.compact_context`, `agent.compaction_max_source_chars`.
+
+### Real config schema (key reference)
+
+| AgentConfig field | Config key | Notes |
+|---|---|---|
+| `primaryModel` | `agents.defaults.model.primary` | e.g. `"infini-ai/glm-5"` |
+| `provider` | inferred from model prefix or `models.providers` | read-only |
+| `temperature` | `default_temperature` | top-level key |
+| `maxToolIterations` | `agent.max_tool_iterations` | default 25 |
+| `messageTimeoutSecs` | `agent.message_timeout_secs` | default 300 |
+| `parallelTools` | `agent.parallel_tools` | default false |
+| `compactContext` | `agent.compact_context` | default false |
+| `compactionThreshold` | `agent.compaction_max_source_chars` | default 8000 |
+
+### Prompt strategy (verified against live gateway)
+
+- **`load()`**: `"Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object…"` — agent reads the file directly and returns clean JSON. Reliable.
+- **`setTemperature`**: `"Set the default temperature to X."` — agent has a dedicated mutator. Works.
+- **`setPrimaryModel`**: `"Update agents.defaults.model.primary to \"X\" in ~/.nullclaw/config.json."` — explicit path required.
+- **`setMaxToolIterations`**: `"Update agent.max_tool_iterations to X in ~/.nullclaw/config.json."` — explicit path required.
+- **`setMessageTimeout`**: `"Update agent.message_timeout_secs to X in ~/.nullclaw/config.json."` — note `_secs` not `_seconds`.
+- **`setParallelTools`**: `"Update agent.parallel_tools to true/false in ~/.nullclaw/config.json."` — explicit path required.
+- **`setCompactContext`**: `"Update agent.compact_context to true/false in ~/.nullclaw/config.json."` — explicit path required.
+- **`setCompactionThreshold`**: `"Update agent.compaction_max_source_chars to X in ~/.nullclaw/config.json."` — explicit path required.
+
+### What exists
+
+- **`AgentConfigViewModel`** (`ViewModels/AgentConfigViewModel.swift`): `@Observable @MainActor` class. On `load()`, sends a structured one-shot A2A prompt instructing the agent to read `~/.nullclaw/config.json` directly and return a JSON object; parses the reply into an `AgentConfig` value type (`primaryModel`, `provider`, `temperature`, `maxToolIterations`, `messageTimeoutSecs`, `parallelTools`, `compactContext`, `compactionThreshold`). Individual setter methods (`setTemperature`, `setPrimaryModel`, `setMaxToolIterations`, `setMessageTimeout`, `setParallelTools`, `setCompactContext`, `setCompactionThreshold`) each send an explicit path-based config mutation prompt and optimistically update the local `config` on success. `AgentConfigRaw` decoding shim accepts both canonical and legacy key names. Confirmation and error banners exposed as `confirmationMessage` / `errorMessage`.
+- **`AgentConfigView`** (`Views/AgentConfigView.swift`): `NavigationLink` target in `PairedSettingsView`. Sections: **Model** (text field + read-only provider row with ⚠️ restart warning), **Sampling** (temperature slider 0–2 with "Apply" button), **Limits** (max tool iterations stepper, message timeout stepper, parallel tools toggle), **Memory / Compaction** (compact context toggle + threshold stepper). Draft state decoupled from live config to prevent mid-edit flicker. Confirmation and error banners at the bottom.
+- **NavigationLink** added to `PairedSettingsView` in the gateway settings navigation list.
+- **10 unit tests** in `AgentConfigViewModelTests`: `parseConfig` happy path (using canonical key names), no-object, malformed JSON, partial JSON with defaults, `load()` with nil client, reentrancy guard, `AgentConfig` `Equatable` equality/inequality, and `AgentConfigParseError` localized descriptions. Total test count: **174**.
+- Provider field is read-only with a ⚠️ "Requires restart" label per the spec.
 
 ---
 
-## Phase 17: Autonomy & Safety Controls ❌
+## Phase 17: Autonomy & Safety Controls ✅
 
 - **Goal**: Surface the gateway's autonomy and safety settings in a dedicated native UI so users can quickly raise or lower the agent's operating permissions.
 - **Background**: The gateway has an `autonomy` config block: `level` (e.g. `low`, `medium`, `high`), `max_actions_per_hour`, `allowed_commands`, `block_high_risk_commands`, `require_approval_for_medium_risk`. These can be updated via agent prompts.
-- **Tasks**:
-  1. On section open, send "show autonomy configuration" and parse the reply.
-  2. Render:
-     - **Autonomy Level**: segmented control (`Low / Medium / High`) with a color-coded risk indicator (green / yellow / red).
-     - **Max actions / hour**: stepper.
-     - **Block high-risk commands**: toggle.
-     - **Require approval for medium-risk**: toggle.
-     - **Allowed commands list**: read-only tag cloud with an "Edit" button that opens a text-entry sheet.
-  3. On any change, compose and send the config-set prompt and confirm success via a banner.
+### Prompt strategy (verified against live gateway)
+
+- **`load()`**: reads `~/.nullclaw/config.json` directly and requests a JSON object with the five autonomy keys. Stored as `AutonomyViewModel.loadPrompt`.
+- **`setLevel`**: `"Update autonomy.level to \"X\" in ~/.nullclaw/config.json."` — explicit path required.
+- **`setMaxActionsPerHour`**: `"Update autonomy.max_actions_per_hour to X in ~/.nullclaw/config.json."`
+- **`setBlockHighRiskCommands`**: `"Update autonomy.block_high_risk_commands to true/false in ~/.nullclaw/config.json."`
+- **`setRequireApprovalForMediumRisk`**: `"Update autonomy.require_approval_for_medium_risk to true/false in ~/.nullclaw/config.json."`
+- **`setAllowedCommands`**: `"Update autonomy.allowed_commands to [...] in ~/.nullclaw/config.json."`
+
+### What exists
+
+- **`AutonomyViewModel`** (`ViewModels/AutonomyViewModel.swift`): `@Observable @MainActor` class. `load()` sends a structured one-shot A2A prompt to read `~/.nullclaw/config.json` and return the five autonomy fields as JSON; parses reply into an `AutonomyConfig` value type. Setter methods for each field send explicit path-based mutation prompts and optimistically update local `config` on success. `AutonomyConfigRaw` decoding shim. Confirmation and error banners exposed as `confirmationMessage` / `errorMessage`.
+- **`AutonomyView`** (`Views/AutonomyView.swift`): `NavigationLink` target in `PairedSettingsView`. Sections: **Autonomy Level** (segmented control `Low / Medium / High` with color-coded risk badge and contextual footer text), **Limits** (max actions/hour stepper), **Safety** (block high-risk toggle + require-approval-for-medium-risk toggle), **Allowed Commands** (horizontal tag cloud or "No commands restricted" placeholder, with "Edit" button → `CommandEditorSheet`). `CommandEditorSheet` is a private sheet with a monospaced `TextEditor` (one command per line).
+- **NavigationLink** added to `GatewayDetailView` in `PairedSettingsView.swift` (label: "Autonomy & Safety", icon: `shield.lefthalf.filled`).
+- **12 unit tests** in `AutonomyViewModelTests`: `parseConfig` happy path, high-level with empty commands, no-object error, malformed JSON error, partial JSON with defaults, `load()` with nil client, reentrancy guard, `AutonomyConfig` equality/inequality (level + commands), and `AutonomyConfigParseError` localized descriptions.
+- **3 regression tests** in `GatewayClientInitTokenTests`: empty-string token treated as nil (`.unpaired` guard fires), nil token also fires, valid token bypasses guard (reaches network layer).
+
+### Other fixes in this phase
+
+- **`GatewayClient.init` empty-token bug fixed**: `self.bearerToken` now applies the same `flatMap { $0.isEmpty ? nil : $0 }` filter as `setToken(_:)`.
+- **`AgentConfigView` Stepper `onEditingChanged` inverted logic fixed**: `if !finished` → `if finished` (two steppers).
+- **`CronJobViewModel` prompt strings fixed**: pause/resume/delete now include explicit `in ~/.nullclaw/cron.json` file path per PLAN.md Phase 15 spec.
+- **`sendOneShot` extracted to `GatewayClient`**: removes 3× duplication across `AgentConfigViewModel`, `CronJobViewModel`, and `GatewayLiveStatusView`; Phase 17 uses it without adding a 4th copy.
+- **`parseMCP`/`parseChannels` double-parse fixed**: `load(using:)` now calls `parseJSONStatus` once and branches; legacy fallbacks renamed to `parseMCPLegacy`/`parseChannelsLegacy`.
+- **Dead `filteredProfiles` property removed** from `PairedSettingsView`.
 - **Validation**: Switching autonomy level from `high` → `low` causes the agent to request approval before executing shell commands.
 
 ---
 
-## Phase 18: MCP Server Management ❌
+## Phase 18: MCP Server Management ✅
 
 - **Goal**: Let users view registered MCP servers, their connection state, and add or remove servers from the native UI.
-- **Background**: MCP servers are configured in the gateway's `mcp_servers` config block. Each entry has: `name`, `transport` (`stdio` or `http`), `command`, `args`, `env`, `headers`, `url`, `timeout_ms`. Connection status (connected / failed) is visible in gateway logs and surfaced by the agent when queried.
-- **Tasks**:
-  1. On section open, send "list MCP servers and their status" and parse the reply into a `[MCPServer]` list. Render each with name, transport type, and connection badge (connected / failed / unknown).
-  2. "Add MCP Server" sheet: fields for name, transport selector (stdio / http), command + args (stdio) or URL (http), optional timeout.
-  3. Row swipe action: **Remove** (sends "Remove MCP server <name>" to the agent).
-  4. Tap a row to view raw config details (read-only).
-- **Validation**: Adding a new MCP server entry causes it to appear in the list on refresh; removing it causes it to disappear.
+- **Background**: MCP servers are configured in the gateway's `mcp_servers` config block. Each entry has: `name`, `transport` (`stdio` or `http`), `command`, `args`, `env`, `headers`, `url`, `timeout_ms`. Connection status (connected / failed) is surfaced by the agent when queried.
+
+### Prompt strategy
+
+- **`load()`**: `"Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object…"` with `"mcp_servers"` array of objects including `"connected"` boolean. Stored as `MCPServerViewModel.loadPrompt`.
+- **`remove(_:)`**: `"Remove the MCP server named \"X\" from ~/.nullclaw/config.json."` — explicit file path required.
+- **`addServer(_:)`**: constructed from `MCPServerDraft.toPrompt()` — describes name, transport, command/args or URL, and optional timeout.
+
+### What exists
+
+- **`MCPServer`** (`Models/MCPServer.swift`): `Codable, Identifiable, Sendable, Equatable` struct. Fields: `name`, `transport`, `command`, `args`, `env`, `url`, `headers`, `timeoutMs`, `connected` (runtime status). Computed helpers: `transportLabel`, `endpointDescription`. `id` is `name`.
+- **`MCPServerViewModel`** (`ViewModels/MCPServerViewModel.swift`): `@Observable @MainActor` class. `load()` sends structured one-shot prompt and parses into `[MCPServer]`. Parser handles both bare JSON array and `{ "mcp_servers": [...] }` wrapped object. `remove(_:)` sends deletion prompt and re-fetches. `addServer(_:)` sends creation prompt and re-fetches. `removingName` tracks which server is being deleted (for per-row spinner). `confirmationMessage` / `errorMessage` banners.
+- **`MCPServerListView`** (`Views/MCPServerListView.swift`): `NavigationLink` target in `PairedSettingsView`. Shows all servers with transport icon (globe for HTTP, terminal for stdio), transport badge pill, endpoint summary, and connection status (green/red/grey). Swipe-left to remove. Tap row → `MCPServerDetailView` (read-only: transport, endpoint, timeout, env keys masked). Add toolbar button → `AddMCPServerSheet` (name, transport picker, command+args for stdio, URL for http, optional timeout). Pull-to-refresh reloads.
+- **NavigationLink** added to `GatewayDetailView` in `PairedSettingsView.swift` (label: "MCP Servers", icon: `puzzlepiece.extension.fill`).
+- **19 unit tests** in `MCPServerViewModelTests`: parse happy path (array), parse happy path (wrapped object), connected nil when absent, empty array, no-JSON throws, prose prefix, `load()` nil client, reentrancy guard, `remove()` nil client, `MCPServer` computed helpers (transportLabel ×3, endpointDescription ×3, id), `MCPServerDraft.toPrompt()` (stdio, http), `loadPrompt` content, `MCPServerParseError` descriptions. Total test count: **208**.
 
 ---
 
-## Phase 19: Cost & Usage Monitoring ❌
+## Phase 19: Cost & Usage Monitoring ✅
 
 - **Goal**: Show token usage and cost data so users can monitor spend and set limits.
 - **Background**: The gateway has a `cost` config block with `enabled`, `daily_limit`, `monthly_limit`, and `warn_at_percent`. Usage stats can be retrieved from the agent via a `/usage` or "show usage stats" prompt.
@@ -326,7 +385,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 
 ---
 
-## Phase 20: Channel Status & Management ❌
+## Phase 20: Channel Status & Management ✅
 
 - **Goal**: Show the connection state of all configured gateway communication channels (Discord, Mattermost, Telegram, Slack, WhatsApp, IRC, Matrix, etc.) and surface read-only config details.
 - **Background**: The gateway supports many channel integrations, each configured in the `channels` block. The agent can report their status when asked. Editing channel config generally requires a gateway restart; this phase is read-only status + a clear "restart required" affordance for any config changes.
@@ -458,3 +517,41 @@ Each `data:` line is a `TaskStatusUpdateEvent`:
 - Pairing codes are ephemeral (in-memory); a server restart invalidates all issued tokens and requires re-pairing.
 - Bearer token is sent as `Authorization: Bearer <token>` on all `/a2a` requests.
 - `contextId` is returned on SSE events and must be echoed on subsequent sends to maintain conversation context.
+
+---
+
+## Appendix: Open Gateway `requiresPairing` Invariant
+
+Open gateways (`require_pairing: false` in the server config) respond 403 to `POST /pair`. The app detects this and marks the gateway as paired without issuing a token. This creates a subtle invariant that **must be maintained** throughout the codebase:
+
+### The Invariant
+
+**`requiresPairing = false` MUST be persisted on the `GatewayProfile` before `isPaired = true` is set.**
+
+### Why
+
+`GatewayStore.updateProfile()` uses `requiresPairing` to decide how to derive `isPaired`:
+- `requiresPairing == true` → re-derives from `KeychainService.hasToken(for:)`. Open gateways have no token → returns `false` → **clears isPaired**.
+- `requiresPairing == false` → uses the passed-in value directly → **preserves isPaired**.
+
+If the order is wrong (isPaired set first, requiresPairing set second), any call to `updateProfile()` — triggered e.g. by the user editing the gateway name — will call the `requiresPairing == true` path, find no token, and set `isPaired = false`. The app then routes back to the pairing screen.
+
+### Affected Code Sites (must all follow the invariant)
+
+| Site | Code |
+|---|---|
+| `NullClawUIApp.setupGateway()` | `setProfileRequiresPairing(id, requiresPairing: false)` **before** `setProfilePaired(id, isPaired: true)` |
+| `PairingViewModel.probeIfNeeded()` | `store.setProfileRequiresPairing(id, requiresPairing: false)` **before** `appModel.isPaired = true` |
+| `AddGatewaySheet.completeOpenGateway()` (in `PairedSettingsView.swift`) | sets `requiresPairing = false` on the profile **before** `appModel.isPaired = true` |
+
+### `GatewayClient.init` and open gateways
+
+`GatewayClient` accepts a `requiresPairing: Bool = true` parameter. When `false`, `pairingMode` is set to `.notRequired` at init time, allowing all API calls to proceed without a bearer token. All code sites that construct a `GatewayClient` for an open gateway profile must pass `requiresPairing: profile.requiresPairing`.
+
+Current sites: `GatewayViewModel.switchGateway`, `ChannelStatusListView`, `MCPServerListView`, `UsageStatsView`, `AutonomyView`, `AgentConfigView`, `CronJobListView`, `GatewayLiveStatusView` (both `.task` and `.refreshable`).
+
+### Regression Tests
+
+- `GatewayClientInitRequiresPairingTests.testInitWithRequiresPairingFalseSetsNotRequired`
+- `GatewayStoreUpdateProfileOpenGatewayTests.testUpdateProfilePreservesIsPairedForOpenGateway`
+- `PairingViewModelProbeIfNeededTests.testProbeIfNeededSetsRequiresPairingFalseOnOpenGateway`

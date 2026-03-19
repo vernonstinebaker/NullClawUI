@@ -12,6 +12,9 @@ final class GatewayProfile {
     var name: String
     var url: String
     var isPaired: Bool
+    /// False when the gateway responded 403 to /pair (require_pairing: false).
+    /// Persisted so that updateProfile does not clobber isPaired by re-checking the Keychain.
+    var requiresPairing: Bool
     var sortOrder: Int
 
     /// One-to-many: all conversation records for this gateway.
@@ -20,11 +23,12 @@ final class GatewayProfile {
 
     // MARK: - Init
 
-    init(id: UUID = UUID(), name: String, url: String, isPaired: Bool = false, sortOrder: Int = 0) {
+    init(id: UUID = UUID(), name: String, url: String, isPaired: Bool = false, requiresPairing: Bool = true, sortOrder: Int = 0) {
         self.id = id
         self.name = name
         self.url = url
         self.isPaired = isPaired
+        self.requiresPairing = requiresPairing
         self.sortOrder = sortOrder
         self.conversationRecords = []
     }
@@ -32,8 +36,9 @@ final class GatewayProfile {
     // MARK: - Derived
 
     /// Normalized URL used as the Keychain key (no trailing slash, lowercased).
+    /// Delegates to KeychainService to ensure both use identical normalization logic.
     var normalizedURL: String {
-        url.trimmingCharacters(in: .init(charactersIn: "/")).lowercased()
+        KeychainService.normalizedGatewayURL(url)
     }
 
     /// Human-readable host:port extracted from the URL.

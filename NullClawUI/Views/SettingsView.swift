@@ -51,9 +51,20 @@ struct SettingsView: View {
             if pairingVM == nil {
                 pairingVM = PairingViewModel(appModel: appModel, client: gatewayVM.client)
             }
+            // Auto-probe for open gateways: if we land on SettingsView it means
+            // setupGateway() couldn't confirm open access (e.g. gateway was offline
+            // at launch). Probe now that the view is visible.
+            await pairingVM?.probeIfNeeded()
         }
         .onChange(of: store.activeURL) { _, newURL in
             editableURL = newURL
+        }
+        // Re-probe whenever the gateway comes (back) online in case it was unreachable
+        // during the initial launch probe.
+        .onChange(of: appModel.connectionStatus) { _, newStatus in
+            if newStatus == .online {
+                Task { await pairingVM?.probeIfNeeded() }
+            }
         }
     }
 

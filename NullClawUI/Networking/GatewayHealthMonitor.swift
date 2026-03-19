@@ -44,6 +44,7 @@ final class GatewayHealthMonitor {
     private var onReconnect: (@MainActor () -> Void)?
 
     private var timerTask: Task<Void, Never>? = nil
+    private var checkNowTask: Task<Void, Never>? = nil
     private var isRunning: Bool = false
 
     // MARK: - Init
@@ -95,6 +96,8 @@ final class GatewayHealthMonitor {
     func stop() {
         timerTask?.cancel()
         timerTask = nil
+        checkNowTask?.cancel()
+        checkNowTask = nil
         isRunning = false
     }
 
@@ -104,7 +107,10 @@ final class GatewayHealthMonitor {
     /// Used when the app returns to the foreground so the status updates instantly
     /// rather than waiting for the next tick.
     func checkNow() {
-        Task { await tick() }
+        checkNowTask?.cancel()
+        checkNowTask = Task { [weak self] in
+            await self?.tick()
+        }
     }
 
     // MARK: - Internal poll

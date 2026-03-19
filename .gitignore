@@ -59,6 +59,8 @@ timeline.xctimeline
 build/
 *.o
 *.a
+/test_self_spawn
+/main
 
 # ── Secrets / Credentials ────────────────────────────────────
 # Never commit tokens, certs, or provisioning profiles.

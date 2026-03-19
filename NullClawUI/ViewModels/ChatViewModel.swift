@@ -305,6 +305,7 @@ final class ChatViewModel {
                     conversationStore.setCurrentTitle(derived)
                 }
                 saveCurrentSlot()
+                trimMessagesIfNeeded()
                 break
 
             } catch {

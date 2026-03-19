@@ -12,6 +12,7 @@ struct CronJobListView: View {
 
     @State private var viewModel: CronJobViewModel
     @State private var showingAddSheet: Bool = false
+    @State private var editingJob: CronJob? = nil
 
     init(profile: GatewayProfile) {
         self.profile = profile
@@ -19,7 +20,7 @@ struct CronJobListView: View {
         let client: GatewayClient? = {
             guard let url = URL(string: profile.url) else { return nil }
             let token = try? KeychainService.retrieveToken(for: profile.url)
-            return GatewayClient(baseURL: url, token: token ?? "")
+            return GatewayClient(baseURL: url, token: token ?? "", requiresPairing: profile.requiresPairing)
         }()
         _viewModel = State(wrappedValue: CronJobViewModel(client: client))
     }
@@ -55,14 +56,20 @@ struct CronJobListView: View {
                 }
             } else {
                 ForEach(viewModel.jobs) { job in
-                    jobRow(job)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        editingJob = job
+                    } label: {
+                        jobRow(job)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             // Delete
                             Button(role: .destructive) {
                                 Task { await viewModel.delete(job) }
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
+                            .tint(.red)
                             .accessibilityLabel("Delete cron job \(job.id)")
                         }
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -133,6 +140,11 @@ struct CronJobListView: View {
         .sheet(isPresented: $showingAddSheet) {
             AddCronJobSheet { draft in
                 Task { await viewModel.addJob(draft) }
+            }
+        }
+        .sheet(item: $editingJob) { job in
+            EditCronJobSheet(job: job) { draft in
+                Task { await viewModel.editJob(job, draft: draft) }
             }
         }
     }
@@ -218,7 +230,7 @@ struct CronJobListView: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(for: job))
-        .accessibilityHint("Swipe left to delete, swipe right to pause or run")
+                    .accessibilityHint("Tap to edit. Swipe left to delete, swipe right to pause or run")
     }
 
     // MARK: - Helpers
@@ -338,6 +350,127 @@ private struct AddCronJobSheet: View {
                     .disabled(!isValid)
                     .accessibilityLabel("Add cron job")
                     .accessibilityHint("Submits the new cron job to the gateway agent")
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+}
+
+// MARK: - EditCronJobSheet
+
+/// Form for editing an existing cron job via the agent.
+/// Pre-populates all fields from the existing `CronJob`.
+private struct EditCronJobSheet: View {
+    let job: CronJob
+    let onSave: (CronJobDraft) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var draft: CronJobDraft
+
+    init(job: CronJob, onSave: @escaping (CronJobDraft) -> Void) {
+        self.job = job
+        self.onSave = onSave
+        _draft = State(wrappedValue: CronJobDraft(
+            id: job.id,
+            expression: job.expression,
+            jobType: job.jobType,
+            commandOrPrompt: job.command ?? job.prompt ?? "",
+            model: job.model ?? "",
+            deliveryChannel: job.deliveryChannel ?? "",
+            deliveryTo: job.deliveryTo ?? "",
+            oneShot: job.oneShot,
+            deleteAfterRun: job.deleteAfterRun
+        ))
+    }
+
+    private var isValid: Bool {
+        !draft.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !draft.expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !draft.commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Identity") {
+                    TextField("Job ID (e.g. heartbeat-1)", text: $draft.id)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .accessibilityLabel("Job ID")
+                        .accessibilityHint("Unique identifier for this cron job")
+
+                    TextField("Schedule (e.g. 0 */2 * * *)", text: $draft.expression)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.body.monospaced())
+                        .accessibilityLabel("Cron expression")
+                        .accessibilityHint("Standard cron schedule expression")
+                }
+
+                Section("Execution") {
+                    Picker("Type", selection: $draft.jobType) {
+                        Text("Agent Prompt").tag("agent")
+                        Text("Shell Command").tag("shell")
+                    }
+                    .accessibilityLabel("Job type")
+
+                    TextField(
+                        draft.jobType == "shell" ? "Shell command…" : "Agent prompt…",
+                        text: $draft.commandOrPrompt,
+                        axis: .vertical
+                    )
+                    .lineLimit(4...8)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .accessibilityLabel(draft.jobType == "shell" ? "Shell command" : "Agent prompt")
+
+                    if draft.jobType == "agent" {
+                        TextField("Model override (optional)", text: $draft.model)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .accessibilityLabel("Model override")
+                            .accessibilityHint("Leave blank to use the gateway default model")
+                    }
+                }
+
+                Section("Options") {
+                    Toggle("One-shot (run once then disable)", isOn: $draft.oneShot)
+                        .accessibilityLabel("One-shot job")
+                        .accessibilityHint("Job runs once then is disabled automatically")
+
+                    Toggle("Delete after run", isOn: $draft.deleteAfterRun)
+                        .accessibilityLabel("Delete after run")
+                        .accessibilityHint("Job is removed from the list after it runs")
+                }
+
+                Section("Delivery (optional)") {
+                    TextField("Channel (e.g. mattermost)", text: $draft.deliveryChannel)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .accessibilityLabel("Delivery channel")
+
+                    TextField("Recipient (e.g. channel:abc123)", text: $draft.deliveryTo)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .accessibilityLabel("Delivery recipient")
+                }
+            }
+            .navigationTitle("Edit Cron Job")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(draft)
+                        dismiss()
+                    }
+                    .disabled(!isValid)
+                    .accessibilityLabel("Save cron job changes")
+                    .accessibilityHint("Submits the updated cron job to the gateway agent")
                 }
             }
         }

@@ -51,10 +51,10 @@ final class GatewayViewModel {
         // Invalidate the old sessions first to cancel in-flight requests immediately.
         let oldClient = client
         let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
-        client = GatewayClient(baseURL: url)
+        client = GatewayClient(baseURL: url, requiresPairing: profile.requiresPairing)
         await oldClient.invalidate()
 
-        // Restore token if the profile is already paired.
+        // Restore token if the profile is already paired with a token.
         if profile.isPaired,
            let tok = (try? KeychainService.retrieveToken(for: profile.url)) ?? nil,
            !tok.isEmpty {

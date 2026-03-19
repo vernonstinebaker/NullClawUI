@@ -40,6 +40,26 @@ final class PairingViewModel {
         }
     }
 
+    /// Probes /pair with an empty code to detect open gateways (require_pairing: false).
+    /// If the gateway responds 403, auto-bypasses pairing and sets isPaired = true.
+    /// Also marks requiresPairing = false so updateProfile never clobbers isPaired.
+    /// No-ops if already paired or a probe is already in progress.
+    func probeIfNeeded() async {
+        guard !appModel.isPaired, !isPairing else { return }
+        isPairing = true
+        defer { isPairing = false }
+        let result = try? await client.pair(code: "")
+        if result == "" {
+            // Gateway returned 403 — pairing not required.
+            // Must set requiresPairing=false BEFORE isPaired=true so updateProfile
+            // never re-derives isPaired from Keychain (open gateways have no token).
+            if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
+                appModel.store.setProfileRequiresPairing(id, requiresPairing: false)
+            }
+            appModel.isPaired = true
+        }
+    }
+
     func unpair() {
         KeychainService.deleteToken(for: appModel.gatewayURL)
         Task { await client.setToken(nil) }

@@ -55,15 +55,7 @@ final class CronJobViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await sendPrompt(
-                "List all cron jobs as a JSON array. " +
-                "Respond with ONLY a valid JSON array, no extra text before or after. " +
-                "Each element must include: id, expression, command, prompt, model, " +
-                "job_type, paused, enabled, one_shot, delete_after_run, " +
-                "delivery_mode, delivery_channel, delivery_to, " +
-                "last_run_secs, last_status, next_run_secs.",
-                using: client
-            )
+            let reply = try await client.sendOneShot(Self.loadPrompt)
             jobs = try parseCronJobs(from: reply)
         } catch {
             errorMessage = "Failed to load cron jobs: \(error.localizedDescription)"
@@ -72,22 +64,22 @@ final class CronJobViewModel {
 
     /// Pauses the given job and refreshes the list.
     func pause(_ job: CronJob) async {
-        await performAction("Pause cron job \(job.id)", jobID: job.id)
+        await performAction("Pause the cron job with id \"\(job.id)\" in ~/.nullclaw/cron.json.", jobID: job.id)
     }
 
     /// Resumes (un-pauses) the given job and refreshes the list.
     func resume(_ job: CronJob) async {
-        await performAction("Resume cron job \(job.id)", jobID: job.id)
+        await performAction("Resume the cron job with id \"\(job.id)\" in ~/.nullclaw/cron.json.", jobID: job.id)
     }
 
     /// Triggers an immediate run of the given job and refreshes the list.
     func runNow(_ job: CronJob) async {
-        await performAction("Run cron job \(job.id) now", jobID: job.id)
+        await performAction("Run the cron job with id \"\(job.id)\" immediately.", jobID: job.id)
     }
 
     /// Deletes the given job and refreshes the list.
     func delete(_ job: CronJob) async {
-        await performAction("Delete cron job \(job.id)", jobID: job.id)
+        await performAction("Delete the cron job with id \"\(job.id)\" from ~/.nullclaw/cron.json.", jobID: job.id)
     }
 
     /// Submits a new cron job creation request to the agent, then refreshes the list.
@@ -103,10 +95,30 @@ final class CronJobViewModel {
 
         let prompt = draft.toPrompt()
         do {
-            _ = try await sendPrompt(prompt, using: client)
+            _ = try await client.sendOneShot(prompt)
             await load()
         } catch {
             errorMessage = "Failed to add cron job: \(error.localizedDescription)"
+        }
+    }
+
+    /// Updates an existing cron job by replacing it with the provided draft, then refreshes the list.
+    func editJob(_ job: CronJob, draft: CronJobDraft) async {
+        guard let client else {
+            errorMessage = "No gateway client — not connected."
+            return
+        }
+        guard actionInProgress == nil else { return }
+        actionInProgress = job.id
+        errorMessage = nil
+        defer { actionInProgress = nil }
+
+        let prompt = draft.toEditPrompt(replacing: job.id)
+        do {
+            _ = try await client.sendOneShot(prompt)
+            await load()
+        } catch {
+            errorMessage = "Failed to update cron job: \(error.localizedDescription)"
         }
     }
 
@@ -146,36 +158,22 @@ final class CronJobViewModel {
         defer { actionInProgress = nil }
 
         do {
-            _ = try await sendPrompt(prompt, using: client)
+            _ = try await client.sendOneShot(prompt)
             await load()
         } catch {
             errorMessage = "\(prompt) failed: \(error.localizedDescription)"
         }
     }
 
-    /// Sends a one-shot prompt via message/stream and collects the full reply text.
-    private func sendPrompt(_ prompt: String, using c: GatewayClient) async throws -> String {
-        let message = A2AMessage(
-            role: "user",
-            parts: [MessagePart(text: prompt, kind: "text")],
-            contextId: nil
-        )
-        let stream = try await c.streamMessage(message)
-        var reply = ""
-        for try await event in stream {
-            guard let result = event.result else { continue }
-            if result.kind == "artifact-update",
-               let parts = result.artifact?.parts {
-                let chunk = parts.compactMap { $0.text }.joined()
-                if result.append == true {
-                    reply += chunk
-                } else {
-                    reply = chunk
-                }
-            }
-        }
-        return reply
-    }
+    // MARK: - Prompt constants (visible for tests)
+
+    /// Instructs the agent to read cron.json directly rather than relying on
+    /// in-memory state, which has proven unreliable (agent returns [] when asked
+    /// to "list cron jobs" without a direct file-read instruction).
+    static let loadPrompt = """
+        Read ~/.nullclaw/cron.json and respond with ONLY its raw contents as a valid \
+        JSON array, no extra text before or after.
+        """
 }
 
 // MARK: - CronJobParseError
@@ -224,6 +222,26 @@ struct CronJobDraft: Sendable {
         type: \(typeLabel)
         \(jobType == "shell" ? "command" : "prompt"): \(commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines))\(modelPart)\(delivPart)\(oneShotPart)\(delPart)
         Confirm the job was added by replying with: "Cron job added."
+        """
+    }
+
+    /// Composes the natural-language prompt to update an existing cron job.
+    /// The agent should replace the job identified by `existingID` with the new settings.
+    func toEditPrompt(replacing existingID: String) -> String {
+        let typeLabel   = jobType == "shell" ? "shell command" : "agent prompt"
+        let modelPart   = model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "" : ", model \(model.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let delivPart   = deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "" : ", delivery channel \(deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines)) to \(deliveryTo.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let oneShotPart = oneShot ? ", one_shot true" : ", one_shot false"
+        let delPart     = deleteAfterRun ? ", delete_after_run true" : ", delete_after_run false"
+        return """
+        Update the cron job with id "\(existingID)" in ~/.nullclaw/cron.json with the following new settings:
+        id: \(id.trimmingCharacters(in: .whitespacesAndNewlines))
+        expression: \(expression.trimmingCharacters(in: .whitespacesAndNewlines))
+        type: \(typeLabel)
+        \(jobType == "shell" ? "command" : "prompt"): \(commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines))\(modelPart)\(delivPart)\(oneShotPart)\(delPart)
+        Confirm the job was updated by replying with: "Cron job updated."
         """
     }
 }

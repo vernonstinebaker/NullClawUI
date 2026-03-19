@@ -102,7 +102,14 @@ final class GatewayStore {
 
         existing.name = profile.name
         existing.url = profile.url
-        existing.isPaired = KeychainService.hasToken(for: profile.url)
+        // For open gateways (requiresPairing == false), isPaired was set via completeOpenGateway
+        // and must not be re-derived from the Keychain (no token is ever stored for them).
+        existing.requiresPairing = profile.requiresPairing
+        if profile.requiresPairing {
+            existing.isPaired = KeychainService.hasToken(for: profile.url)
+        } else {
+            existing.isPaired = profile.isPaired
+        }
         save()
         loadProfiles()
     }
@@ -123,6 +130,14 @@ final class GatewayStore {
     func setProfilePaired(_ id: UUID, isPaired: Bool) {
         guard let profile = profiles.first(where: { $0.id == id }) else { return }
         profile.isPaired = isPaired
+        save()
+    }
+
+    /// Marks whether the gateway at `id` requires a pairing token.
+    /// Call with `false` when the gateway responds 403 to /pair (require_pairing: false).
+    func setProfileRequiresPairing(_ id: UUID, requiresPairing: Bool) {
+        guard let profile = profiles.first(where: { $0.id == id }) else { return }
+        profile.requiresPairing = requiresPairing
         save()
     }
 
@@ -207,5 +222,21 @@ final class GatewayStore {
 
         // Remove legacy keys so this runs only once.
         UserDefaults.standard.removeObject(forKey: key)
+    }
+
+    // MARK: - Migration: fix requiresPairing for open gateways (Phase 15 fix)
+
+    /// One-time migration: for any profile that is `isPaired = true` but has no Keychain token,
+    /// set `requiresPairing = false` so that updateProfile does not clobber `isPaired`.
+    /// Safe to call on every launch (no-op when all profiles already have correct state).
+    func migrateOpenGatewayFlagsIfNeeded() {
+        var changed = false
+        for profile in profiles where profile.isPaired && profile.requiresPairing {
+            if !KeychainService.hasToken(for: profile.url) {
+                profile.requiresPairing = false
+                changed = true
+            }
+        }
+        if changed { save() }
     }
 }
