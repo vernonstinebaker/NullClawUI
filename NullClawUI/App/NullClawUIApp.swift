@@ -1,8 +1,11 @@
 import SwiftUI
 import SwiftData
+import OSLog
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private let appLog = Logger(subsystem: "com.nullclaw.NullClawUI", category: "AppInit")
 
 // MARK: - NullClawUIApp
 
@@ -92,15 +95,34 @@ struct NullClawUIApp: App {
         let c: ModelContainer
         do {
             c = try ModelContainer(for: schema, configurations: cloudKitConfig)
+            appLog.info("ModelContainer: CloudKit-backed store initialised.")
         } catch {
             // Fallback to local-only if CloudKit is unavailable (e.g., simulator without
-            // a signed-in iCloud account, or unit-test host where Application Support
-            // directory may not yet exist).
+            // a signed-in iCloud account).
+            appLog.warning("ModelContainer: CloudKit init failed (\(error.localizedDescription, privacy: .public)); falling back to local SQLite.")
             do {
-                let localConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                // Explicit URL keeps the store in Application Support — never in-memory.
+                // Using the url: overload of ModelConfiguration pins the SQLite file path.
+                let storeURL = URL.applicationSupportDirectory
+                    .appending(path: "NullClawUI", directoryHint: .isDirectory)
+                    .appending(path: "default.store")
+                try FileManager.default.createDirectory(
+                    at: storeURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                let localConfig = ModelConfiguration(
+                    "NullClawUI",
+                    schema: schema,
+                    url: storeURL,
+                    allowsSave: true,
+                    cloudKitDatabase: .none
+                )
                 c = try ModelContainer(for: schema, configurations: localConfig)
+                appLog.info("ModelContainer: local SQLite store at \(storeURL.path, privacy: .public).")
             } catch {
-                // Final fallback: in-memory only (test hosts, fresh simulators).
+                // This should never happen on a real device; only on unit-test hosts where
+                // Application Support is sandboxed away. Log prominently so we know.
+                appLog.error("ModelContainer: local SQLite init also failed (\(error.localizedDescription, privacy: .public)); using in-memory store — DATA WILL NOT PERSIST.")
                 let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
                 c = try! ModelContainer(for: schema, configurations: memConfig)
             }
