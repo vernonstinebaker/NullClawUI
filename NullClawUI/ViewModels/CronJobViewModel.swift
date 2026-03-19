@@ -54,6 +54,14 @@ final class CronJobViewModel {
         errorMessage = nil
         defer { isLoading = false }
 
+        await loadInternal(client: client)
+    }
+
+    // MARK: - Private load helper
+
+    /// Performs the actual network fetch without touching `isLoading`.
+    /// Called internally by mutating operations that already own `isLoading`.
+    private func loadInternal(client: GatewayClient) async {
         do {
             let reply = try await client.sendOneShot(Self.loadPrompt)
             jobs = try parseCronJobs(from: reply)
@@ -96,7 +104,7 @@ final class CronJobViewModel {
         let prompt = draft.toPrompt()
         do {
             _ = try await client.sendOneShot(prompt)
-            await load()
+            await loadInternal(client: client)
         } catch {
             errorMessage = "Failed to add cron job: \(error.localizedDescription)"
         }
@@ -116,7 +124,7 @@ final class CronJobViewModel {
         let prompt = draft.toEditPrompt(replacing: job.id)
         do {
             _ = try await client.sendOneShot(prompt)
-            await load()
+            await loadInternal(client: client)
         } catch {
             errorMessage = "Failed to update cron job: \(error.localizedDescription)"
         }
@@ -159,7 +167,7 @@ final class CronJobViewModel {
 
         do {
             _ = try await client.sendOneShot(prompt)
-            await load()
+            await loadInternal(client: client)
         } catch {
             errorMessage = "\(prompt) failed: \(error.localizedDescription)"
         }
