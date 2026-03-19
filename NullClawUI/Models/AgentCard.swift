@@ -12,11 +12,5 @@ struct AgentCard: Codable, Sendable {
         let streaming: Bool?
         let multiModal: Bool?
         let history: Bool?
-
-        enum CodingKeys: String, CodingKey {
-            case streaming
-            case multiModal = "multi_modal"
-            case history
-        }
     }
 }

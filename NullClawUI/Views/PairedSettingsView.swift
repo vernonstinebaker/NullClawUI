@@ -1,98 +1,581 @@
-# NullClawUI — Agents & Roles
+import SwiftUI
 
-## Platform Baseline
+// MARK: - PairedSettingsView
 
-| Property | Value |
-|---|---|
-| **iOS Deployment Target** | iOS 26.0 |
-| **macOS Deployment Target** | macOS 26.0 (Tahoe) |
-| **Swift Version** | Swift 6 (strict concurrency) |
-| **UI Paradigm** | Liquid Glass (iOS 26 / visionOS-aligned materials) |
-| **Xcode Version** | Xcode 26+ |
-| **NullClaw API Reference** | See PLAN.md Phase 0 and the NullClaw Gateway OpenAPI spec at the configured gateway URL (/openapi.json). |
+/// Settings tab shown when already paired.
+/// Presents a list of gateway profiles with live health status;
+/// each row navigates to a detail page. Pull-to-refresh pings all gateways simultaneously.
+/// Search is handled exclusively via the dedicated Search tab (Tab role: .search).
+///
+/// On iPhone, this is embedded in a Tab (which provides a NavigationStack).
+/// On iPad, this is shown in the NavigationSplitView content column (which also provides a NavigationStack).
+/// Either way, PairedSettingsView must NOT wrap itself in its own NavigationStack.
+struct PairedSettingsView: View {
+    @Environment(AppModel.self) private var appModel
+    @Environment(GatewayStore.self) private var store
+    @Environment(GatewayViewModel.self) private var gatewayVM
+    @Environment(ChatViewModel.self) private var chatVM
+    @Environment(GatewayStatusViewModel.self) private var statusVM
 
-All agents operate under **Swift 6 strict concurrency** (-strict-concurrency=complete). Every network call must be async/await-based; no DispatchQueue usage. All state mutations touching the UI must happen on @MainActor.
+    @State private var showingAddSheet = false
 
----
+    var body: some View {
+        List {
+            ForEach(store.profiles) { profile in
+                NavigationLink {
+                    GatewayDetailView(profile: profile)
+                } label: {
+                    gatewayRow(profile)
+                }
+                .accessibilityLabel("\(profile.name), \(profile.displayHost)")
+            }
+            .onDelete { offsets in
+                handleDelete(offsets: offsets)
+            }
+        }
+        .navigationTitle("Gateways")
+        .refreshable {
+            await statusVM.refresh()
+        }
+        .task {
+            if statusVM.healthStates.isEmpty {
+                await statusVM.refresh()
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingAddSheet = true
+                } label: {
+                    Label("Add Gateway", systemImage: "plus")
+                }
+                .accessibilityLabel("Add a new gateway")
+            }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            AddGatewaySheet { name, url in
+                let profile = store.addProfile(name: name, url: url)
+                // Switch to the new profile so the chat client is connected to it.
+                Task {
+                    let newClient = await gatewayVM.switchGateway(to: profile)
+                    chatVM.resetForNewGateway(client: newClient, gateway: profile)
+                }
+            }
+        }
+    }
 
-## Roles
+    // MARK: - Gateway row
 
-### Swift/SwiftUI Architect
-- **Focus**: App lifecycle, navigation (NavigationStack / NavigationSplitView), and state management using the **Swift @Observable macro** (iOS 26 / Swift 6 preferred over legacy ObservableObject).
-- **Goal**: Clean, idiomatic SwiftUI structure that is easy to extend phase-by-phase.
-- **Notes**:
-  - Target iOS 26 exclusively — use new APIs freely; no @available guards needed.
-  - Favor NavigationSplitView for iPad; NavigationStack for iPhone compact-width.
-  - Apply **Liquid Glass** materials (GlassEffect, .glassBackgroundEffect()) for surfaces, cards, and overlaid controls.
+    private func gatewayRow(_ profile: GatewayProfile) -> some View {
+        let state = statusVM.healthState(for: profile)
 
-### Network & Protocol Specialist
-- **Focus**: URLSession configuration, SSE (Server-Sent Events) streaming via AsyncSequence, JSON-RPC 2.0 serialization for the A2A protocol.
-- **Goal**: Robust, error-resistant communication with the NullClaw Gateway.
-- **A2A Request Shape**:
-  ```json
-  {
-    "jsonrpc": "2.0",
-    "id": "<uuid>",
-    "method": "message/send",
-    "params": { "message": { "role": "user", "parts": [{ "text": "…" }] } }
-  }
-  ```
-  Streaming uses method: "message/stream" and returns SSE lines of the form data: { …TaskStatusUpdateEvent… }.
-- **Notes**:
-  - Use NSAllowsLocalNetworking: true in Info.plist to permit plain-HTTP http:// gateway connections during development. Production should use HTTPS.
-  - Implement exponential-backoff reconnect for dropped SSE streams (max 3 retries).
-  - Endpoints: GET /health, GET /.well-known/agent-card.json, POST /pair, POST /a2a, GET /tasks/{id}, POST /tasks/{id}/cancel.
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(statusCircleColor(state))
+                    .frame(width: 36, height: 36)
+                if state.isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    Image(systemName: "server.rack")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+            }
 
-### Security & Identity Guard
-- **Focus**: Pairing flow, Bearer token handling, and secure storage in the system Keychain.
-- **Goal**: Zero-leak credential management.
-- **Keychain Keying Strategy**: Each stored credential must be keyed by the normalized gateway base URL (scheme + host + port), allowing the user to connect to multiple gateways without collision. Example key: nullclaw.token.https://my-server.local:5111.
-- **Notes**:
-  - Use kSecAttrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly.
-  - On token deletion / re-pair, explicitly delete the old Keychain item before writing a new one.
+            VStack(alignment: .leading, spacing: 3) {
+                Text(profile.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(profile.displayHost)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let checked = state.lastChecked {
+                    Text("Checked \(checked.formatted(.relative(presentation: .named)))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
 
-### UX/UI Designer (Apple Standard)
-- **Focus**: HIG compliance, **Liquid Glass** design language, iconography, animations, and accessibility.
-- **Goal**: A professional, Apple-native feel targeting iOS 26 and iPadOS 26.
-- **Liquid Glass Guidelines**:
-  - Use .glassBackgroundEffect() for floating panels, modals, and overlaid toolbars.
-  - Use GlassEffect with .regularMaterial for card surfaces.
-  - Animate with withAnimation(.spring(duration: 0.35, bounce: 0.2)).
-  - Accent color should be dynamically sourced from agent-card.json once fetched; fall back to system tint.
-- **Notes**:
-  - iPad layout uses NavigationSplitView (sidebar = task list, detail = chat). Defined in Phase 6 but the architecture must support it from Phase 1.
-  - All interactive elements must have accessibilityLabel and accessibilityHint.
+            Spacer()
 
-### Validation & QA Engineer
-- **Focus**: Unit tests (XCTest / Swift Testing framework), network mocking, and integration testing against a running NullClaw instance.
-- **Goal**: Verify that every phase of PLAN.md is fully functional and regression-free before advancing.
-- **How to Run NullClaw Locally**: A NullClaw Gateway instance must be running at http://localhost:5111. Refer to the NullClaw repository (README.md → "Running Locally") for setup steps.
-- **Test Targets**:
-  - NullClawUI — main app target.
-  - NullClawUITests — XCTest unit tests (JSON-RPC parsing, Keychain read/write, SSE token parsing).
-  - NullClawUIUITests — UI tests (XCUIApplication).
-- **Build & Test Commands**:
-  ```bash
-  # Unit tests
-  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2'
+            if profile.isPaired {
+                Image(systemName: "key.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 
-  # UI tests
-  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2' -only-testing:NullClawUIUITests
-  ```
+    private func statusCircleColor(_ state: ProfileHealthState) -> Color {
+        guard !state.isChecking else { return Color(.systemFill) }
+        switch state.status {
+        case .online:  return .green
+        case .offline: return .red
+        case .unknown: return Color(.systemFill)
+        }
+    }
 
-### Test Coverage Mandate
+    // MARK: - Helpers
 
-**Every code change must be accompanied by tests.** No exceptions.
+    private func handleDelete(offsets: IndexSet) {
+        // Map offsets back to the unfiltered profiles array.
+        let idsToDelete = offsets.map { store.profiles[$0].id }
+        guard store.profiles.count > idsToDelete.count else { return }
+        for id in idsToDelete {
+            store.deleteProfile(id: id)
+            appModel.evictAgentCard(for: id)
+        }
+        // Silently reconnect the chat client to whatever profile the store now considers active.
+        if let newActive = store.activeProfile {
+            Task {
+                let newClient = await gatewayVM.switchGateway(to: newActive)
+                chatVM.resetForNewGateway(client: newClient, gateway: newActive)
+            }
+        }
+    }
+}
 
-- **Behavior changes** (new methods, changed logic): add or update `XCTestCase` tests in `NullClawUITests/NullClawUITests.swift` that directly exercise the changed code path.
-- **Bug fixes**: add a regression test that would have caught the original failure.
-- **Logging-only / pure UI-layout changes**: formal tests may not be practical. Add a comment near the change:
-  ```swift
-  // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
-  ```
-- **New ViewModel methods**: always test both the happy path and the key failure/edge cases. For `@MainActor` methods use `@MainActor func test...() async`.
-- **Keychain operations**: every method that reads or writes to the Keychain must be tested via `KeychainService` directly. Always call `KeychainService.deleteToken(for:)` in `tearDown()` to avoid state leakage between tests.
-- Regression tests must include a comment citing the bug they guard, e.g.:
-  ```swift
-  // Regression: unpairGateway(_:) on an inactive profile must not clear appModel.isPaired.
-  ```
+// MARK: - GatewayDetailView
+
+/// Detail page for a single gateway profile.
+/// Fetches agent card and health directly from this profile's URL — no dependency
+/// on which gateway the chat client is currently pointed at.
+/// Gateway switching is done exclusively from the Chat tab nav-bar picker.
+struct GatewayDetailView: View {
+    let profile: GatewayProfile
+
+    @Environment(GatewayStore.self) private var store
+    @Environment(GatewayViewModel.self) private var gatewayVM
+    @Environment(ChatViewModel.self) private var chatVM
+    @State private var editingProfile: GatewayProfile? = nil
+    @State private var showingPairSheet: Bool = false
+
+    // Per-profile agent card (fetched on appear, independent of chat client)
+    @State private var agentCard: AgentCard? = nil
+    @State private var isLoadingCard: Bool = false
+    @State private var cardError: String? = nil
+
+    // Per-profile health (fetched on appear)
+    @State private var healthStatus: ConnectionStatus = .unknown
+
+    var body: some View {
+        List {
+            // Agent info — fetched directly from this gateway, always shown.
+            Section("Agent") {
+                if isLoadingCard {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Fetching agent info…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if let card = agentCard {
+                    LabeledContent("Name", value: card.name)
+                    LabeledContent("Version", value: card.version)
+                    if let desc = card.description, !desc.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Description")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(desc)
+                                .font(.subheadline)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } else {
+                    Label(
+                        cardError ?? "Unable to fetch agent info",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+                }
+            }
+
+            if let caps = agentCard?.capabilities {
+                Section("Capabilities") {
+                    capRow("Streaming", value: caps.streaming == true)
+                    if let mm = caps.multiModal { capRow("Multi-modal", value: mm) }
+                    if let hist = caps.history   { capRow("History", value: hist) }
+                }
+            }
+
+            Section("Gateway") {
+                LabeledContent("Name", value: profile.name)
+                LabeledContent("URL") {
+                    Text(profile.url)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("Status") {
+                    ConnectionBadge(status: healthStatus)
+                }
+                LabeledContent("Paired") {
+                    HStack(spacing: 4) {
+                        Image(systemName: profile.isPaired ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(profile.isPaired ? .green : .secondary)
+                        Text(profile.isPaired ? "Yes" : "No")
+                    }
+                }
+            }
+
+            // Live Status and Cron Jobs — available for every gateway with a valid URL.
+            if URL(string: profile.url) != nil {
+                Section {
+                    NavigationLink {
+                        GatewayLiveStatusView(profile: profile)
+                    } label: {
+                        Label("Live Status", systemImage: "waveform.path.ecg")
+                    }
+                    .accessibilityLabel("Live Status")
+                    .accessibilityHint("Shows MCP server and channel connection state from the gateway agent")
+
+                    NavigationLink {
+                        CronJobListView(profile: profile)
+                    } label: {
+                        Label("Cron Jobs", systemImage: "clock.badge.checkmark")
+                    }
+                    .accessibilityLabel("Cron Jobs")
+                    .accessibilityHint("View, add, pause, and delete scheduled cron jobs on this gateway")
+
+                    NavigationLink {
+                        AgentConfigView(profile: profile)
+                    } label: {
+                        Label("Agent Configuration", systemImage: "slider.horizontal.3")
+                    }
+                    .accessibilityLabel("Agent Configuration")
+                    .accessibilityHint("View and adjust live-editable agent settings such as model, temperature, and limits")
+
+                    NavigationLink {
+                        AutonomyView(profile: profile)
+                    } label: {
+                        Label("Autonomy & Safety", systemImage: "shield.lefthalf.filled")
+                    }
+                    .accessibilityLabel("Autonomy & Safety")
+                    .accessibilityHint("View and adjust autonomy level, action limits, and safety controls for this gateway")
+
+                    NavigationLink {
+                        MCPServerListView(profile: profile)
+                    } label: {
+                        Label("MCP Servers", systemImage: "puzzlepiece.extension.fill")
+                    }
+                    .accessibilityLabel("MCP Servers")
+                    .accessibilityHint("View, add, and remove MCP server integrations for this gateway")
+
+                    NavigationLink {
+                        UsageStatsView(profile: profile)
+                    } label: {
+                        Label("Cost & Usage", systemImage: "chart.bar.fill")
+                    }
+                    .accessibilityLabel("Cost & Usage")
+                    .accessibilityHint("View token usage and cost data, and configure spend limits for this gateway")
+
+                    NavigationLink {
+                        ChannelStatusListView(profile: profile)
+                    } label: {
+                        Label("Channels", systemImage: "antenna.radiowaves.left.and.right")
+                    }
+                    .accessibilityLabel("Channels")
+                    .accessibilityHint("View the connection status and configuration of gateway communication channels")
+                }
+            }
+
+            Section {
+                // Edit button — always available
+                Button {
+                    editingProfile = profile
+                } label: {
+                    Label("Edit Gateway", systemImage: "pencil")
+                }
+            }
+
+            // Pair section — available for any unpaired profile
+            if !profile.isPaired {
+                Section {
+                    Button {
+                        showingPairSheet = true
+                    } label: {
+                        Label("Pair Device", systemImage: "key.fill")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .accessibilityLabel("Pair this device with the gateway")
+                    .accessibilityHint("Opens the pairing flow for this gateway")
+                } footer: {
+                    Text("Pair this device to enable authenticated access to this gateway.")
+                }
+            }
+
+            // Unpair section — available for any paired profile
+            if profile.isPaired {
+                Section {
+                    Button(role: .destructive) {
+                        Task { await gatewayVM.unpairGateway(profile) }
+                    } label: {
+                        Label("Unpair Device", systemImage: "person.slash.fill")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .accessibilityLabel("Unpair this device")
+                    .accessibilityHint("Removes stored credentials for this gateway")
+                } footer: {
+                    Text("Removes the stored Keychain token for this gateway. You will need to pair again to use it.")
+                }
+            }
+        }
+        .navigationTitle(profile.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await loadProfileInfo() }
+        .sheet(isPresented: $showingPairSheet) {
+            GatewayPairSheet(profile: profile)
+        }
+        .sheet(item: $editingProfile) { prof in
+            EditGatewaySheet(profile: prof) { updated in
+                store.updateProfile(updated)
+                // If the edited profile is the active one, silently reconnect the chat client.
+                if updated.id == store.activeProfile?.id,
+                   let refreshed = store.activeProfile {
+                    Task {
+                        let newClient = await gatewayVM.switchGateway(to: refreshed)
+                        chatVM.resetForNewGateway(client: newClient, gateway: refreshed)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Per-profile fetch
+
+    @MainActor
+    private func loadProfileInfo() async {
+        guard let url = URL(string: profile.url) else { return }
+        let client = GatewayClient(baseURL: url)
+
+        // Health check
+        healthStatus = .unknown
+        async let healthTask: ConnectionStatus = {
+            do {
+                _ = try await client.checkHealth()
+                return .online
+            } catch {
+                return .offline
+            }
+        }()
+
+        // Agent card fetch
+        isLoadingCard = true
+        cardError = nil
+        async let cardTask: AgentCard? = {
+            do {
+                return try await client.fetchAgentCard()
+            } catch {
+                return nil
+            }
+        }()
+
+        let (health, card) = await (healthTask, cardTask)
+        healthStatus = health
+        agentCard = card
+        isLoadingCard = false
+        if card == nil {
+            cardError = "Could not reach \(profile.displayHost)"
+        }
+    }
+
+    @ViewBuilder
+    private func capRow(_ label: String, value: Bool) -> some View {
+        LabeledContent(label) {
+            HStack(spacing: 4) {
+                Image(systemName: value ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(value ? .green : .secondary)
+                Text(value ? "Yes" : "No")
+            }
+        }
+    }
+}
+
+// MARK: - GatewayPairSheet
+
+/// Sheet for pairing an already-saved-but-unpaired gateway profile.
+/// Reuses AddGatewayPairingModel (connect probe → auto or code entry).
+struct GatewayPairSheet: View {
+    let profile: GatewayProfile
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(GatewayStore.self) private var store
+
+    @State private var pairingModel: AddGatewayPairingModel? = nil
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let pm = pairingModel {
+                    pairForm(pm: pm)
+                } else {
+                    ProgressView("Connecting…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .navigationTitle("Pair Gateway")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .task {
+            if let url = URL(string: profile.url) {
+                let pm = AddGatewayPairingModel(url: url)
+                pairingModel = pm
+                await pm.connect()
+                // Auto-complete open gateways — no user action needed.
+                if pm.step == .notRequired {
+                    pm.completeOpenGateway(store: store, profile: profile)
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func pairForm(pm: AddGatewayPairingModel) -> some View {
+        Form {
+            Section {
+                LabeledContent("Name", value: profile.name)
+                LabeledContent("URL") {
+                    Text(profile.url)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+
+            switch pm.step {
+            case .connecting:
+                Section {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Connecting to gateway…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+            case .requiresPairing:
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "number")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                        @Bindable var bpm = pm
+                        TextField("000000", text: $bpm.pairingCode)
+                            .keyboardType(.numberPad)
+                            .font(.title3.monospacedDigit())
+                            .accessibilityLabel("Pairing code")
+                            .accessibilityHint("6-digit code from the NullClaw admin interface")
+                    }
+                    .padding(.vertical, 4)
+
+                    Button {
+                        Task { await pm.pair(profileURL: profile.url, store: store, profile: profile) }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if pm.isPairing {
+                                ProgressView().controlSize(.small).tint(.white)
+                            } else {
+                                Label("Pair", systemImage: "checkmark.seal.fill")
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(pm.isPairing || pm.pairingCode.count != 6)
+                } header: {
+                    Text("Pair Device")
+                } footer: {
+                    Text("Enter the 6-digit code shown in the NullClaw admin interface.")
+                }
+
+            case .notRequired:
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Gateway is open — no pairing code required.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+
+                    Button("Complete") {
+                        pm.completeOpenGateway(store: store, profile: profile)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                }
+
+            case .success:
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                        Text("Paired successfully.")
+                            .font(.subheadline)
+                    }
+                    .padding(.vertical, 4)
+                }
+                Section {
+                    Button("Done") { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .frame(maxWidth: .infinity)
+                }
+
+            case .failed(let message):
+                Section {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Could not connect")
+                                .font(.subheadline.weight(.semibold))
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    Button("Retry") {
+                        Task { await pm.connect() }
+                    }
+                } header: {
+                    Text("Connection Error")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - URL Validation
+
+/// Returns true if the string is a well-formed http/https URL with a non-empty host.
+func isValidGatewayURL(_ string: String) -> Bool {
+    let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let url = URL(string: trimmed),
+          let scheme = url.scheme,
+          scheme == "http" || scheme == "https",
+          let host = url.host,
+          !host.isEmpty else { return false }
+    return true
+}
+

@@ -50,6 +50,9 @@
 		F1A3C22D9E4B47F8AE651DC0 /* ChannelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C14B7E3F2E4A5B8D2C6F01 /* ChannelInfo.swift */; };
 		B7D3E4FC8A1C4E2F9B5D7A03 /* ChannelStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E2D9F14B3A4C7E8F6A1B02 /* ChannelStatusViewModel.swift */; };
 		E8F6A1B24C3D4E5F9A7C8D04 /* ChannelStatusListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A9B3E25F4C4D6E8B1A0C05 /* ChannelStatusListView.swift */; };
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* GatewayLiveStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1F2 /* GatewayLiveStatusView.swift */; };
+		F2A3B4C5D6E7F8A9B0C1D2E3 /* AddGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E7F8A9B0C1D2F3 /* AddGatewaySheet.swift */; };
+		F3A4B5C6D7E8F9A0B1C2D3E4 /* EditGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A4B5C6D7E8F9A0B1C2D3F4 /* EditGatewaySheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,6 +105,9 @@
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedSettingsView.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F7A8B9C0D1F2 /* GatewayLiveStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayLiveStatusView.swift; sourceTree = "<group>"; };
+		F2A3B4C5D6E7F8A9B0C1D2F3 /* AddGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewaySheet.swift; sourceTree = "<group>"; };
+		F3A4B5C6D7E8F9A0B1C2D3F4 /* EditGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGatewaySheet.swift; sourceTree = "<group>"; };
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
 		F344154517C845148851E370 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
 		FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extensions.swift"; sourceTree = "<group>"; };
@@ -205,12 +211,15 @@
 			isa = PBXGroup;
 			children = (
 				3F59EAB1E4F84998A9C5D97A /* AgentConfigView.swift */,
+				F2A3B4C5D6E7F8A9B0C1D2F3 /* AddGatewaySheet.swift */,
 				DEC8AEBE0E0F400583887D35 /* AutonomyView.swift */,
 				966E45AA355B4F2181533442 /* MCPServerListView.swift */,
 				BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */,
 				2211EF38611CF618453B2921 /* ContentView.swift */,
 				86331E234CC107BD5471DBE7 /* CronJobListView.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
+				F3A4B5C6D7E8F9A0B1C2D3F4 /* EditGatewaySheet.swift */,
+				F1A2B3C4D5E6F7A8B9C0D1F2 /* GatewayLiveStatusView.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
 				8A879BA976476DF9DECFFA87 /* SettingsView.swift */,
@@ -438,6 +447,9 @@
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
 				28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */,
 				51D91DC2B8D5B19632AC55EB /* TaskHistoryView.swift in Sources */,
+				F1A2B3C4D5E6F7A8B9C0D1E2 /* GatewayLiveStatusView.swift in Sources */,
+				F2A3B4C5D6E7F8A9B0C1D2E3 /* AddGatewaySheet.swift in Sources */,
+				F3A4B5C6D7E8F9A0B1C2D3E4 /* EditGatewaySheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
