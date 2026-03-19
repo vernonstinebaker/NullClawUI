@@ -68,8 +68,16 @@ final class MCPServerViewModel {
         confirmationMessage = nil
         defer { isLoading = false }
 
+        await loadInternal(client: c)
+    }
+
+    // MARK: - Private load helper
+
+    /// Performs the actual network fetch without touching `isLoading`.
+    /// Called internally by mutating operations that already own `isLoading`.
+    private func loadInternal(client: GatewayClient) async {
         do {
-            let reply = try await c.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShot(Self.loadPrompt)
             servers = try parseMCPServers(from: reply)
         } catch {
             errorMessage = error.localizedDescription
@@ -94,7 +102,7 @@ final class MCPServerViewModel {
         do {
             _ = try await c.sendOneShot(prompt)
             confirmationMessage = "MCP server \"\(server.name)\" removed."
-            await load()
+            await loadInternal(client: c)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -118,7 +126,7 @@ final class MCPServerViewModel {
         do {
             _ = try await c.sendOneShot(prompt)
             confirmationMessage = "MCP server \"\(draft.name)\" added."
-            await load()
+            await loadInternal(client: c)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -158,8 +166,10 @@ final class MCPServerViewModel {
             if let list = wrapper.mcp_servers {
                 return list.map(\.toMCPServer)
             }
-            // Object found but no mcp_servers key — treat as empty list.
-            return []
+            // Object found but no mcp_servers key — the agent returned an unexpected shape.
+            throw MCPServerParseError.noConfigFound
+        } catch let e as MCPServerParseError {
+            throw e
         } catch {
             throw MCPServerParseError.decodingFailed(error.localizedDescription)
         }
