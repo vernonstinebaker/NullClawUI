@@ -64,20 +64,6 @@ final class NullClawUITests: XCTestCase {
                        "Pairing code field should not appear before connecting")
     }
 
-    /// Requires localhost:5111 A2A gateway to be running and device not yet paired.
-    func testE2E_ConnectAndPairing() throws {
-        let urlField = app.textFields["Gateway URL"]
-        XCTAssertTrue(urlField.waitForExistence(timeout: 5))
-        urlField.replaceText("http://127.0.0.1:5111")
-
-        app.buttons["Connect"].tap()
-
-        let codeField = app.textFields["Pairing code"]
-        guard codeField.waitForExistence(timeout: 15) else {
-            throw XCTSkip("Pairing code field did not appear — gateway may not be running or device is already paired")
-        }
-    }
-
     // MARK: - Accessibility & Navigation
 
     func testNavigationTitleExists() {
@@ -96,13 +82,6 @@ final class NullClawUITests: XCTestCase {
         let badge = app.staticTexts["connectionBadge"]
         XCTAssertTrue(badge.waitForExistence(timeout: 8),
                       "Connection status badge should be visible")
-    }
-
-    /// The ConnectionBadge in SettingsView is informational only (non-interactive).
-    /// Gateway info is accessible via PairedSettingsView → Gateway Info row.
-    /// This test is skipped as the design no longer has a tappable badge on the setup screen.
-    func testE2E_ConnectionBadgeTapOpensGatewayInfoSheet() throws {
-        throw XCTSkip("ConnectionBadge is non-interactive in the current design; use PairedSettingsView Gateway Info row instead.")
     }
 }
 
@@ -265,18 +244,6 @@ final class PairedUITests: XCTestCase {
         app.tabBars.buttons["History"].tap()
         XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 5),
                       "History screen should show 'History' navigation title")
-    }
-
-    func testHistoryRefreshButtonExists() throws {
-        // The Refresh button was removed — history is now locally persisted
-        // and no longer requires a server round-trip to refresh.
-        throw XCTSkip("Refresh button removed in local-history redesign")
-    }
-
-    func testHistoryRefreshButtonIsHittable() throws {
-        // The Refresh button was removed — history is now locally persisted
-        // and no longer requires a server round-trip to refresh.
-        throw XCTSkip("Refresh button removed in local-history redesign")
     }
 
     func testHistoryEmptyStateAppearsWhenNoTasks() {
