@@ -26,6 +26,7 @@ final class UsageStatsViewModel {
     private(set) var stats: UsageStats = UsageStats()
     private(set) var isLoading: Bool = false
     private(set) var isSaving: Bool = false
+    private(set) var isLoaded: Bool = false
     var errorMessage: String? = nil
     var confirmationMessage: String? = nil
 
@@ -57,6 +58,7 @@ final class UsageStatsViewModel {
         do {
             let reply = try await c.sendOneShot(Self.loadPrompt)
             stats = try parseStats(from: reply)
+            isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
         }

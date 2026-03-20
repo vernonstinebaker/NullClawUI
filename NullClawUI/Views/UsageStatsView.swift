@@ -38,7 +38,7 @@ struct UsageStatsView: View {
                     Label("Pair this gateway to view cost and usage data.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && viewModel.stats == UsageStats() {
+            } else if viewModel.isLoading && !viewModel.isLoaded {
                 Section {
                     HStack {
                         ProgressView()
@@ -83,7 +83,7 @@ struct UsageStatsView: View {
         }
         .task {
             guard profile.isPaired else { return }
-            if viewModel.stats == UsageStats() {
+            if !viewModel.isLoaded {
                 await viewModel.load()
                 syncDrafts()
             }
