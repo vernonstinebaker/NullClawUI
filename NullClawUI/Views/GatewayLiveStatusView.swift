@@ -91,8 +91,9 @@ struct GatewayLiveStatusView: View {
             if let c = client { await load(using: c) }
         }
         .onDisappear {
-            client?.invalidate()
+            let c = client
             client = nil
+            Task { await c?.invalidate() }
         }
     }
 

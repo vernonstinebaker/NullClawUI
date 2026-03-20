@@ -57,7 +57,8 @@ final class MCPServerViewModel {
     /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
     /// release the session and avoid orphaned network connections.
     func invalidate() {
-        client?.invalidate()
+        let c = client
+        Task { await c?.invalidate() }
     }
 
     // MARK: - Load
