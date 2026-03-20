@@ -21,6 +21,8 @@
 		6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D18F96C48C0F9087431E70 /* MCPServerViewModel.swift */; };
 		784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DC885F054A771E27A3B26C /* UsageStats.swift */; };
 		792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4586808D41B6CE56D04176A0 /* GatewayProfile.swift */; };
+		1E4E6EE022A34378AA6AD714 /* GatewayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92E90D83F4064D78944D31F1 /* GatewayDetailView.swift */; };
+		49E5DE24D5F7489B82664AC7 /* GatewayPairSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 337B8878AF10456D883838E8 /* GatewayPairSheet.swift */; };
 		7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */; };
 		79924E387854ED2994F2CD4D /* AgentConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 926834C39C09BF5AAA1D0A4C /* AgentConfigView.swift */; };
 		7AEEF479BF9B4A9E5E7331E9 /* EditGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */; };
@@ -118,6 +120,8 @@
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		D7E52636F01842BCE0ADE456 /* ChannelStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusViewModel.swift; sourceTree = "<group>"; };
 		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		92E90D83F4064D78944D31F1 /* GatewayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDetailView.swift; sourceTree = "<group>"; };
+		337B8878AF10456D883838E8 /* GatewayPairSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayPairSheet.swift; sourceTree = "<group>"; };
 		E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedSettingsView.swift; sourceTree = "<group>"; };
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
 		F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerListView.swift; sourceTree = "<group>"; };
@@ -224,6 +228,8 @@
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */,
+				92E90D83F4064D78944D31F1 /* GatewayDetailView.swift */,
+				337B8878AF10456D883838E8 /* GatewayPairSheet.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
 				8A879BA976476DF9DECFFA87 /* SettingsView.swift */,
 				8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */,
@@ -447,6 +453,8 @@
 				6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */,
 				2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */,
 				BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */,
+				1E4E6EE022A34378AA6AD714 /* GatewayDetailView.swift in Sources */,
+				49E5DE24D5F7489B82664AC7 /* GatewayPairSheet.swift in Sources */,
 				7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */,
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
 				28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */,
