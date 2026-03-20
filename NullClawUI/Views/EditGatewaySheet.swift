@@ -57,6 +57,8 @@ struct EditGatewaySheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        // GatewayProfile is a class (reference type), so `updated` is an
+                        // alias for the same object — mutations below are intentional and correct.
                         let updated = profile
                         updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         updated.url  = url.trimmingCharacters(in: .whitespacesAndNewlines)
