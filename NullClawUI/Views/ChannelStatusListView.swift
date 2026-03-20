@@ -85,6 +85,9 @@ struct ChannelStatusListView: View {
                 await viewModel.load()
             }
         }
+        .onDisappear {
+            viewModel.invalidate()
+        }
     }
 
     // MARK: - Restart banner

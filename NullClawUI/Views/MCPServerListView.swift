@@ -117,6 +117,9 @@ struct MCPServerListView: View {
                 await viewModel.load()
             }
         }
+        .onDisappear {
+            viewModel.invalidate()
+        }
         .sheet(isPresented: $showingAddSheet) {
             AddMCPServerSheet { draft in
                 Task { await viewModel.addServer(draft) }

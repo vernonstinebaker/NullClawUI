@@ -84,6 +84,9 @@ struct AgentConfigView: View {
                 syncDrafts()
             }
         }
+        .onDisappear {
+            viewModel.invalidate()
+        }
         .onChange(of: viewModel.config) { _, new in
             // Only sync when the user is NOT currently editing the model field
             if !modelFieldFocused {

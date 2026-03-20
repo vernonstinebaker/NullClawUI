@@ -62,6 +62,12 @@ final class AgentConfigViewModel {
         self.client = client
     }
 
+    /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
+    /// release the session and avoid orphaned network connections.
+    func invalidate() {
+        client?.invalidate()
+    }
+
     // MARK: - Load
 
     /// Asks the agent for the current configuration and parses the reply.

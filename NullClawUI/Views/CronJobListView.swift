@@ -137,6 +137,9 @@ struct CronJobListView: View {
                 await viewModel.load()
             }
         }
+        .onDisappear {
+            viewModel.invalidate()
+        }
         .sheet(isPresented: $showingAddSheet) {
             AddCronJobSheet { draft in
                 Task { await viewModel.addJob(draft) }

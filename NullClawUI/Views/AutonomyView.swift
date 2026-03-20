@@ -82,6 +82,9 @@ struct AutonomyView: View {
                 syncDrafts()
             }
         }
+        .onDisappear {
+            viewModel.invalidate()
+        }
         .onChange(of: viewModel.config) { _, new in
             maxActionsDraft = new.maxActionsPerHour
         }

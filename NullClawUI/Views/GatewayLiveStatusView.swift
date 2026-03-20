@@ -90,6 +90,10 @@ struct GatewayLiveStatusView: View {
             }
             if let c = client { await load(using: c) }
         }
+        .onDisappear {
+            client?.invalidate()
+            client = nil
+        }
     }
 
     // MARK: - Row helper

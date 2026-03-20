@@ -88,6 +88,9 @@ struct UsageStatsView: View {
                 syncDrafts()
             }
         }
+        .onDisappear {
+            viewModel.invalidate()
+        }
         .onChange(of: viewModel.stats) { _, new in
             syncDrafts(from: new)
         }

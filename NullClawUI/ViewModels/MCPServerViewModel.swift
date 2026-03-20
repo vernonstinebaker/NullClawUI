@@ -54,6 +54,12 @@ final class MCPServerViewModel {
         self.client = client
     }
 
+    /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
+    /// release the session and avoid orphaned network connections.
+    func invalidate() {
+        client?.invalidate()
+    }
+
     // MARK: - Load
 
     /// Fetches the MCP server list from the gateway config via the agent.
