@@ -33,23 +33,31 @@ struct NullClawUIApp: App {
 
         // --uitesting-paired / --uitesting: use an in-memory container so tests
         // never touch the real CloudKit store.
-        if args.contains("--uitesting-paired") || args.contains("--uitesting") {
+        if args.contains("--uitesting-paired") || args.contains("--uitesting")
+              || args.contains("--uitesting-paired-multi") {
             let cfg = ModelConfiguration(isStoredInMemoryOnly: true)
             let c = try! ModelContainer(for: GatewayProfile.self, ConversationRecord.self,
                                         configurations: cfg)
             container = c
 
+            let isPaired = args.contains("--uitesting-paired") || args.contains("--uitesting-paired-multi")
             let fakeProfile = GatewayProfile(
                 id: UUID(),
-                name: args.contains("--uitesting-paired") ? "TestAgent" : "Local",
+                name: isPaired ? "TestAgent" : "Local",
                 url: "http://127.0.0.1:19999",
-                isPaired: args.contains("--uitesting-paired")
+                isPaired: isPaired
             )
             let s = GatewayStore(testProfile: fakeProfile)
+
+            // --uitesting-paired-multi: add a second gateway so the picker chevron appears.
+            if args.contains("--uitesting-paired-multi") {
+                _ = s.addProfile(name: "SecondAgent", url: "http://127.0.0.1:19998")
+            }
+
             let cs = ConversationStore(inMemory: true)
             let m = AppModel(store: s)
 
-            if args.contains("--uitesting-paired") {
+            if isPaired {
                 m.isPaired = true
                 m.isCheckingGateway = false
                 m.connectionStatus = .online
@@ -70,7 +78,7 @@ struct NullClawUIApp: App {
             let cvm = ChatViewModel(appModel: m, client: gvm.client, conversationStore: cs)
             let svm = GatewayStatusViewModel(store: s)
             // For unpaired UI tests, skip the probe — show SettingsView immediately.
-            if !args.contains("--uitesting-paired") {
+            if !isPaired {
                 m.isCheckingGateway = false
             }
             _store = State(wrappedValue: s)

@@ -347,6 +347,202 @@ final class PairedUITests: XCTestCase {
     }
 }
 
+// MARK: - GatewayDetailSubPageTests
+
+/// Tests that every NavigationLink in GatewayDetailView opens the correct sub-page.
+/// Uses --uitesting-paired so the detail row and all sub-page links are visible.
+@MainActor
+final class GatewayDetailSubPageTests: XCTestCase {
+    var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        app = XCUIApplication()
+        app.launchArguments = ["--uitesting-paired"]
+        app.launch()
+        // Navigate to Settings → gateway detail once for all sub-page tests.
+        app.tabBars.buttons["Settings"].tap()
+        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
+        app.cells.firstMatch.tap()
+        _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
+    }
+
+    override func tearDownWithError() throws {
+        app.terminate()
+        app = nil
+    }
+
+    // MARK: Detail page presence
+
+    func testDetailPageLoads() {
+        XCTAssertTrue(app.navigationBars["TestAgent"].waitForExistence(timeout: 5),
+                      "GatewayDetailView should show the gateway name as its navigation title")
+    }
+
+    func testDetailURLLabelExists() {
+        XCTAssertTrue(app.staticTexts["URL"].waitForExistence(timeout: 5),
+                      "URL label should be visible in the Gateway section")
+    }
+
+    func testDetailStatusLabelExists() {
+        XCTAssertTrue(app.staticTexts["Status"].waitForExistence(timeout: 5),
+                      "Status label should be visible in the Gateway section")
+    }
+
+    // MARK: Sub-page navigation links
+
+    func testLiveStatusLinkNavigates() {
+        let link = app.cells.staticTexts["Live Status"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5), "Live Status link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Live Status"].waitForExistence(timeout: 5),
+                      "Tapping Live Status link should push the Live Status page")
+    }
+
+    func testCronJobsLinkNavigates() {
+        let link = app.cells.staticTexts["Cron Jobs"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5), "Cron Jobs link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Cron Jobs"].waitForExistence(timeout: 5),
+                      "Tapping Cron Jobs link should push the Cron Jobs page")
+    }
+
+    func testAgentConfigLinkNavigates() {
+        let link = app.cells.staticTexts["Agent Configuration"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5),
+                      "Agent Configuration link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Agent Configuration"].waitForExistence(timeout: 5),
+                      "Tapping Agent Configuration link should push the Agent Config page")
+    }
+
+    func testAutonomyLinkNavigates() {
+        let link = app.cells.staticTexts["Autonomy & Safety"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5),
+                      "Autonomy & Safety link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Autonomy & Safety"].waitForExistence(timeout: 5),
+                      "Tapping Autonomy & Safety link should push the Autonomy page")
+    }
+
+    func testMCPServersLinkNavigates() {
+        // MCP Servers link may require a scroll to become visible.
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 3) { list.swipeUp() }
+        let link = app.cells.staticTexts["MCP Servers"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5),
+                      "MCP Servers link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["MCP Servers"].waitForExistence(timeout: 5),
+                      "Tapping MCP Servers link should push the MCP Servers page")
+    }
+
+    func testCostUsageLinkNavigates() {
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 3) { list.swipeUp() }
+        let link = app.cells.staticTexts["Cost & Usage"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5),
+                      "Cost & Usage link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Cost & Usage"].waitForExistence(timeout: 5),
+                      "Tapping Cost & Usage link should push the Cost & Usage page")
+    }
+
+    func testChannelsLinkNavigates() {
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 3) { list.swipeUp() }
+        let link = app.cells.staticTexts["Channels"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5),
+                      "Channels link should be in the detail list")
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Channels"].waitForExistence(timeout: 5),
+                      "Tapping Channels link should push the Channels page")
+    }
+
+    // MARK: Edit button
+
+    func testEditGatewayButtonOpensSheet() {
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 3) { list.swipeUp(); list.swipeUp() }
+        let editCell = app.cells.staticTexts["Edit Gateway"]
+        XCTAssertTrue(editCell.waitForExistence(timeout: 5),
+                      "Edit Gateway cell should be visible in the detail list")
+        editCell.tap()
+        XCTAssertTrue(app.navigationBars["Edit Gateway"].waitForExistence(timeout: 5),
+                      "Tapping Edit Gateway should present the EditGatewaySheet")
+    }
+}
+
+// MARK: - GatewaySwitcherTests
+
+/// Tests for the gateway-switcher confirmation dialog shown in the Chat tab title bar.
+/// Requires --uitesting-paired-multi which starts the app with two gateways.
+@MainActor
+final class GatewaySwitcherTests: XCTestCase {
+    var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        app = XCUIApplication()
+        app.launchArguments = ["--uitesting-paired-multi"]
+        app.launch()
+    }
+
+    override func tearDownWithError() throws {
+        app.terminate()
+        app = nil
+    }
+
+    func testPickerButtonHasChevronWhenMultipleGateways() {
+        // With two gateways the picker button is enabled (shows chevron in its label area).
+        let pickerBtn = app.buttons["gatewayPickerButton"]
+        XCTAssertTrue(pickerBtn.waitForExistence(timeout: 5),
+                      "Gateway picker button should be present when multiple gateways are configured")
+        XCTAssertTrue(pickerBtn.isEnabled,
+                      "Picker button should be enabled when more than one gateway exists")
+    }
+
+    func testPickerButtonTapShowsDialog() {
+        let pickerBtn = app.buttons["gatewayPickerButton"]
+        guard pickerBtn.waitForExistence(timeout: 5) else {
+            return XCTFail("Gateway picker button not found")
+        }
+        pickerBtn.tap()
+        // The confirmation dialog title is "Switch Gateway"
+        XCTAssertTrue(app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5),
+                      "Tapping the picker button should present the Switch Gateway dialog")
+    }
+
+    func testPickerDialogShowsAllGateways() {
+        let pickerBtn = app.buttons["gatewayPickerButton"]
+        guard pickerBtn.waitForExistence(timeout: 5) else {
+            return XCTFail("Gateway picker button not found")
+        }
+        pickerBtn.tap()
+        _ = app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5)
+        // Both gateway names should appear as action buttons in the dialog.
+        XCTAssertTrue(app.buttons["TestAgent"].waitForExistence(timeout: 3),
+                      "TestAgent should appear as a choice in the switcher dialog")
+        XCTAssertTrue(app.buttons["SecondAgent"].waitForExistence(timeout: 3),
+                      "SecondAgent should appear as a choice in the switcher dialog")
+    }
+
+    func testPickerDialogCanBeDismissed() {
+        let pickerBtn = app.buttons["gatewayPickerButton"]
+        guard pickerBtn.waitForExistence(timeout: 5) else {
+            return XCTFail("Gateway picker button not found")
+        }
+        pickerBtn.tap()
+        _ = app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5)
+        app.buttons["Cancel"].tap()
+        // After Cancel the dialog must disappear and the Chat view must still be visible.
+        XCTAssertFalse(app.staticTexts["Switch Gateway"].waitForExistence(timeout: 3),
+                       "Switch Gateway dialog should be dismissed after tapping Cancel")
+        XCTAssertTrue(app.textFields["Message input"].waitForExistence(timeout: 5),
+                      "Chat view should still be visible after dismissing the switcher dialog")
+    }
+}
+
 // MARK: - XCUIElement helpers
 
 extension XCUIElement {
