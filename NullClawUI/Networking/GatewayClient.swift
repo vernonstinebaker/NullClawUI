@@ -60,6 +60,13 @@ actor GatewayClient {
         return e
     }()
 
+    /// Dedicated encoder for JSON-RPC A2A methods that strictly require camelCase.
+    private let a2aEncoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.outputFormatting = .withoutEscapingSlashes
+        return e
+    }()
+
     // MARK: Init
 
     init(baseURL: URL, token: String? = nil, requiresPairing: Bool = true, mockSessionConfig: URLSessionConfiguration? = nil) {
@@ -145,7 +152,7 @@ actor GatewayClient {
                                      params: params)
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
-        req.httpBody = try encoder.encode(rpc)
+        req.httpBody = try a2aEncoder.encode(rpc)
 
         let (data, response) = try await session.data(for: req)
         try validate(response)
@@ -172,7 +179,7 @@ actor GatewayClient {
                                     params: params)
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
-        req.httpBody = try encoder.encode(rpc)
+        req.httpBody = try a2aEncoder.encode(rpc)
 
         let (asyncBytes, response) = try await sseSession.bytes(for: req)
         try validate(response)
@@ -236,7 +243,7 @@ actor GatewayClient {
                                  params: TaskListParams())
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
-        req.httpBody = try encoder.encode(rpc)
+        req.httpBody = try a2aEncoder.encode(rpc)
         let (data, response) = try await session.data(for: req)
         try validate(response)
         let envelope = try decode(JSONRPCResponse<TaskListResult>.self, from: data)
@@ -251,7 +258,7 @@ actor GatewayClient {
                                  params: TaskIDParams(id: id))
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
-        req.httpBody = try encoder.encode(rpc)
+        req.httpBody = try a2aEncoder.encode(rpc)
         let (data, response) = try await session.data(for: req)
         try validate(response)
         let envelope = try decode(JSONRPCResponse<NullClawTask>.self, from: data)
@@ -270,7 +277,7 @@ actor GatewayClient {
                                  params: TaskIDParams(id: id))
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
-        req.httpBody = try encoder.encode(rpc)
+        req.httpBody = try a2aEncoder.encode(rpc)
         let (_, response) = try await session.data(for: req)
         try validate(response)
     }

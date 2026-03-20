@@ -319,6 +319,14 @@ final class ChatViewModel {
                     }
                     break
                 }
+                // unpaired means no token is set — retrying will never succeed.
+                if case GatewayError.unpaired = error {
+                    errorMessage = "Not paired. Please configure and pair a gateway in Settings."
+                    if let idx = assistantIndex, idx < messages.count {
+                        messages[idx].isStreaming = false
+                    }
+                    break
+                }
                 if receivedAnyStreamEvent || activeTaskID != nil || activeContextID != nil {
                     errorMessage = "Stream interrupted: \(error.localizedDescription)"
                     if let idx = assistantIndex, idx < messages.count {

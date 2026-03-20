@@ -278,6 +278,13 @@ final class PairedUITests: XCTestCase {
         app.tabBars.buttons["Settings"].tap()
         _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
         app.cells.firstMatch.tap()
+        
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 5) {
+            list.swipeUp()
+            list.swipeUp()
+        }
+        
         let unpairBtn = app.buttons["Unpair this device"]
         XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5), "Unpair button should exist in gateway detail")
     }
@@ -286,6 +293,13 @@ final class PairedUITests: XCTestCase {
         app.tabBars.buttons["Settings"].tap()
         _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
         app.cells.firstMatch.tap()
+        
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 5) {
+            list.swipeUp()
+            list.swipeUp()
+        }
+        
         let unpairBtn = app.buttons["Unpair this device"]
         XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5))
         XCTAssertTrue(unpairBtn.exists, "Unpair button should be present on the detail screen")
@@ -315,6 +329,13 @@ final class PairedUITests: XCTestCase {
         app.tabBars.buttons["Settings"].tap()
         _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
         app.cells.firstMatch.tap()
+        
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 5) {
+            list.swipeUp()
+            list.swipeUp()
+        }
+        
         let unpairBtn = app.buttons["Unpair this device"]
         guard unpairBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Unpair button not found")

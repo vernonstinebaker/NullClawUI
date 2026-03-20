@@ -41,6 +41,7 @@ struct A2AMessage: Codable, Sendable {
     let role: String          // "user" | "assistant"
     var parts: [MessagePart]
     var contextId: String? = nil    // Optional: ties messages to the same conversation session
+    var messageId: String? = UUID().uuidString // Required by gateway A2A spec v0.3.0+
 
     // Explicit CodingKeys to prevent JSONEncoder's .convertToSnakeCase strategy
     // from turning "contextId" into "context_id". The gateway looks for "contextId"
@@ -50,6 +51,7 @@ struct A2AMessage: Codable, Sendable {
         case role
         case parts
         case contextId
+        case messageId
     }
 }
 
