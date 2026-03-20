@@ -124,7 +124,7 @@ struct CronJobListView: View {
                 .accessibilityLabel("Add a new cron job")
             }
             if viewModel.isLoading && !viewModel.jobs.isEmpty {
-                ToolbarItem(placement: .status) {
+                ToolbarItem(placement: .topBarTrailing) {
                     ProgressView().controlSize(.small)
                 }
             }

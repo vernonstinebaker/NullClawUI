@@ -107,7 +107,7 @@ struct MCPServerListView: View {
                 .accessibilityHint("Opens a form to register a new MCP server with this gateway")
             }
             if viewModel.isLoading && !viewModel.servers.isEmpty {
-                ToolbarItem(placement: .status) {
+                ToolbarItem(placement: .topBarTrailing) {
                     ProgressView().controlSize(.small)
                 }
             }
@@ -252,11 +252,14 @@ private struct MCPServerDetailView: View {
                         }
                     }
                     if let headers = server.headers, !headers.isEmpty {
-                        Section("Headers") {
-                            ForEach(headers.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                                LabeledContent(key, value: value)
-                                    .font(.caption.monospaced())
-                            }
+                        // Inner Section inside an outer Section is not supported — use a
+                        // visual separator row instead to show the "Headers" group label.
+                        LabeledContent("Headers", value: "")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(headers.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                            LabeledContent(key, value: value)
+                                .font(.caption.monospaced())
                         }
                     }
                 }
@@ -279,12 +282,15 @@ private struct MCPServerDetailView: View {
                         }
                     }
                     if let env = server.env, !env.isEmpty {
-                        Section("Environment") {
-                            ForEach(env.sorted(by: { $0.key < $1.key }), id: \.key) { key, _ in
-                                LabeledContent(key, value: "●●●●●●")
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
-                            }
+                        // Inner Section inside an outer Section is not supported — use a
+                        // visual separator row instead to show the "Environment" group label.
+                        LabeledContent("Environment", value: "")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(env.sorted(by: { $0.key < $1.key }), id: \.key) { key, _ in
+                            LabeledContent(key, value: "●●●●●●")
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }

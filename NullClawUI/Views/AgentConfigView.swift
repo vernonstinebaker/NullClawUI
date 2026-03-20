@@ -71,7 +71,7 @@ struct AgentConfigView: View {
         .refreshable { await viewModel.load() }
         .toolbar {
             if viewModel.isLoading || viewModel.isSaving {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     ProgressView()
                         .accessibilityLabel("Saving")
                 }

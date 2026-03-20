@@ -24,8 +24,10 @@ struct ChannelStatusListView: View {
 
     var body: some View {
         List {
-            // Persistent restart-required banner (always shown at top)
-            restartBanner
+            // Restart-required banner — only shown once channels have loaded (not on empty/loading state)
+            if !viewModel.channels.isEmpty {
+                restartBanner
+            }
 
             if !profile.isPaired {
                 Section {
@@ -73,7 +75,7 @@ struct ChannelStatusListView: View {
         .refreshable { await viewModel.load() }
         .toolbar {
             if viewModel.isLoading && !viewModel.channels.isEmpty {
-                ToolbarItem(placement: .status) {
+                ToolbarItem(placement: .topBarTrailing) {
                     ProgressView().controlSize(.small)
                 }
             }
@@ -85,7 +87,7 @@ struct ChannelStatusListView: View {
         }
     }
 
-    // MARK: - Persistent restart banner
+    // MARK: - Restart banner
 
     private var restartBanner: some View {
         Section {

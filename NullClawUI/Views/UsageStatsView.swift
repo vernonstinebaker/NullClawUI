@@ -17,6 +17,10 @@ struct UsageStatsView: View {
     @State private var monthlyLimitDraft: String = ""
     @State private var warnPercentDraft: Int = 80
 
+    // Focus tracking so we can commit on tap-outside (decimalPad has no Return key)
+    private enum LimitField { case daily, monthly }
+    @FocusState private var focusedLimitField: LimitField?
+
     init(profile: GatewayProfile) {
         self.profile = profile
         let client: GatewayClient? = {
@@ -71,7 +75,7 @@ struct UsageStatsView: View {
         .refreshable { await viewModel.load() }
         .toolbar {
             if viewModel.isLoading || viewModel.isSaving {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     ProgressView()
                         .accessibilityLabel("Loading")
                 }
@@ -86,6 +90,14 @@ struct UsageStatsView: View {
         }
         .onChange(of: viewModel.stats) { _, new in
             syncDrafts(from: new)
+        }
+        // Commit limit fields when focus leaves (decimalPad has no Return key on iPhone)
+        .onChange(of: focusedLimitField) { old, _ in
+            switch old {
+            case .daily:   commitDailyLimit()
+            case .monthly: commitMonthlyLimit()
+            case nil:      break
+            }
         }
     }
 
@@ -192,6 +204,7 @@ struct UsageStatsView: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
                     .foregroundStyle(.secondary)
+                    .focused($focusedLimitField, equals: .daily)
                     .onSubmit { commitDailyLimit() }
             }
             .accessibilityLabel("Daily spend limit in US dollars")
@@ -206,6 +219,7 @@ struct UsageStatsView: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
                     .foregroundStyle(.secondary)
+                    .focused($focusedLimitField, equals: .monthly)
                     .onSubmit { commitMonthlyLimit() }
             }
             .accessibilityLabel("Monthly spend limit in US dollars")
