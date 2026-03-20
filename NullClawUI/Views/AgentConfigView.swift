@@ -18,12 +18,11 @@ struct AgentConfigView: View {
 
     init(profile: GatewayProfile) {
         self.profile = profile
-        let client: GatewayClient? = {
-            guard let url = URL(string: profile.url) else { return nil }
-            let token = (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
-            return GatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
-        }()
-        _viewModel = State(wrappedValue: AgentConfigViewModel(client: client))
+        let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
+        let token = (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
+        _viewModel = State(wrappedValue: AgentConfigViewModel(
+            client: GatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
+        ))
     }
 
     var body: some View {

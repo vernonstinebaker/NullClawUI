@@ -32,12 +32,11 @@ final class CronJobViewModel {
     // MARK: Dependencies
 
     /// The client to use for all A2A calls.
-    /// Must be set before any load/action calls.
-    var client: GatewayClient?
+    var client: GatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient? = nil) {
+    init(client: GatewayClient) {
         self.client = client
     }
 
@@ -45,17 +44,13 @@ final class CronJobViewModel {
     /// release the session and avoid orphaned network connections.
     func invalidate() {
         let c = client
-        Task { await c?.invalidate() }
+        Task { await c.invalidate() }
     }
 
     // MARK: - Public API
 
     /// Fetches the current cron job list from the agent.
     func load() async {
-        guard let client else {
-            errorMessage = "No gateway client — not connected."
-            return
-        }
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
@@ -99,10 +94,6 @@ final class CronJobViewModel {
 
     /// Submits a new cron job creation request to the agent, then refreshes the list.
     func addJob(_ draft: CronJobDraft) async {
-        guard let client else {
-            errorMessage = "No gateway client — not connected."
-            return
-        }
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
@@ -119,10 +110,6 @@ final class CronJobViewModel {
 
     /// Updates an existing cron job by replacing it with the provided draft, then refreshes the list.
     func editJob(_ job: CronJob, draft: CronJobDraft) async {
-        guard let client else {
-            errorMessage = "No gateway client — not connected."
-            return
-        }
         guard actionInProgress == nil else { return }
         actionInProgress = job.id
         errorMessage = nil
@@ -163,10 +150,6 @@ final class CronJobViewModel {
     // MARK: - Private
 
     private func performAction(_ prompt: String, jobID: String) async {
-        guard let client else {
-            errorMessage = "No gateway client — not connected."
-            return
-        }
         guard actionInProgress == nil else { return }
         actionInProgress = jobID
         errorMessage = nil

@@ -54,11 +54,11 @@ final class AgentConfigViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient?
+    var client: GatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient? = nil) {
+    init(client: GatewayClient) {
         self.client = client
     }
 
@@ -66,7 +66,7 @@ final class AgentConfigViewModel {
     /// release the session and avoid orphaned network connections.
     func invalidate() {
         let c = client
-        Task { await c?.invalidate() }
+        Task { await c.invalidate() }
     }
 
     // MARK: - Load
@@ -74,17 +74,13 @@ final class AgentConfigViewModel {
     /// Asks the agent for the current configuration and parses the reply.
     func load() async {
         guard !isLoading else { return }
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         isLoading = true
         errorMessage = nil
         confirmationMessage = nil
         defer { isLoading = false }
 
         do {
-            let reply = try await c.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShot(Self.loadPrompt)
             config = try parseConfig(from: reply)
             isLoaded = true
         } catch {
@@ -193,17 +189,13 @@ final class AgentConfigViewModel {
         update: (inout AgentConfig) -> Void,
         confirmation: String
     ) async {
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         isSaving = true
         errorMessage = nil
         confirmationMessage = nil
         defer { isSaving = false }
 
         do {
-            _ = try await c.sendOneShot(prompt)
+            _ = try await client.sendOneShot(prompt)
             update(&config)
             confirmationMessage = confirmation
         } catch {

@@ -32,11 +32,11 @@ final class UsageStatsViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient?
+    var client: GatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient? = nil) {
+    init(client: GatewayClient) {
         self.client = client
     }
 
@@ -44,7 +44,7 @@ final class UsageStatsViewModel {
     /// release the session and avoid orphaned network connections.
     func invalidate() {
         let c = client
-        Task { await c?.invalidate() }
+        Task { await c.invalidate() }
     }
 
     // MARK: - Load
@@ -53,17 +53,13 @@ final class UsageStatsViewModel {
     /// parses the combined JSON reply into a `UsageStats` value.
     func load() async {
         guard !isLoading else { return }
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         isLoading = true
         errorMessage = nil
         confirmationMessage = nil
         defer { isLoading = false }
 
         do {
-            let reply = try await c.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShot(Self.loadPrompt)
             stats = try parseStats(from: reply)
             isLoaded = true
         } catch {
@@ -148,17 +144,13 @@ final class UsageStatsViewModel {
         update: (inout UsageStats) -> Void,
         confirmation: String
     ) async {
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         isSaving = true
         errorMessage = nil
         confirmationMessage = nil
         defer { isSaving = false }
 
         do {
-            _ = try await c.sendOneShot(prompt)
+            _ = try await client.sendOneShot(prompt)
             update(&stats)
             confirmationMessage = confirmation
         } catch {

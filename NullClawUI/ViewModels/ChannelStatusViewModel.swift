@@ -29,11 +29,11 @@ final class ChannelStatusViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient?
+    var client: GatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient? = nil) {
+    init(client: GatewayClient) {
         self.client = client
     }
 
@@ -41,7 +41,7 @@ final class ChannelStatusViewModel {
     /// release the session and avoid orphaned network connections.
     func invalidate() {
         let c = client
-        Task { await c?.invalidate() }
+        Task { await c.invalidate() }
     }
 
     // MARK: - Load
@@ -49,16 +49,12 @@ final class ChannelStatusViewModel {
     /// Asks the agent for the current channel configuration and parses the reply.
     func load() async {
         guard !isLoading else { return }
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
-            let reply = try await c.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShot(Self.loadPrompt)
             channels = try parseChannels(from: reply)
         } catch {
             errorMessage = error.localizedDescription

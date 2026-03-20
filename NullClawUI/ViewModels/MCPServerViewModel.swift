@@ -46,11 +46,11 @@ final class MCPServerViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient?
+    var client: GatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient? = nil) {
+    init(client: GatewayClient) {
         self.client = client
     }
 
@@ -58,7 +58,7 @@ final class MCPServerViewModel {
     /// release the session and avoid orphaned network connections.
     func invalidate() {
         let c = client
-        Task { await c?.invalidate() }
+        Task { await c.invalidate() }
     }
 
     // MARK: - Load
@@ -66,16 +66,12 @@ final class MCPServerViewModel {
     /// Fetches the MCP server list from the gateway config via the agent.
     func load() async {
         guard !isLoading else { return }
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         isLoading = true
         errorMessage = nil
         confirmationMessage = nil
         defer { isLoading = false }
 
-        await loadInternal(client: c)
+        await loadInternal(client: client)
     }
 
     // MARK: - Private load helper
@@ -95,10 +91,6 @@ final class MCPServerViewModel {
 
     /// Removes the named MCP server by instructing the agent to delete it from config.
     func remove(_ server: MCPServer) async {
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         guard removingName == nil else { return }
         removingName = server.name
         errorMessage = nil
@@ -107,9 +99,9 @@ final class MCPServerViewModel {
 
         let prompt = "Remove the MCP server named \"\(server.name)\" from ~/.nullclaw/config.json."
         do {
-            _ = try await c.sendOneShot(prompt)
+            _ = try await client.sendOneShot(prompt)
             confirmationMessage = "MCP server \"\(server.name)\" removed."
-            await loadInternal(client: c)
+            await loadInternal(client: client)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -119,10 +111,6 @@ final class MCPServerViewModel {
 
     /// Adds a new MCP server by instructing the agent to write the entry to config.
     func addServer(_ draft: MCPServerDraft) async {
-        guard let c = client else {
-            errorMessage = "No gateway client available."
-            return
-        }
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
@@ -131,9 +119,9 @@ final class MCPServerViewModel {
 
         let prompt = draft.toPrompt()
         do {
-            _ = try await c.sendOneShot(prompt)
+            _ = try await client.sendOneShot(prompt)
             confirmationMessage = "MCP server \"\(draft.name)\" added."
-            await loadInternal(client: c)
+            await loadInternal(client: client)
         } catch {
             errorMessage = error.localizedDescription
         }
