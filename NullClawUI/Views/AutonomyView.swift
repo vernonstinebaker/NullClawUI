@@ -210,6 +210,8 @@ struct AutonomyView: View {
                     }
                     .padding(.vertical, 2)
                 }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Allowed commands: \(viewModel.config.allowedCommands.joined(separator: ", "))")
                 HStack {
                     Spacer()
                     editCommandsButton

@@ -120,9 +120,10 @@ struct AgentConfigView: View {
                 Text(viewModel.config.provider.isEmpty ? "—" : viewModel.config.provider)
                     .foregroundStyle(.secondary)
                     .font(.caption)
-                Text("⚠️ Requires restart")
+                Label("Requires restart", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2)
                     .foregroundStyle(.orange)
+                    .labelStyle(.titleAndIcon)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Provider: \(viewModel.config.provider.isEmpty ? "unknown" : viewModel.config.provider). Requires gateway restart to change.")
@@ -161,7 +162,7 @@ struct AgentConfigView: View {
                 Button("Apply") {
                     Task { await viewModel.setTemperature(tempDraft) }
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.bordered)
                 .font(.callout)
                 .accessibilityLabel("Apply temperature \(String(format: "%.2f", tempDraft))")
             }

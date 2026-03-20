@@ -124,6 +124,8 @@ struct GatewayPairSheet: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Complete pairing")
+                    .accessibilityHint("Finalises connection to this open gateway without a pairing code")
                 }
 
             case .success:
@@ -141,6 +143,8 @@ struct GatewayPairSheet: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                         .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Done")
+                        .accessibilityHint("Dismisses the pairing sheet after successful pairing")
                 }
 
             case .failed(let message):

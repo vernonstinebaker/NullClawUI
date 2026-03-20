@@ -28,6 +28,7 @@ struct GatewayCheckingView: View {
         VStack(spacing: 20) {
             ProgressView()
                 .controlSize(.large)
+                .accessibilityLabel("Connecting to gateway")
             Text("Connecting…")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)

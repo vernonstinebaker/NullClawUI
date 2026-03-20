@@ -18,19 +18,36 @@ struct PairedSettingsView: View {
     @Environment(GatewayStatusViewModel.self) private var statusVM
 
     @State private var showingAddSheet = false
+    @State private var showingDeleteLastAlert = false
 
     var body: some View {
         List {
-            ForEach(store.profiles) { profile in
-                NavigationLink {
-                    GatewayDetailView(profile: profile)
-                } label: {
-                    gatewayRow(profile)
+            if store.profiles.isEmpty {
+                // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
+                ContentUnavailableView {
+                    Label("No Gateways", systemImage: "server.rack")
+                } description: {
+                    Text("Tap + to add your first NullClaw gateway.")
+                } actions: {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Label("Add Gateway", systemImage: "plus")
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .accessibilityLabel("\(profile.name), \(profile.displayHost)")
-            }
-            .onDelete { offsets in
-                handleDelete(offsets: offsets)
+            } else {
+                ForEach(store.profiles) { profile in
+                    NavigationLink {
+                        GatewayDetailView(profile: profile)
+                    } label: {
+                        gatewayRow(profile)
+                    }
+                    .accessibilityLabel("\(profile.name), \(profile.displayHost)")
+                }
+                .onDelete { offsets in
+                    handleDelete(offsets: offsets)
+                }
             }
         }
         .navigationTitle("Gateways")
@@ -61,6 +78,11 @@ struct PairedSettingsView: View {
                     chatVM.resetForNewGateway(client: newClient, gateway: profile)
                 }
             }
+        }
+        .alert("Cannot Delete Last Gateway", isPresented: $showingDeleteLastAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("At least one gateway must remain. Add another gateway before deleting this one.")
         }
     }
 
@@ -123,7 +145,11 @@ struct PairedSettingsView: View {
     private func handleDelete(offsets: IndexSet) {
         // Map offsets back to the unfiltered profiles array.
         let idsToDelete = offsets.map { store.profiles[$0].id }
-        guard store.profiles.count > idsToDelete.count else { return }
+        // Prevent deleting the last gateway — show an alert to inform the user.
+        guard store.profiles.count > idsToDelete.count else {
+            showingDeleteLastAlert = true
+            return
+        }
         for id in idsToDelete {
             store.deleteProfile(id: id)
             appModel.evictAgentCard(for: id)
