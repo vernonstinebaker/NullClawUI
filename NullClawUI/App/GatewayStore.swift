@@ -89,27 +89,40 @@ final class GatewayStore {
         return profile
     }
 
-    func updateProfile(_ profile: GatewayProfile) {
-        guard let existing = profiles.first(where: { $0.id == profile.id }) else { return }
+    /// Update a profile's name and URL.
+    ///
+    /// - Parameter previousURL: The URL the profile had **before** the caller mutated it.
+    ///   Because `GatewayProfile` is a reference type, the profile object has already been
+    ///   updated in-place by the time this method runs. We need the old URL to locate the
+    ///   Keychain token and move it to the new key.  Pass `nil` only for name-only edits
+    ///   where the URL did not change (safe — no token migration is needed).
+    func updateProfile(_ profile: GatewayProfile, previousURL: String? = nil) {
+        guard profiles.first(where: { $0.id == profile.id }) != nil else { return }
 
-        if existing.normalizedURL != profile.normalizedURL {
+        // Migrate the Keychain token from the old URL key to the new one when the URL changed.
+        // previousURL is passed by the caller (EditGatewaySheet) before it mutates the object,
+        // so this comparison is always between the real old and new normalized URLs.
+        let oldURL  = previousURL ?? profile.url
+        let newURL  = profile.url
+        let oldNorm = KeychainService.normalizedGatewayURL(oldURL)
+        let newNorm = KeychainService.normalizedGatewayURL(newURL)
+        if oldNorm != newNorm {
             do {
-                try KeychainService.moveToken(from: existing.url, to: profile.url)
+                try KeychainService.moveToken(from: oldURL, to: newURL)
             } catch {
-                // Preserve the old token mapping if migration fails.
+                // Preserve the old token mapping if migration fails — isPaired derivation
+                // below will still find the token under the old key via hasToken(for: newURL)
+                // if the move partially succeeded, or return false if it didn't.
             }
         }
 
-        existing.name = profile.name
-        existing.url = profile.url
         // For open gateways (requiresPairing == false), isPaired was set via completeOpenGateway
         // and must not be re-derived from the Keychain (no token is ever stored for them).
-        existing.requiresPairing = profile.requiresPairing
         if profile.requiresPairing {
-            existing.isPaired = KeychainService.hasToken(for: profile.url)
-        } else {
-            existing.isPaired = profile.isPaired
+            profile.isPaired = KeychainService.hasToken(for: newURL)
         }
+        // (for open gateways profile.isPaired is already correct — no change needed)
+
         save()
         loadProfiles()
     }

@@ -196,8 +196,8 @@ struct GatewayDetailView: View {
             GatewayPairSheet(profile: profile)
         }
         .sheet(item: $editingProfile) { prof in
-            EditGatewaySheet(profile: prof) { updated in
-                store.updateProfile(updated)
+            EditGatewaySheet(profile: prof) { updated, previousURL in
+                store.updateProfile(updated, previousURL: previousURL)
                 // If the edited profile is the active one, silently reconnect the chat client.
                 if updated.id == store.activeProfile?.id,
                    let refreshed = store.activeProfile {

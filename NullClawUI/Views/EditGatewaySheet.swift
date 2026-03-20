@@ -4,7 +4,9 @@ import SwiftUI
 
 struct EditGatewaySheet: View {
     let profile: GatewayProfile
-    let onSave: (GatewayProfile) -> Void
+    /// Receives the updated profile AND the URL it had before editing (needed by
+    /// GatewayStore.updateProfile to migrate the Keychain token from the old key).
+    let onSave: (_ updated: GatewayProfile, _ previousURL: String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var url: String
@@ -12,7 +14,7 @@ struct EditGatewaySheet: View {
     /// show an error on a field the user hasn't touched yet.
     @State private var urlTouched: Bool = false
 
-    init(profile: GatewayProfile, onSave: @escaping (GatewayProfile) -> Void) {
+    init(profile: GatewayProfile, onSave: @escaping (_ updated: GatewayProfile, _ previousURL: String) -> Void) {
         self.profile = profile
         self.onSave = onSave
         _name = State(wrappedValue: profile.name)
@@ -57,12 +59,14 @@ struct EditGatewaySheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        // GatewayProfile is a class (reference type), so `updated` is an
-                        // alias for the same object — mutations below are intentional and correct.
-                        let updated = profile
-                        updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        updated.url  = url.trimmingCharacters(in: .whitespacesAndNewlines)
-                        onSave(updated)
+                        // Snapshot the old URL BEFORE mutating the profile (reference type).
+                        // GatewayStore.updateProfile uses previousURL to migrate the Keychain
+                        // token from the old key to the new one; if we snapshot after mutation
+                        // the old and new URLs are the same and the move is silently skipped.
+                        let previousURL = profile.url
+                        profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        profile.url  = url.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onSave(profile, previousURL)
                         dismiss()
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
