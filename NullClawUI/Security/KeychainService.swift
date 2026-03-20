@@ -62,7 +62,18 @@ enum KeychainService {
     }
 
     static func normalizedGatewayURL(_ gatewayURL: String) -> String {
-        gatewayURL.trimmingCharacters(in: .init(charactersIn: "/")).lowercased()
+        // Strip trailing slashes first, then parse as URL to drop any path component.
+        // This prevents key collisions between "http://gw:5111" and "http://gw:5111/a2a".
+        let trimmed = gatewayURL.trimmingCharacters(in: .init(charactersIn: "/")).lowercased()
+        guard let url = URL(string: trimmed),
+              var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return trimmed
+        }
+        comps.path = ""
+        comps.query = nil
+        comps.fragment = nil
+        return (comps.url?.absoluteString ?? trimmed)
+            .trimmingCharacters(in: .init(charactersIn: "/"))
     }
 
     // MARK: - Helpers
