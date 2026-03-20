@@ -211,21 +211,11 @@ struct ChatView: View {
     // MARK: - Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 80)
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 52, weight: .ultraLight))
-                .foregroundStyle(.quaternary)
-            Text("Start a conversation")
-                .font(.title3.weight(.medium))
-                .foregroundStyle(.tertiary)
-            Text("Type a message below to get started")
-                .font(.subheadline)
-                .foregroundStyle(.quaternary)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 40)
+        ContentUnavailableView(
+            "Start a Conversation",
+            systemImage: "bubble.left.and.bubble.right",
+            description: Text("Type a message below to get started.")
+        )
     }
 
     // MARK: - Thinking indicator (before first SSE token arrives)

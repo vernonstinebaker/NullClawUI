@@ -30,21 +30,11 @@ struct TaskHistoryView: View {
     // MARK: - Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "clock.badge.questionmark")
-                .font(.system(size: 56, weight: .ultraLight))
-                .foregroundStyle(.quaternary)
-                .symbolRenderingMode(.hierarchical)
-            Text("No History Yet")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text("Previous conversations will appear here\nafter you send your first message.")
-                .font(.subheadline)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        ContentUnavailableView(
+            "No History Yet",
+            systemImage: "clock.badge.questionmark",
+            description: Text("Previous conversations will appear here after you send your first message.")
+        )
     }
 
     // MARK: - Record list

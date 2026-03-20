@@ -64,11 +64,11 @@ struct GatewayLiveStatusView: View {
                         .foregroundStyle(.orange)
                 }
             } else {
-                Section {
-                    Text("Pull down to load status")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                ContentUnavailableView(
+                    "No Status Loaded",
+                    systemImage: "antenna.radiowaves.left.and.right.slash",
+                    description: Text("Pull down to load the live gateway status.")
+                )
             }
         }
         .navigationTitle("Live Status")
