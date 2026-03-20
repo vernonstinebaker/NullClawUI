@@ -128,7 +128,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
   - Token double-unwrap bug in `SettingsView.swift` fixed.
   - `TypingIndicator` rewritten with per-dot `@State var isUp` + `.repeatForever` animations.
   - `ConnectionBadge` demoted to non-interactive static status display.
-  - 174 unit tests passing (now 417+ with Phases 16-20 and regression coverage).
+  - 174 unit tests passing (now 421+ with Phases 16-20 and regression coverage).
 
 ---
 
@@ -368,7 +368,7 @@ A Swift/SwiftUI app for interacting with a NullClaw AI Gateway using the A2A (Ag
 - **`MCPServerViewModel`** (`ViewModels/MCPServerViewModel.swift`): `@Observable @MainActor` class. `load()` sends structured one-shot prompt and parses into `[MCPServer]`. Parser handles both bare JSON array and `{ "mcp_servers": [...] }` wrapped object. `remove(_:)` sends deletion prompt and re-fetches. `addServer(_:)` sends creation prompt and re-fetches. `removingName` tracks which server is being deleted (for per-row spinner). `confirmationMessage` / `errorMessage` banners.
 - **`MCPServerListView`** (`Views/MCPServerListView.swift`): `NavigationLink` target in `PairedSettingsView`. Shows all servers with transport icon (globe for HTTP, terminal for stdio), transport badge pill, endpoint summary, and connection status (green/red/grey). Swipe-left to remove. Tap row → `MCPServerDetailView` (read-only: transport, endpoint, timeout, env keys masked). Add toolbar button → `AddMCPServerSheet` (name, transport picker, command+args for stdio, URL for http, optional timeout). Pull-to-refresh reloads.
 - **NavigationLink** added to `GatewayDetailView` in `PairedSettingsView.swift` (label: "MCP Servers", icon: `puzzlepiece.extension.fill`).
-- **19 unit tests** in `MCPServerViewModelTests`: parse happy path (array), parse happy path (wrapped object), connected nil when absent, empty array, no-JSON throws, prose prefix, `load()` with failing client, reentrancy guard, `remove()` with failing client, `MCPServer` computed helpers (transportLabel ×3, endpointDescription ×3, id), `MCPServerDraft.toPrompt()` (stdio, http), `loadPrompt` content, `MCPServerParseError` descriptions. Total test count at Phase 18: **208** (now 417+).
+- **19 unit tests** in `MCPServerViewModelTests`: parse happy path (array), parse happy path (wrapped object), connected nil when absent, empty array, no-JSON throws, prose prefix, `load()` with failing client, reentrancy guard, `remove()` with failing client, `MCPServer` computed helpers (transportLabel ×3, endpointDescription ×3, id), `MCPServerDraft.toPrompt()` (stdio, http), `loadPrompt` content, `MCPServerParseError` descriptions. Total test count at Phase 18: **208** (now 421+).
 
 ---
 
