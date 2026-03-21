@@ -116,9 +116,6 @@ struct MCPServerListView: View {
                 await viewModel.load()
             }
         }
-        .onDisappear {
-            viewModel.invalidate()
-        }
         .sheet(isPresented: $showingAddSheet) {
             AddMCPServerSheet { draft in
                 Task { await viewModel.addServer(draft) }
@@ -172,8 +169,10 @@ struct MCPServerListView: View {
 
             Spacer(minLength: 0)
 
-            // Connection status badge
-            connectionBadge(for: server.connected)
+            // Connection status badge — only shown after a Check Status has been run.
+            if let connected = server.connected {
+                connectionBadge(for: connected)
+            }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
@@ -182,8 +181,10 @@ struct MCPServerListView: View {
     }
 
     @ViewBuilder
-    private func connectionBadge(for connected: Bool?) -> some View {
-        let (label, color, icon) = connectionInfo(for: connected)
+    private func connectionBadge(for connected: Bool) -> some View {
+        let (label, color, icon): (String, Color, String) = connected
+            ? ("Connected", .green, "circle.fill")
+            : ("Failed",    .red,   "exclamationmark.circle.fill")
         Label(label, systemImage: icon)
             .font(.caption2.weight(.medium))
             .foregroundStyle(color)
@@ -200,17 +201,12 @@ struct MCPServerListView: View {
         transport.lowercased() == "http" ? Color.blue : Color.indigo
     }
 
-    private func connectionInfo(for connected: Bool?) -> (String, Color, String) {
-        switch connected {
-        case true:  return ("Connected",  .green,  "circle.fill")
-        case false: return ("Failed",     .red,    "exclamationmark.circle.fill")
-        case nil:   return ("Unknown",    Color(.systemGray), "circle.dotted")
-        }
-    }
-
     private func accessibilityLabel(for server: MCPServer) -> String {
-        let statusLabel = connectionInfo(for: server.connected).0
-        return "\(server.name), \(server.transportLabel) transport, \(statusLabel)"
+        var parts = ["\(server.name)", "\(server.transportLabel) transport"]
+        if let connected = server.connected {
+            parts.append(connected ? "Connected" : "Failed")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -244,6 +240,15 @@ private struct MCPServerDetailView: View {
         }
         .navigationTitle(serverName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if isCheckingStatus {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Checking server status")
+                }
+            }
+        }
     }
 
     @ViewBuilder
