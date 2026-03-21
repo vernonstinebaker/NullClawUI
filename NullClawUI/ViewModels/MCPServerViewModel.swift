@@ -34,7 +34,7 @@ final class MCPServerViewModel {
     // MARK: Published state
 
     /// Current list of MCP servers, ordered as returned by the agent.
-    private(set) var servers: [MCPServer] = []
+    var servers: [MCPServer] = []
     /// True while a load or add round-trip is in flight.
     private(set) var isLoading: Bool = false
     /// Non-nil while a remove operation is executing. Contains the server name being removed.
@@ -103,6 +103,44 @@ final class MCPServerViewModel {
             confirmationMessage = "MCP server \"\(server.name)\" removed."
             await loadInternal(client: client)
         } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Check Status
+
+    /// Non-nil while a check-status operation is executing. Contains the server name being checked.
+    private(set) var checkingStatusName: String? = nil
+
+    /// Asks the gateway agent whether the named MCP server is currently reachable and updates
+    /// `servers[i].connected` with the result.
+    ///
+    /// The agent is asked to attempt a connectivity probe (e.g. spawn the subprocess briefly or
+    /// send an HTTP OPTIONS request) and reply with a JSON object: `{"connected": true|false}`.
+    /// If the reply cannot be parsed, `connected` is set to `false` and an error is surfaced.
+    func checkStatus(for serverName: String) async {
+        guard checkingStatusName == nil else { return }
+        checkingStatusName = serverName
+        errorMessage = nil
+        confirmationMessage = nil
+        defer { checkingStatusName = nil }
+
+        let prompt = Self.checkStatusPrompt(for: serverName)
+        do {
+            let reply = try await client.sendOneShotNonStreaming(prompt)
+            let connected = parseCheckStatus(from: reply)
+            // Update the matching server in-place.
+            if let idx = servers.firstIndex(where: { $0.name == serverName }) {
+                servers[idx].connected = connected
+            }
+            confirmationMessage = connected
+                ? "\"\(serverName)\" is reachable."
+                : "\"\(serverName)\" is not reachable."
+        } catch {
+            // On network/RPC error, mark the server as failed.
+            if let idx = servers.firstIndex(where: { $0.name == serverName }) {
+                servers[idx].connected = false
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -185,6 +223,33 @@ final class MCPServerViewModel {
         "command" (string or null), "args" (array of strings or null), \
         "url" (string or null), "timeout_ms" (integer or null).
         """
+
+    /// Returns the prompt used to check reachability of a specific MCP server.
+    ///
+    /// The agent is asked to probe connectivity and reply with ONLY a JSON object
+    /// `{"connected": true}` or `{"connected": false}`. No prose.
+    static func checkStatusPrompt(for name: String) -> String {
+        """
+        Check whether the MCP server named "\(name)" is currently reachable. \
+        For stdio transport, attempt to spawn the subprocess briefly (pass --version or --help). \
+        For HTTP transport, send an HTTP GET or OPTIONS request to the server URL. \
+        Reply with ONLY a JSON object, no extra text: {"connected": true} or {"connected": false}.
+        """
+    }
+
+    // MARK: - Parse helpers (internal — visible for tests)
+
+    /// Parses the `connected` boolean from a `{"connected": true|false}` reply.
+    /// Returns `false` if the reply cannot be parsed.
+    func parseCheckStatus(from text: String) -> Bool {
+        guard let start = text.firstIndex(of: "{"),
+              let end   = text.lastIndex(of: "}"),
+              let data  = String(text[start...end]).data(using: .utf8) else {
+            return false
+        }
+        struct ConnectedWrapper: Decodable { let connected: Bool }
+        return (try? JSONDecoder().decode(ConnectedWrapper.self, from: data))?.connected ?? false
+    }
 }
 
 // MARK: - MCPServerDraft

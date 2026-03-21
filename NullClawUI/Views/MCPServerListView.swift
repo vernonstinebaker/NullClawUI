@@ -55,7 +55,7 @@ struct MCPServerListView: View {
                 Section {
                     ForEach(viewModel.servers) { server in
                         NavigationLink {
-                            MCPServerDetailView(server: server)
+                            MCPServerDetailView(viewModel: viewModel, serverName: server.name)
                         } label: {
                             serverRow(server)
                         }
@@ -216,31 +216,66 @@ struct MCPServerListView: View {
 
 // MARK: - MCPServerDetailView
 
-/// Read-only detail view for a single MCP server.
+/// Read-only detail view for a single MCP server, with an on-demand "Check Status" button.
 private struct MCPServerDetailView: View {
-    let server: MCPServer
+    @Bindable var viewModel: MCPServerViewModel
+    let serverName: String
+
+    /// Live server from the VM — falls back to a placeholder if removed between load cycles.
+    private var server: MCPServer? {
+        viewModel.servers.first(where: { $0.name == serverName })
+    }
+
+    private var isCheckingStatus: Bool {
+        viewModel.checkingStatusName == serverName
+    }
 
     var body: some View {
+        Group {
+            if let server {
+                serverDetail(server)
+            } else {
+                ContentUnavailableView(
+                    "Server Not Found",
+                    systemImage: "puzzlepiece.extension",
+                    description: Text("This MCP server may have been removed.")
+                )
+            }
+        }
+        .navigationTitle(serverName)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func serverDetail(_ server: MCPServer) -> some View {
         List {
             Section("Identity") {
                 LabeledContent("Name", value: server.name)
                 LabeledContent("Transport", value: server.transportLabel)
                 LabeledContent("Status") {
-                    HStack(spacing: 4) {
-                        switch server.connected {
-                        case true:
-                            Image(systemName: "circle.fill").foregroundStyle(.green)
-                            Text("Connected")
-                        case false:
-                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
-                            Text("Failed")
-                        case nil:
-                            Image(systemName: "circle.dotted").foregroundStyle(.secondary)
-                            Text("Unknown")
+                    HStack(spacing: 6) {
+                        statusContent(for: server.connected)
+                        if isCheckingStatus {
+                            ProgressView()
+                                .controlSize(.small)
+                                .accessibilityLabel("Checking status")
                         }
                     }
                     .font(.subheadline)
                 }
+                Button {
+                    Task { await viewModel.checkStatus(for: serverName) }
+                } label: {
+                    if isCheckingStatus {
+                        Label("Checking…", systemImage: "arrow.triangle.2.circlepath")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("Check Status", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                .disabled(isCheckingStatus)
+                .accessibilityLabel("Check connection status")
+                .accessibilityHint("Probes the MCP server to verify it is reachable")
             }
 
             if server.transport.lowercased() == "http" {
@@ -254,8 +289,6 @@ private struct MCPServerDetailView: View {
                         }
                     }
                     if let headers = server.headers, !headers.isEmpty {
-                        // Inner Section inside an outer Section is not supported — use a
-                        // visual separator row instead to show the "Headers" group label.
                         LabeledContent("Headers", value: "")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
@@ -284,8 +317,6 @@ private struct MCPServerDetailView: View {
                         }
                     }
                     if let env = server.env, !env.isEmpty {
-                        // Inner Section inside an outer Section is not supported — use a
-                        // visual separator row instead to show the "Environment" group label.
                         LabeledContent("Environment", value: "")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
@@ -303,9 +334,39 @@ private struct MCPServerDetailView: View {
                     LabeledContent("Timeout", value: "\(timeout) ms")
                 }
             }
+
+            // Confirmation / error banners scoped to this detail view's last check.
+            if let msg = viewModel.confirmationMessage, viewModel.checkingStatusName == nil {
+                Section {
+                    Label(msg, systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .accessibilityLabel("Status: \(msg)")
+                }
+            }
+            if let err = viewModel.errorMessage, viewModel.checkingStatusName == nil {
+                Section {
+                    Label(err, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("Error: \(err)")
+                }
+            }
         }
-        .navigationTitle(server.name)
-        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func statusContent(for connected: Bool?) -> some View {
+        switch connected {
+        case true:
+            Image(systemName: "circle.fill").foregroundStyle(.green)
+            Text("Connected")
+        case false:
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
+            Text("Failed")
+        case nil:
+            Image(systemName: "circle.dotted").foregroundStyle(.secondary)
+            Text("Unknown")
+        }
     }
 }
 
