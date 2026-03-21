@@ -107,9 +107,10 @@ final class MCPServerViewModel {
 
     /// Asks the gateway agent whether the named MCP server is currently reachable and updates
     /// `servers[i].connected` with the result.
+    /// Verifies that a specific MCP server entry is present and validly configured in config.json.
     ///
-    /// The agent is asked to attempt a connectivity probe (e.g. spawn the subprocess briefly or
-    /// send an HTTP OPTIONS request) and reply with a JSON object: `{"connected": true|false}`.
+    /// The agent is asked to read `~/.nullclaw/config.json` and confirm the named entry exists
+    /// with a non-empty command/URL, then reply `{"connected": true|false}`.
     /// If the reply cannot be parsed, `connected` is set to `false` and an error is surfaced.
     func checkStatus(for serverName: String) async {
         guard checkingStatusName == nil else { return }
@@ -127,8 +128,8 @@ final class MCPServerViewModel {
                 servers[idx].connected = connected
             }
             confirmationMessage = connected
-                ? "\"\(serverName)\" is reachable."
-                : "\"\(serverName)\" is not reachable."
+                ? "\"\(serverName)\" is configured."
+                : "\"\(serverName)\" is not configured or has an invalid entry."
         } catch {
             // On network/RPC error, mark the server as failed.
             if let idx = servers.firstIndex(where: { $0.name == serverName }) {
@@ -217,16 +218,19 @@ final class MCPServerViewModel {
         "url" (string or null), "timeout_ms" (integer or null).
         """
 
-    /// Returns the prompt used to check reachability of a specific MCP server.
+    /// Returns the prompt used to verify that a specific MCP server is configured.
     ///
-    /// The agent is asked to probe connectivity and reply with ONLY a JSON object
-    /// `{"connected": true}` or `{"connected": false}`. No prose.
+    /// Rather than attempting an unreliable (and slow) subprocess spawn or HTTP probe,
+    /// the agent is asked to read config.json and confirm the named entry exists and
+    /// has a non-empty command or URL — a fast file-read identical in cost to loadPrompt.
+    /// The reply shape is the same `{"connected": true|false}` so the rest of the
+    /// call-site and parse logic are unchanged.
     static func checkStatusPrompt(for name: String) -> String {
         """
-        Check whether the MCP server named "\(name)" is currently reachable. \
-        For stdio transport, attempt to spawn the subprocess briefly (pass --version or --help). \
-        For HTTP transport, send an HTTP GET or OPTIONS request to the server URL. \
-        Reply with ONLY a JSON object, no extra text: {"connected": true} or {"connected": false}.
+        Read ~/.nullclaw/config.json and check whether an MCP server entry named "\(name)" exists \
+        and is validly configured (has a non-empty "command" for stdio transport, or a non-empty "url" \
+        for http transport). Reply with ONLY a JSON object, no extra text: \
+        {"connected": true} if the entry is present and valid, {"connected": false} otherwise.
         """
     }
 
