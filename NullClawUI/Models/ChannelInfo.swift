@@ -4,8 +4,7 @@ import Foundation
 
 /// Represents a single communication channel configured in the NullClaw gateway.
 /// Fields are populated from the gateway `channels` config block via agent query.
-/// This is a richer version of the lightweight `ChannelStatus` used in Live Status;
-/// it adds read-only config detail fields for Phase 20's detail view.
+/// Includes read-only config detail fields for the channel detail view.
 struct ChannelInfo: Identifiable, Sendable, Equatable {
 
     // MARK: Identity

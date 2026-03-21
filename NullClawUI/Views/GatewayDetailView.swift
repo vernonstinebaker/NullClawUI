@@ -85,17 +85,9 @@ struct GatewayDetailView: View {
                 }
             }
 
-            // Live Status and Cron Jobs — available for every gateway with a valid URL.
+            // Gateway management — available for every gateway with a valid URL.
             if URL(string: profile.url) != nil {
                 Section {
-                    NavigationLink {
-                        GatewayLiveStatusView(profile: profile)
-                    } label: {
-                        Label("Live Status", systemImage: "waveform.path.ecg")
-                    }
-                    .accessibilityLabel("Live Status")
-                    .accessibilityHint("Shows MCP server and channel connection state from the gateway agent")
-
                     NavigationLink {
                         CronJobListView(profile: profile)
                     } label: {

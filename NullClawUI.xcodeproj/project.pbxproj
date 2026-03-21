@@ -26,7 +26,6 @@
 		7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */; };
 		79924E387854ED2994F2CD4D /* AgentConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 926834C39C09BF5AAA1D0A4C /* AgentConfigView.swift */; };
 		7AEEF479BF9B4A9E5E7331E9 /* EditGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */; };
-		7BBA9359D32E457CBDA9B082 /* GatewayLiveStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BFEE4376E6A2EE4F71C15DB /* GatewayLiveStatusView.swift */; };
 		7F9CF4D0C4006EB8388CC8FC /* ChannelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617B5F453C34591C1D492407 /* ChannelInfo.swift */; };
 		84691A62A851F7883071C557 /* CronJobViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53862F9DC7908CB505A84627 /* CronJobViewModel.swift */; };
 		879851702FDB296A7AA8EF8D /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 926367C0C86587FB306CDD2C /* MarkdownUI */; };
@@ -84,7 +83,6 @@
 		20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDiscoveryModel.swift; sourceTree = "<group>"; };
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStatsView.swift; sourceTree = "<group>"; };
-		2BFEE4376E6A2EE4F71C15DB /* GatewayLiveStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayLiveStatusView.swift; sourceTree = "<group>"; };
 		337B8878AF10456D883838E8 /* GatewayPairSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayPairSheet.swift; sourceTree = "<group>"; };
 		354198F01B07BCCD5083AA9A /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayHealthMonitor.swift; sourceTree = "<group>"; };
@@ -224,7 +222,6 @@
 				2211EF38611CF618453B2921 /* ContentView.swift */,
 				86331E234CC107BD5471DBE7 /* CronJobListView.swift */,
 				F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */,
-				2BFEE4376E6A2EE4F71C15DB /* GatewayLiveStatusView.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */,
@@ -441,7 +438,6 @@
 				DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */,
 				BDC30F6F064666E142A7B659 /* GatewayDiscoveryModel.swift in Sources */,
 				E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */,
-				7BBA9359D32E457CBDA9B082 /* GatewayLiveStatusView.swift in Sources */,
 				792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */,
 				9BC494860EB9CB61196054F6 /* GatewayStatusViewModel.swift in Sources */,
 				9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */,
