@@ -216,15 +216,7 @@ struct AgentConfigView: View {
             .accessibilityLabel("Message timeout: \(timeoutDraft) seconds")
             .accessibilityHint("Adjust the timeout for a single agent message in seconds")
 
-            // Parallel tools toggle
-            Toggle(isOn: Binding(
-                get: { viewModel.config.parallelTools },
-                set: { newVal in Task { await viewModel.setParallelTools(newVal) } }
-            )) {
-                Label("Parallel tools", systemImage: "square.stack.3d.forward.dottedline")
-            }
-            .accessibilityLabel("Parallel tools: \(viewModel.config.parallelTools ? "enabled" : "disabled")")
-            .accessibilityHint("When enabled, the agent may call multiple tools simultaneously")
+            // NOTE: agent.parallel_tools is a dead stub in the gateway (no runtime effect) — toggle removed.
         } header: {
             Text("Limits")
         }
@@ -263,6 +255,11 @@ struct AgentConfigView: View {
             .disabled(!viewModel.config.compactContext)
             .accessibilityLabel("Compaction threshold: \(viewModel.config.compactionThreshold) tokens")
             .accessibilityHint("The token count at which automatic compaction triggers")
+
+            Label("Changes require gateway restart", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+                .accessibilityLabel("Memory and compaction changes require a gateway restart to take effect")
         } header: {
             Text("Memory / Compaction")
         }

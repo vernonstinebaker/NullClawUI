@@ -79,45 +79,55 @@ final class AutonomyViewModel {
     }
 
     // MARK: - Setters
+    //
+    // autonomy.* paths are NOT in the gateway's hot_reload_paths list.
+    // Changes are persisted to disk via /config apply set and take effect on next restart.
+    // No /config reload call is needed (it would be a no-op for these paths).
 
     func setLevel(_ level: String) async {
         await applyChange(
-            prompt: "Update autonomy.level to \"\(level)\" in ~/.nullclaw/config.json.",
+            path: "autonomy.level",
+            value: "\"\(level)\"",
             update: { $0.level = level },
-            confirmation: "Autonomy level set to \"\(level)\"."
+            confirmation: "Autonomy level set to \"\(level)\". Restart gateway to apply."
         )
     }
 
     func setMaxActionsPerHour(_ value: Int) async {
         await applyChange(
-            prompt: "Update autonomy.max_actions_per_hour to \(value) in ~/.nullclaw/config.json.",
+            path: "autonomy.max_actions_per_hour",
+            value: "\(value)",
             update: { $0.maxActionsPerHour = value },
-            confirmation: "Max actions per hour set to \(value)."
+            confirmation: "Max actions per hour set to \(value). Restart gateway to apply."
         )
     }
 
     func setBlockHighRiskCommands(_ enabled: Bool) async {
         await applyChange(
-            prompt: "Update autonomy.block_high_risk_commands to \(enabled) in ~/.nullclaw/config.json.",
+            path: "autonomy.block_high_risk_commands",
+            value: enabled ? "true" : "false",
             update: { $0.blockHighRiskCommands = enabled },
-            confirmation: "Block high-risk commands \(enabled ? "enabled" : "disabled")."
+            confirmation: "Block high-risk commands \(enabled ? "enabled" : "disabled"). Restart gateway to apply."
         )
     }
 
     func setRequireApprovalForMediumRisk(_ enabled: Bool) async {
         await applyChange(
-            prompt: "Update autonomy.require_approval_for_medium_risk to \(enabled) in ~/.nullclaw/config.json.",
+            path: "autonomy.require_approval_for_medium_risk",
+            value: enabled ? "true" : "false",
             update: { $0.requireApprovalForMediumRisk = enabled },
-            confirmation: "Require approval for medium-risk \(enabled ? "enabled" : "disabled")."
+            confirmation: "Require approval for medium-risk \(enabled ? "enabled" : "disabled"). Restart gateway to apply."
         )
     }
 
     func setAllowedCommands(_ commands: [String]) async {
-        let jsonArray = "[" + commands.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
+        // Encode the array as a JSON array literal for /config apply set.
+        let jsonArray = "[" + commands.map { "\"\($0)\"" }.joined(separator: ",") + "]"
         await applyChange(
-            prompt: "Update autonomy.allowed_commands to \(jsonArray) in ~/.nullclaw/config.json.",
+            path: "autonomy.allowed_commands",
+            value: jsonArray,
             update: { $0.allowedCommands = commands },
-            confirmation: "Allowed commands list updated."
+            confirmation: "Allowed commands list updated. Restart gateway to apply."
         )
     }
 
@@ -154,8 +164,11 @@ final class AutonomyViewModel {
 
     // MARK: - Private helpers
 
+    /// Applies a config change via `/config apply set <path> <value>`.
+    /// Autonomy paths are not hot-reloadable — changes take effect on next gateway restart.
     private func applyChange(
-        prompt: String,
+        path: String,
+        value: String,
         update: (inout AutonomyConfig) -> Void,
         confirmation: String
     ) async {
@@ -165,7 +178,7 @@ final class AutonomyViewModel {
         defer { isSaving = false }
 
         do {
-            _ = try await client.sendOneShot(prompt)
+            try await client.sendConfigApply(path: path, value: value)
             update(&config)
             confirmationMessage = confirmation
         } catch {

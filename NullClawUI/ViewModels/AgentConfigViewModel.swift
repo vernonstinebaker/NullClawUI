@@ -15,7 +15,7 @@ struct AgentConfig: Sendable, Equatable {
     // Limits
     var maxToolIterations: Int = 25        // config: agent.max_tool_iterations
     var messageTimeoutSecs: Int = 300      // config: agent.message_timeout_secs
-    var parallelTools: Bool = false        // config: agent.parallel_tools
+    // NOTE: agent.parallel_tools is a dead stub in the gateway (no runtime effect) — omitted.
 
     // Memory / Compaction
     var compactContext: Bool = false       // config: agent.compact_context
@@ -89,10 +89,20 @@ final class AgentConfigViewModel {
     }
 
     // MARK: - Setters
+    //
+    // Hot-reloadable paths (gateway applies changes to the running process without restart):
+    //   agents.defaults.model.primary, default_temperature,
+    //   agent.max_tool_iterations, agent.message_timeout_secs
+    //
+    // Non-hot-reloadable paths (persisted to disk, take effect on next gateway restart):
+    //   agent.compact_context, agent.compaction_max_source_chars
 
     func setTemperature(_ value: Double) async {
+        // Hot-reloadable: default_temperature
         await applyChange(
-            prompt: "Set the default temperature to \(String(format: "%.2f", value)).",
+            path: "default_temperature",
+            value: String(format: "%.2f", value),
+            hotReload: true,
             update: { $0.temperature = value },
             confirmation: "Temperature set to \(String(format: "%.2f", value))."
         )
@@ -100,50 +110,58 @@ final class AgentConfigViewModel {
 
     func setPrimaryModel(_ model: String) async {
         guard !model.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        // Hot-reloadable: agents.defaults.model.primary (value must be a JSON string)
+        let jsonString = "\"\(model)\""
         await applyChange(
-            prompt: "Update agents.defaults.model.primary to \"\(model)\" in ~/.nullclaw/config.json.",
+            path: "agents.defaults.model.primary",
+            value: jsonString,
+            hotReload: true,
             update: { $0.primaryModel = model },
             confirmation: "Primary model set to \"\(model)\"."
         )
     }
 
     func setMaxToolIterations(_ value: Int) async {
+        // Hot-reloadable: agent.max_tool_iterations
         await applyChange(
-            prompt: "Update agent.max_tool_iterations to \(value) in ~/.nullclaw/config.json.",
+            path: "agent.max_tool_iterations",
+            value: "\(value)",
+            hotReload: true,
             update: { $0.maxToolIterations = value },
             confirmation: "Max tool iterations set to \(value)."
         )
     }
 
     func setMessageTimeout(_ seconds: Int) async {
+        // Hot-reloadable: agent.message_timeout_secs
         await applyChange(
-            prompt: "Update agent.message_timeout_secs to \(seconds) in ~/.nullclaw/config.json.",
+            path: "agent.message_timeout_secs",
+            value: "\(seconds)",
+            hotReload: true,
             update: { $0.messageTimeoutSecs = seconds },
             confirmation: "Message timeout set to \(seconds)s."
         )
     }
 
-    func setParallelTools(_ enabled: Bool) async {
-        await applyChange(
-            prompt: "Update agent.parallel_tools to \(enabled) in ~/.nullclaw/config.json.",
-            update: { $0.parallelTools = enabled },
-            confirmation: "Parallel tools \(enabled ? "enabled" : "disabled")."
-        )
-    }
-
     func setCompactContext(_ enabled: Bool) async {
+        // NOT hot-reloadable — persisted to disk, takes effect on next gateway restart.
         await applyChange(
-            prompt: "Update agent.compact_context to \(enabled) in ~/.nullclaw/config.json.",
+            path: "agent.compact_context",
+            value: enabled ? "true" : "false",
+            hotReload: false,
             update: { $0.compactContext = enabled },
-            confirmation: "Compact context \(enabled ? "enabled" : "disabled")."
+            confirmation: "Compact context \(enabled ? "enabled" : "disabled"). Restart gateway to apply."
         )
     }
 
     func setCompactionThreshold(_ value: Int) async {
+        // NOT hot-reloadable — persisted to disk, takes effect on next gateway restart.
         await applyChange(
-            prompt: "Update agent.compaction_max_source_chars to \(value) in ~/.nullclaw/config.json.",
+            path: "agent.compaction_max_source_chars",
+            value: "\(value)",
+            hotReload: false,
             update: { $0.compactionThreshold = value },
-            confirmation: "Compaction threshold set to \(value) chars."
+            confirmation: "Compaction threshold set to \(value) chars. Restart gateway to apply."
         )
     }
 
@@ -173,7 +191,6 @@ final class AgentConfigViewModel {
             c.maxToolIterations = raw.max_tool_iterations ?? 25
             // Accept both key variants the agent may emit
             c.messageTimeoutSecs = raw.message_timeout_secs ?? raw.message_timeout_seconds ?? 300
-            c.parallelTools = raw.parallel_tools ?? raw.parallel_tools_enabled ?? false
             c.compactContext = raw.compact_context ?? raw.compaction_enabled ?? false
             c.compactionThreshold = raw.compaction_max_source_chars ?? raw.compaction_threshold ?? 8000
             return c
@@ -184,8 +201,12 @@ final class AgentConfigViewModel {
 
     // MARK: - Private helpers
 
+    /// Applies a config change via `/config apply set <path> <value>`, optionally
+    /// followed by `/config reload` for hot-reloadable fields.
     private func applyChange(
-        prompt: String,
+        path: String,
+        value: String,
+        hotReload: Bool,
         update: (inout AgentConfig) -> Void,
         confirmation: String
     ) async {
@@ -195,7 +216,10 @@ final class AgentConfigViewModel {
         defer { isSaving = false }
 
         do {
-            _ = try await client.sendOneShot(prompt)
+            try await client.sendConfigApply(path: path, value: value)
+            if hotReload {
+                try await client.sendConfigReload()
+            }
             update(&config)
             confirmationMessage = confirmation
         } catch {
@@ -213,7 +237,6 @@ final class AgentConfigViewModel {
         "temperature" (number, from default_temperature), \
         "max_tool_iterations" (integer, from agent.max_tool_iterations), \
         "message_timeout_secs" (integer, from agent.message_timeout_secs), \
-        "parallel_tools" (boolean, from agent.parallel_tools), \
         "compact_context" (boolean, from agent.compact_context), \
         "compaction_max_source_chars" (integer, from agent.compaction_max_source_chars).
         """
@@ -233,10 +256,8 @@ private struct AgentConfigRaw: Decodable {
     // Limits — canonical
     var max_tool_iterations: Int?
     var message_timeout_secs: Int?
-    var parallel_tools: Bool?
     // Limits — legacy names the agent sometimes emits
     var message_timeout_seconds: Int?
-    var parallel_tools_enabled: Bool?
     // Compaction — canonical
     var compact_context: Bool?
     var compaction_max_source_chars: Int?
