@@ -130,7 +130,7 @@ struct GatewayLiveStatusView: View {
 
         var result = GatewayLiveStatus()
         do {
-            let reply = try await c.sendOneShot(Self.loadPrompt)
+            let reply = try await c.sendOneShotNonStreaming(Self.loadPrompt)
             // Parse the reply once and branch — avoids calling parseJSONStatus twice.
             if let parsed = Self.parseJSONStatus(from: reply) {
                 result.mcpServers = parsed.mcpServers

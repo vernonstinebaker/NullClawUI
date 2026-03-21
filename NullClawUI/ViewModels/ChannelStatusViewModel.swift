@@ -54,7 +54,7 @@ final class ChannelStatusViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await client.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
             channels = try parseChannels(from: reply)
         } catch {
             errorMessage = error.localizedDescription

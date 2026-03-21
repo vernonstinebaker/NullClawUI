@@ -59,7 +59,7 @@ final class UsageStatsViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await client.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
             stats = try parseStats(from: reply)
             isLoaded = true
         } catch {

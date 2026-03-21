@@ -80,7 +80,7 @@ final class AgentConfigViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await client.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
             config = try parseConfig(from: reply)
             isLoaded = true
         } catch {

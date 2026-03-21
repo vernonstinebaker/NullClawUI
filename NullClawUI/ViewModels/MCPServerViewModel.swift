@@ -80,7 +80,7 @@ final class MCPServerViewModel {
     /// Called internally by mutating operations that already own `isLoading`.
     private func loadInternal(client: GatewayClient) async {
         do {
-            let reply = try await client.sendOneShot(Self.loadPrompt)
+            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
             servers = try parseMCPServers(from: reply)
         } catch {
             errorMessage = error.localizedDescription
