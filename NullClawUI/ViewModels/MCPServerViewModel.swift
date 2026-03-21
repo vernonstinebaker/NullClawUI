@@ -173,15 +173,17 @@ final class MCPServerViewModel {
     // MARK: - Prompt constants (visible for tests)
 
     /// Instructs the agent to read config.json directly and return the mcp_servers array.
+    ///
+    /// Note: `connected` is intentionally omitted — the LLM cannot reliably determine
+    /// runtime connectivity and asking it to do so is slow and inaccurate. Connection status
+    /// is surfaced via an on-demand "Check Status" action in the detail view instead.
     static let loadPrompt = """
         Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object, no extra text. \
         The JSON must have exactly one key: \
         "mcp_servers" (array of objects). Each object in the array must have these keys: \
         "name" (string), "transport" (string, either "stdio" or "http"), \
         "command" (string or null), "args" (array of strings or null), \
-        "url" (string or null), "timeout_ms" (integer or null), \
-        "connected" (boolean — true if the server is currently reachable/running, false if not, \
-        null if unknown).
+        "url" (string or null), "timeout_ms" (integer or null).
         """
 }
 
