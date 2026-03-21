@@ -97,6 +97,22 @@ struct GatewayDetailView: View {
                     .accessibilityHint("View, add, pause, and delete scheduled cron jobs on this gateway")
 
                     NavigationLink {
+                        MCPServerListView(profile: profile)
+                    } label: {
+                        Label("MCP Servers", systemImage: "puzzlepiece.extension.fill")
+                    }
+                    .accessibilityLabel("MCP Servers")
+                    .accessibilityHint("View, add, and remove MCP server integrations for this gateway")
+
+                    NavigationLink {
+                        ChannelStatusListView(profile: profile)
+                    } label: {
+                        Label("Channels", systemImage: "antenna.radiowaves.left.and.right")
+                    }
+                    .accessibilityLabel("Channels")
+                    .accessibilityHint("View the connection status and configuration of gateway communication channels")
+
+                    NavigationLink {
                         AgentConfigView(profile: profile)
                     } label: {
                         Label("Agent Configuration", systemImage: "slider.horizontal.3")
@@ -113,28 +129,12 @@ struct GatewayDetailView: View {
                     .accessibilityHint("View and adjust autonomy level, action limits, and safety controls for this gateway")
 
                     NavigationLink {
-                        MCPServerListView(profile: profile)
-                    } label: {
-                        Label("MCP Servers", systemImage: "puzzlepiece.extension.fill")
-                    }
-                    .accessibilityLabel("MCP Servers")
-                    .accessibilityHint("View, add, and remove MCP server integrations for this gateway")
-
-                    NavigationLink {
                         UsageStatsView(profile: profile)
                     } label: {
                         Label("Cost & Usage", systemImage: "chart.bar.fill")
                     }
                     .accessibilityLabel("Cost & Usage")
                     .accessibilityHint("View token usage and cost data, and configure spend limits for this gateway")
-
-                    NavigationLink {
-                        ChannelStatusListView(profile: profile)
-                    } label: {
-                        Label("Channels", systemImage: "antenna.radiowaves.left.and.right")
-                    }
-                    .accessibilityLabel("Channels")
-                    .accessibilityHint("View the connection status and configuration of gateway communication channels")
                 }
             }
 
