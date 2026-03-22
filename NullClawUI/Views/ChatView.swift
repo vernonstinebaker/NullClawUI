@@ -1,5 +1,7 @@
 import SwiftUI
 import MarkdownUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 // MARK: - ChatView
 
@@ -14,6 +16,10 @@ struct ChatView: View {
     @State private var showingGatewayPicker = false
     /// Tracks the in-flight gateway-switch task so rapid taps can't stack up concurrent switches.
     @State private var switchGatewayTask: Task<Void, Never>? = nil
+    /// PhotosPicker selection items (images).
+    @State private var photoPickerItems: [PhotosPickerItem] = []
+    /// Whether the document picker sheet is showing (for non-image files).
+    @State private var showingDocumentPicker = false
 
     var body: some View {
         NavigationStack {
@@ -243,7 +249,70 @@ struct ChatView: View {
                 .fill(.separator)
                 .frame(height: 0.5)
 
+            // Pending attachment thumbnails (shown above the text field when attachments are staged)
+            if !viewModel.pendingAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(viewModel.pendingAttachments) { attachment in
+                            ZStack(alignment: .topTrailing) {
+                                if let uiImage = UIImage(data: attachment.data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 64, height: 64)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                } else {
+                                    // Generic file icon for non-image types
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(.regularMaterial)
+                                        .frame(width: 64, height: 64)
+                                        .overlay(
+                                            Image(systemName: "doc.fill")
+                                                .font(.system(size: 24))
+                                                .foregroundStyle(.secondary)
+                                        )
+                                }
+                                // Remove button
+                                Button {
+                                    viewModel.pendingAttachments.removeAll { $0.id == attachment.id }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, Color(.systemGray3))
+                                        .offset(x: 6, y: -6)
+                                }
+                                .accessibilityLabel("Remove attachment")
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             HStack(alignment: .bottom, spacing: 10) {
+                // Attachment button — opens PhotosPicker
+                PhotosPicker(
+                    selection: $photoPickerItems,
+                    maxSelectionCount: 5,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36, height: 36)
+                }
+                .onChange(of: photoPickerItems) { _, newItems in
+                    Task { await loadPhotoPickerItems(newItems) }
+                    photoPickerItems = []
+                }
+                .accessibilityLabel("Attach image")
+                .accessibilityHint("Select images from your photo library to attach to your message")
+                .disabled(viewModel.isStreaming || viewModel.isSending)
+
                 TextField("Message…", text: Bindable(viewModel).inputText, axis: .vertical)
                     .lineLimit(1...6)
                     .textFieldStyle(.plain)
@@ -266,8 +335,9 @@ struct ChatView: View {
                         .accessibilityLabel("Abort response")
                         .accessibilityHint("Stop the current streamed response")
                     } else {
-                        let canSend = !viewModel.inputText
+                        let canSend = (!viewModel.inputText
                             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || !viewModel.pendingAttachments.isEmpty)
                             && !viewModel.isSending
                         Button(action: sendAction) {
                             Image(systemName: canSend ? "arrow.up.circle.fill" : "arrow.up.circle")
@@ -288,6 +358,48 @@ struct ChatView: View {
             .padding(.vertical, 10)
             .background(.ultraThinMaterial)
         }
+        // Document picker sheet (for non-image files, e.g. PDF, text)
+        .sheet(isPresented: $showingDocumentPicker) {
+            DocumentPickerView { urls in
+                Task { await loadDocumentURLs(urls) }
+            }
+        }
+    }
+
+    // MARK: - Attachment loading helpers
+
+    /// Loads selected PhotosPickerItems and appends them to pendingAttachments.
+    @MainActor private func loadPhotoPickerItems(_ items: [PhotosPickerItem]) async {
+        for item in items {
+            // Prefer HEIF/JPEG representation that vision models can consume.
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                // Detect JPEG vs PNG vs HEIC by magic bytes; default to jpeg.
+                let mimeType = imageMIMEType(for: data)
+                viewModel.pendingAttachments.append(ChatAttachment(mimeType: mimeType, data: data))
+            }
+        }
+    }
+
+    /// Loads document URLs from the document picker and appends them to pendingAttachments.
+    @MainActor private func loadDocumentURLs(_ urls: [URL]) async {
+        for url in urls {
+            guard url.startAccessingSecurityScopedResource() else { continue }
+            defer { url.stopAccessingSecurityScopedResource() }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let mimeType = (UTType(filenameExtension: url.pathExtension)?.preferredMIMEType) ?? "application/octet-stream"
+            viewModel.pendingAttachments.append(ChatAttachment(mimeType: mimeType, data: data))
+        }
+    }
+
+    /// Infers MIME type from magic bytes.
+    private func imageMIMEType(for data: Data) -> String {
+        guard data.count >= 4 else { return "image/jpeg" }
+        let header = data.prefix(4).map { $0 }
+        if header[0] == 0xFF && header[1] == 0xD8 { return "image/jpeg" }
+        if header[0] == 0x89 && header[1] == 0x50 { return "image/png" }
+        if header[0] == 0x47 && header[1] == 0x49 { return "image/gif" }
+        if header[0] == 0x52 && header[1] == 0x49 { return "image/webp" }
+        return "image/jpeg"  // default for HEIC and unknowns
     }
 
     private func sendAction() {
@@ -436,32 +548,78 @@ struct MessageBubble: View {
         }
         .padding(.top, isLastInGroup ? 8 : 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(isUser ? "You" : "Agent"): \(message.text)")
+        .accessibilityLabel({
+            let who = isUser ? "You" : "Agent"
+            let attachmentNote = message.attachments.isEmpty ? "" : ", \(message.attachments.count) attachment\(message.attachments.count == 1 ? "" : "s")"
+            return "\(who): \(message.text)\(attachmentNote)"
+        }())
     }
 
     @ViewBuilder private var bubbleContent: some View {
-        Group {
-            if isUser {
-                Text(message.text)
-                    .textSelection(.enabled)
-                    .foregroundStyle(accentColor.contrastingForeground)
-            } else if message.text.isEmpty && message.isStreaming {
-                // Waiting for first token — invisible placeholder keeps layout stable
-                Text(" ")
-            } else {
-                Markdown(message.text)
-                    .markdownTheme(.chat)
-                    .textSelection(.enabled)
+        VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
+            // Attachment thumbnails (images/files carried by this message)
+            if !message.attachments.isEmpty {
+                attachmentGrid
+            }
+            // Text content (may be empty if the message is attachment-only)
+            if !message.text.isEmpty || message.isStreaming {
+                Group {
+                    if isUser {
+                        Text(message.text)
+                            .textSelection(.enabled)
+                            .foregroundStyle(accentColor.contrastingForeground)
+                    } else if message.text.isEmpty && message.isStreaming {
+                        Text(" ")
+                    } else {
+                        Markdown(message.text)
+                            .markdownTheme(.chat)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    isUser
+                        ? AnyShapeStyle(accentColor)
+                        : AnyShapeStyle(.regularMaterial),
+                    in: BubbleShape(role: message.role, isLast: isLastInGroup && message.attachments.isEmpty)
+                )
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            isUser
-                ? AnyShapeStyle(accentColor)
-                : AnyShapeStyle(.regularMaterial),
-            in: BubbleShape(role: message.role, isLast: isLastInGroup)
-        )
+    }
+
+    /// Grid of image/file thumbnails shown inside the bubble.
+    @ViewBuilder private var attachmentGrid: some View {
+        let cols = min(message.attachments.count, 3)
+        let size: CGFloat = cols == 1 ? 200 : 100
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.fixed(size), spacing: 4), count: cols),
+            spacing: 4
+        ) {
+            ForEach(message.attachments) { attachment in
+                if let uiImage = UIImage(data: attachment.data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(
+                            BubbleShape(
+                                role: message.role,
+                                isLast: isLastInGroup && attachment.id == message.attachments.last?.id
+                            )
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.regularMaterial)
+                        .frame(width: size, height: size)
+                        .overlay(
+                            Image(systemName: "doc.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.secondary)
+                        )
+                }
+            }
+        }
     }
 
     private var agentAvatar: some View {
@@ -547,5 +705,35 @@ struct TypingIndicator: View {
             .fill(.secondary.opacity(0.6))
             .frame(width: 7, height: 7)
             .offset(y: -eased * 6)
+    }
+}
+
+// MARK: - DocumentPickerView
+
+/// Wraps UIDocumentPickerViewController for non-image file attachments.
+import UIKit
+
+struct DocumentPickerView: UIViewControllerRepresentable {
+    let onPick: ([URL]) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let types: [UTType] = [.pdf, .text, .plainText, .utf8PlainText, .data]
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+        picker.allowsMultipleSelection = true
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: ([URL]) -> Void
+        init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            onPick(urls)
+        }
     }
 }

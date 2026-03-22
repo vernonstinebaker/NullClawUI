@@ -22,18 +22,33 @@ struct JSONRPCError: Decodable {
 
 // MARK: - A2A Core Types
 
+/// Carries the raw base64-encoded bytes for an inline image or file part.
+/// Wire format: `{ "inlineData": { "mimeType": "image/jpeg", "data": "<base64>" } }`
+struct InlineData: Codable, Sendable {
+    let mimeType: String
+    let data: String    // base64-encoded bytes
+
+    enum CodingKeys: String, CodingKey {
+        case mimeType
+        case data
+    }
+}
+
 struct MessagePart: Codable, Sendable {
     let text: String?
-    let kind: String?   // "text" | "file" etc — present in server responses
+    let kind: String?       // "text" | "file" etc — present in server responses
+    let inlineData: InlineData? // non-nil for image / file parts
 
-    init(text: String? = nil, kind: String? = nil) {
+    init(text: String? = nil, kind: String? = nil, inlineData: InlineData? = nil) {
         self.text = text
         self.kind = kind
+        self.inlineData = inlineData
     }
 
     enum CodingKeys: String, CodingKey {
         case text
         case kind
+        case inlineData
     }
 }
 

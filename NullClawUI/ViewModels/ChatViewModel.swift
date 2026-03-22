@@ -1,5 +1,26 @@
 import Foundation
 import Observation
+import UIKit
+
+// MARK: - ChatAttachment (local UI model)
+
+/// Represents a user-selected image or file that will be sent as an inlineData part.
+struct ChatAttachment: Identifiable, Sendable {
+    let id: UUID
+    let mimeType: String
+    let data: Data          // raw bytes; base64-encoded when building MessagePart
+
+    init(mimeType: String, data: Data) {
+        self.id = UUID()
+        self.mimeType = mimeType
+        self.data = data
+    }
+
+    /// Convenience: build the corresponding A2A MessagePart.
+    var messagePart: MessagePart {
+        MessagePart(inlineData: InlineData(mimeType: mimeType, data: data.base64EncodedString()))
+    }
+}
 
 // MARK: - ChatMessage (local UI model)
 
@@ -8,12 +29,15 @@ struct ChatMessage: Identifiable, Sendable {
     let role: String   // "user" | "assistant"
     var text: String
     var isStreaming: Bool = false
+    /// Image/file attachments carried by this message (user-sent or inbound inlineData parts).
+    var attachments: [ChatAttachment] = []
 
-    init(role: String, text: String, isStreaming: Bool = false) {
+    init(role: String, text: String, isStreaming: Bool = false, attachments: [ChatAttachment] = []) {
         self.id = UUID()
         self.role = role
         self.text = text
         self.isStreaming = isStreaming
+        self.attachments = attachments
     }
 }
 
@@ -74,6 +98,8 @@ final class ChatViewModel {
 
     var messages: [ChatMessage] = []
     var inputText: String = ""
+    /// Attachments staged by the user but not yet sent. Cleared after each send/stream.
+    var pendingAttachments: [ChatAttachment] = []
     var isSending: Bool = false
     var isStreaming: Bool = false
     var activeTaskID: String? = nil
@@ -141,11 +167,13 @@ final class ChatViewModel {
 
     func send() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isSending else { return }
+        let attachments = pendingAttachments
+        guard (!text.isEmpty || !attachments.isEmpty), !isSending else { return }
         inputText = ""
+        pendingAttachments = []
         isSending = true
         errorMessage = nil
-        messages.append(ChatMessage(role: "user", text: text))
+        messages.append(ChatMessage(role: "user", text: text, attachments: attachments))
 
         // Lazily create a history record on the first send of a session.
         if let gateway = appModel.store.activeProfile {
@@ -155,8 +183,13 @@ final class ChatViewModel {
         // Update record title from first user message.
         conversationStore.updateCurrent(firstUserText: text, incrementMessages: true)
 
+        // Build parts: text first (if non-empty), then one part per attachment.
+        var parts: [MessagePart] = []
+        if !text.isEmpty { parts.append(MessagePart(text: text, kind: "text")) }
+        parts.append(contentsOf: attachments.map(\.messagePart))
+
         let userMessage = A2AMessage(role: "user",
-                                     parts: [MessagePart(text: text, kind: "text")],
+                                     parts: parts,
                                      contextId: activeContextID)
         do {
             let task = try await client.sendMessage(userMessage)
@@ -193,11 +226,13 @@ final class ChatViewModel {
 
     func stream() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isStreaming else { return }
+        let attachments = pendingAttachments
+        guard (!text.isEmpty || !attachments.isEmpty), !isStreaming else { return }
         inputText = ""
+        pendingAttachments = []
         isStreaming = true
         errorMessage = nil
-        messages.append(ChatMessage(role: "user", text: text))
+        messages.append(ChatMessage(role: "user", text: text, attachments: attachments))
 
         // Lazily create a history record on the first stream of a session.
         if let gateway = appModel.store.activeProfile {
@@ -212,8 +247,13 @@ final class ChatViewModel {
         let maxRetries = 3
         var receivedAnyStreamEvent = false
 
+        // Build parts: text first (if non-empty), then one part per attachment.
+        var parts: [MessagePart] = []
+        if !text.isEmpty { parts.append(MessagePart(text: text, kind: "text")) }
+        parts.append(contentsOf: attachments.map(\.messagePart))
+
         let userMessage = A2AMessage(role: "user",
-                                     parts: [MessagePart(text: text, kind: "text")],
+                                     parts: parts,
                                      contextId: activeContextID)
 
         while retries <= maxRetries {
@@ -372,6 +412,7 @@ final class ChatViewModel {
         // 3. Switch client and clear transient send/stream flags.
         client = newClient
         inputText = ""
+        pendingAttachments = []
         isSending = false
         isStreaming = false
         errorMessage = nil
@@ -514,7 +555,12 @@ final class ChatViewModel {
             messages = allMessages.map { msg in
                 let role = msg.role == "agent" ? "assistant" : msg.role
                 let text = msg.parts.compactMap { $0.text }.joined()
-                return ChatMessage(role: role, text: text)
+                let attachments: [ChatAttachment] = msg.parts.compactMap { part in
+                    guard let inline = part.inlineData,
+                          let bytes = Data(base64Encoded: inline.data) else { return nil }
+                    return ChatAttachment(mimeType: inline.mimeType, data: bytes)
+                }
+                return ChatMessage(role: role, text: text, attachments: attachments)
             }
             // Cap to maxMessages — server history may be very long.
             trimMessagesIfNeeded()
@@ -541,6 +587,7 @@ final class ChatViewModel {
         activeContextID = nil
         activeRecordID = nil
         inputText = ""
+        pendingAttachments = []
         errorMessage = nil
         isSending = false
         isStreaming = false
