@@ -359,11 +359,14 @@ final class ChatViewModel {
                     }
                     break
                 }
-                // 413 means the payload was too large for the model — most likely an image
-                // was sent to a text-only model. Retrying won't help.
+                // 413 means the upstream model rejected the payload — either the image
+                // is too large for the provider, or the model does not support vision.
+                // Retrying won't help; prompt the user to try a smaller image or a
+                // different model. (The gateway body limit is now 20 MB so a 413 from
+                // the gateway itself would only occur for very large files.)
                 if case GatewayError.httpError(let code) = error, code == 413 {
-                    errorMessage = "The gateway rejected this message as too large (HTTP 413). "
-                        + "The model may not support image attachments."
+                    errorMessage = "The model rejected this message (HTTP 413). "
+                        + "Try a smaller image, or use a model that supports image attachments."
                     if let idx = assistantIndex, idx < messages.count {
                         messages[idx].isStreaming = false
                     }
