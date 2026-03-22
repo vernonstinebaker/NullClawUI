@@ -359,6 +359,16 @@ final class ChatViewModel {
                     }
                     break
                 }
+                // 413 means the payload was too large for the model — most likely an image
+                // was sent to a text-only model. Retrying won't help.
+                if case GatewayError.httpError(let code) = error, code == 413 {
+                    errorMessage = "The gateway rejected this message as too large (HTTP 413). "
+                        + "The model may not support image attachments."
+                    if let idx = assistantIndex, idx < messages.count {
+                        messages[idx].isStreaming = false
+                    }
+                    break
+                }
                 // unpaired means no token is set — retrying will never succeed.
                 if case GatewayError.unpaired = error {
                     errorMessage = "Not paired. Please configure and pair a gateway in Settings."

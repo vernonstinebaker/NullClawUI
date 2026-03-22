@@ -20,6 +20,8 @@ struct ChatView: View {
     @State private var photoPickerItems: [PhotosPickerItem] = []
     /// Whether the document picker sheet is showing (for non-image files).
     @State private var showingDocumentPicker = false
+    /// Whether the photos picker sheet is showing (triggered from the attachment Menu).
+    @State private var showingPhotosPicker = false
 
     var body: some View {
         NavigationStack {
@@ -242,6 +244,12 @@ struct ChatView: View {
 
     // MARK: - Input bar
 
+    /// True only when the active gateway explicitly advertises multiModal capability.
+    /// Nil (unknown) and false both result in the paperclip being hidden.
+    private var supportsMultiModal: Bool {
+        appModel.effectiveAgentCard?.capabilities?.multiModal == true
+    }
+
     @ViewBuilder private var inputBar: some View {
         VStack(spacing: 0) {
             // Hair-line separator
@@ -293,25 +301,32 @@ struct ChatView: View {
             }
 
             HStack(alignment: .bottom, spacing: 10) {
-                // Attachment button — opens PhotosPicker
-                PhotosPicker(
-                    selection: $photoPickerItems,
-                    maxSelectionCount: 5,
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    Image(systemName: "paperclip")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 36, height: 36)
+                // Phase 21: Attachment menu — only shown when the gateway advertises
+                // multiModal: true in its agent card. This prevents the paperclip from
+                // appearing on text-only models that would reject image payloads (HTTP 413).
+                if supportsMultiModal {
+                    // NOTE: No unit test — pure UI interaction; covered by visual inspection.
+                    Menu {
+                        Button {
+                            showingPhotosPicker = true
+                        } label: {
+                            Label("Photo Library", systemImage: "photo.on.rectangle")
+                        }
+                        Button {
+                            showingDocumentPicker = true
+                        } label: {
+                            Label("Choose File", systemImage: "doc")
+                        }
+                    } label: {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 22))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel("Attach")
+                    .accessibilityHint("Attach an image from your photo library or a file from Files")
+                    .disabled(viewModel.isStreaming || viewModel.isSending)
                 }
-                .onChange(of: photoPickerItems) { _, newItems in
-                    Task { await loadPhotoPickerItems(newItems) }
-                    photoPickerItems = []
-                }
-                .accessibilityLabel("Attach image")
-                .accessibilityHint("Select images from your photo library to attach to your message")
-                .disabled(viewModel.isStreaming || viewModel.isSending)
 
                 TextField("Message…", text: Bindable(viewModel).inputText, axis: .vertical)
                     .lineLimit(1...6)
@@ -363,6 +378,18 @@ struct ChatView: View {
             DocumentPickerView { urls in
                 Task { await loadDocumentURLs(urls) }
             }
+        }
+        // Photos picker sheet (triggered from the attachment Menu)
+        .photosPicker(
+            isPresented: $showingPhotosPicker,
+            selection: $photoPickerItems,
+            maxSelectionCount: 5,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .onChange(of: photoPickerItems) { _, newItems in
+            Task { await loadPhotoPickerItems(newItems) }
+            photoPickerItems = []
         }
     }
 
