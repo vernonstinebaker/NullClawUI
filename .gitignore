@@ -78,5 +78,9 @@ secrets.json
 *.swp
 *.swo
 
+# ── Local agent context ──────────────────────────────────────
+# Machine-specific ops notes for AI coding agents. Never commit.
+AGENTS.local.md
+
 # ── Misc ─────────────────────────────────────────────────────
 *.log

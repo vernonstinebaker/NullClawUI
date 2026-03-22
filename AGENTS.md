@@ -96,3 +96,4 @@ All agents operate under **Swift 6 strict concurrency** (-strict-concurrency=com
   ```swift
   // Regression: unpairGateway(_:) on an inactive profile must not clear appModel.isPaired.
   ```
+
