@@ -30,11 +30,20 @@ A native iOS/iPadOS client for interacting with a [NullClaw](https://github.com/
 | 8 | UI Polish & New Chat | ✅ Complete |
 | 9 | Multiple Gateways | ✅ Complete |
 | 10 | UX Hardening & Settings Redesign | ✅ Complete |
-| 11 | SwiftData Migration & iCloud Sync | ❌ Not started |
-| 12 | LAN Gateway Discovery | ❌ Not started |
-| 13 | macOS Menubar App | ❌ Not started |
-| 14 | Voice Input | ❌ Not started |
-| 15 | Health Monitoring & Reconnect | ❌ Not started |
+| 11 | SwiftData Migration & iCloud Sync | ✅ Complete |
+| 12 | LAN Gateway Discovery | ✅ Complete |
+| 13 | Health Monitoring & Reconnect | ✅ Complete |
+| 14 | Gateway Status Dashboard | ✅ Complete |
+| 15 | Cron Job Manager | ✅ Complete |
+| 16 | Agent Configuration | ✅ Complete |
+| 17 | Autonomy & Safety Controls | ✅ Complete |
+| 18 | MCP Server Management | ✅ Complete |
+| 19 | Cost & Usage Monitoring | ✅ Complete |
+| 20 | Channel Status & Management | ✅ Complete |
+| 21 | Multi-modal Input | ✅ Complete |
+| 22 | Voice Input | ⏸️ Deferred |
+| 23 | APNs Notifications | ❌ Not started |
+| 24 | macOS Menubar App | ❌ Not started |
 
 See [`PLAN.md`](./PLAN.md) for full details on each phase.
 
@@ -121,8 +130,10 @@ Credentials (Bearer tokens) are stored exclusively in the **system Keychain**, k
 | State | `@Observable` macro (Swift 6) |
 | Navigation | `NavigationSplitView` (iPad) / `NavigationStack` (iPhone) |
 | Networking | `URLSession` + `async/await`, `AsyncSequence` for SSE |
+| Persistence | SwiftData + CloudKit (Phase 11) |
 | Keychain | `Security` framework |
-| Markdown | `swift-markdown-ui` (Phase 6) |
+| Markdown | `swift-markdown-ui` |
+| LAN Discovery | `Network.framework` (`NWBrowser`, Bonjour) |
 
 All UI mutations are `@MainActor`-isolated. Network operations run in unstructured `Task {}` off the main actor.
 
@@ -136,4 +147,4 @@ See [`AGENTS.md`](./AGENTS.md) for the agent roles and responsibilities used dur
 
 ## License
 
-TBD.
+MIT — see [`LICENSE`](./LICENSE).
