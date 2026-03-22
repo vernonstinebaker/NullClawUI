@@ -126,6 +126,7 @@
 		F344154517C845148851E370 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
 		F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGatewaySheet.swift; sourceTree = "<group>"; };
 		FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extensions.swift"; sourceTree = "<group>"; };
+		AA00BB11CC22DD33EE44FF55 /* NullClawUI.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "NullClawUI.local.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -252,6 +253,7 @@
 		C00EBC9CB298B3B5086B8FA8 = {
 			isa = PBXGroup;
 			children = (
+				AA00BB11CC22DD33EE44FF55 /* NullClawUI.local.xcconfig */,
 				B98116E9DDF134A886AAB077 /* NullClawUI */,
 				D8B204417CED9C9D1E8211A7 /* NullClawUITests */,
 				61A7A1F99987AE02CB08BDC7 /* NullClawUIUITests */,
@@ -682,12 +684,13 @@
 		};
 		9A886FBA3F6031D3F20A381B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA00BB11CC22DD33EE44FF55 /* NullClawUI.local.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = ;
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -705,12 +708,13 @@
 		};
 		E582AC466632BDD07B7C143C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA00BB11CC22DD33EE44FF55 /* NullClawUI.local.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = ;
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
