@@ -51,6 +51,29 @@ final class AppModel {
     /// ContentView shows a loading spinner instead of SettingsView during this window.
     var isCheckingGateway: Bool = true
 
+    // MARK: - Centralized Error Presentation
+
+    /// The error message currently being presented to the user via the root alert.
+    /// Set this property (or call `presentError(_:)`) to show a global error alert.
+    /// Clear it by setting to nil to dismiss the alert.
+    var presentedErrorMessage: String? = nil
+
+    /// Presents an error message in the root alert.
+    /// Extracts `LocalizedError.errorDescription` when available, otherwise uses
+    /// `localizedDescription`.
+    func presentError(_ error: Error) {
+        if let localized = error as? LocalizedError, let description = localized.errorDescription {
+            presentedErrorMessage = description
+        } else {
+            presentedErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// Dismisses the currently presented error alert.
+    func dismissError() {
+        presentedErrorMessage = nil
+    }
+
     // MARK: - Convenience passthroughs (keep callers compatible)
 
     /// URL of the currently-active gateway profile.

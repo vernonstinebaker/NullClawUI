@@ -261,7 +261,6 @@ final class DesignTokensTests: XCTestCase {
     }
 
     func testAnimationSpringReturnsNonNil() {
-        // Just verify it doesn't crash — SwiftUI.Animation can't be directly compared
         _ = DesignTokens.Animation.spring()
         _ = DesignTokens.Animation.quick()
     }
@@ -269,5 +268,52 @@ final class DesignTokensTests: XCTestCase {
     func testTransitionsReturnNonNil() {
         _ = DesignTokens.Animation.fade()
         _ = DesignTokens.Animation.expand()
+    }
+}
+
+// MARK: - AppModel Error Handling Tests
+
+final class AppModelErrorHandlingTests: XCTestCase {
+    @MainActor
+    func testPresentErrorWithLocalizedError() {
+        let store = GatewayStore(inMemory: true)
+        let appModel = AppModel(store: store)
+        XCTAssertNil(appModel.presentedErrorMessage)
+
+        struct TestError: LocalizedError {
+            var errorDescription: String? { "Test error message" }
+        }
+        appModel.presentError(TestError())
+        XCTAssertEqual(appModel.presentedErrorMessage, "Test error message")
+    }
+
+    @MainActor
+    func testPresentErrorWithStandardError() {
+        let store = GatewayStore(inMemory: true)
+        let appModel = AppModel(store: store)
+
+        appModel.presentError(NSError(domain: "Test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Standard error"]))
+        XCTAssertNotNil(appModel.presentedErrorMessage)
+    }
+
+    @MainActor
+    func testPresentErrorWithGatewayError() {
+        let store = GatewayStore(inMemory: true)
+        let appModel = AppModel(store: store)
+
+        appModel.presentError(GatewayError.unpaired)
+        XCTAssertEqual(appModel.presentedErrorMessage, GatewayError.unpaired.errorDescription)
+    }
+
+    @MainActor
+    func testDismissError() {
+        let store = GatewayStore(inMemory: true)
+        let appModel = AppModel(store: store)
+
+        appModel.presentedErrorMessage = "Some error"
+        XCTAssertNotNil(appModel.presentedErrorMessage)
+
+        appModel.dismissError()
+        XCTAssertNil(appModel.presentedErrorMessage)
     }
 }
