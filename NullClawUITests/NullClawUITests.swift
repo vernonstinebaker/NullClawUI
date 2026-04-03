@@ -227,3 +227,47 @@ final class HealthIndicatorTests: XCTestCase {
         XCTAssertNotEqual(HealthIndicator.healthy, HealthIndicator.unhealthy)
     }
 }
+
+// MARK: - DesignTokens Tests
+
+final class DesignTokensTests: XCTestCase {
+    func testCornerRadiusValues() {
+        XCTAssertEqual(DesignTokens.CornerRadius.card, 20)
+        XCTAssertEqual(DesignTokens.CornerRadius.medium, 12)
+        XCTAssertEqual(DesignTokens.CornerRadius.bubble, 10)
+        XCTAssertEqual(DesignTokens.CornerRadius.small, 8)
+        XCTAssertEqual(DesignTokens.CornerRadius.inner, 6)
+        XCTAssertEqual(DesignTokens.CornerRadius.tiny, 2)
+    }
+
+    func testSpacingValues() {
+        XCTAssertEqual(DesignTokens.Spacing.section, 24)
+        XCTAssertEqual(DesignTokens.Spacing.card, 20)
+        XCTAssertEqual(DesignTokens.Spacing.standard, 16)
+        XCTAssertEqual(DesignTokens.Spacing.tight, 12)
+        XCTAssertEqual(DesignTokens.Spacing.minimal, 8)
+        XCTAssertEqual(DesignTokens.Spacing.tiny, 4)
+    }
+
+    func testFontSizeValues() {
+        XCTAssertEqual(DesignTokens.FontSize.title, 28)
+        XCTAssertEqual(DesignTokens.FontSize.headline, 17)
+        XCTAssertEqual(DesignTokens.FontSize.body, 17)
+        XCTAssertEqual(DesignTokens.FontSize.callout, 16)
+        XCTAssertEqual(DesignTokens.FontSize.subheadline, 15)
+        XCTAssertEqual(DesignTokens.FontSize.footnote, 13)
+        XCTAssertEqual(DesignTokens.FontSize.caption, 12)
+        XCTAssertEqual(DesignTokens.FontSize.caption2, 11)
+    }
+
+    func testAnimationSpringReturnsNonNil() {
+        // Just verify it doesn't crash — SwiftUI.Animation can't be directly compared
+        _ = DesignTokens.Animation.spring()
+        _ = DesignTokens.Animation.quick()
+    }
+
+    func testTransitionsReturnNonNil() {
+        _ = DesignTokens.Animation.fade()
+        _ = DesignTokens.Animation.expand()
+    }
+}

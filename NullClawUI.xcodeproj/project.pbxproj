@@ -22,6 +22,7 @@
 		6179FF6E2B511CEE18FDDD85 /* AddGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B696F053AE53239E808A6C /* AddGatewaySheet.swift */; };
 		A262208E8F1E4539BB681560 /* AddGatewayPairingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABE884815D440A185C4A19C /* AddGatewayPairingModel.swift */; };
 		20BE97C1B94846FABF245A12 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C3F7A2E1D5B49C0A6E8F3D1 /* Components.swift */; };
+		8193459E27D3448F89556846 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2A8B3C9D1E47F6A0C3B5D2 /* DesignTokens.swift */; };
 		6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D18F96C48C0F9087431E70 /* MCPServerViewModel.swift */; };
 		784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DC885F054A771E27A3B26C /* UsageStats.swift */; };
 		792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4586808D41B6CE56D04176A0 /* GatewayProfile.swift */; };
@@ -110,6 +111,7 @@
 		93B696F053AE53239E808A6C /* AddGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewaySheet.swift; sourceTree = "<group>"; };
 		4ABE884815D440A185C4A19C /* AddGatewayPairingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewayPairingModel.swift; sourceTree = "<group>"; };
 		8C3F7A2E1D5B49C0A6E8F3D1 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		5F2A8B3C9D1E47F6A0C3B5D2 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		94DC885F054A771E27A3B26C /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
 		A03240766199909EB8710D1B /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -192,6 +194,7 @@
 			children = (
 				5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */,
 				FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */,
+				5F2A8B3C9D1E47F6A0C3B5D2 /* DesignTokens.swift */,
 				F344154517C845148851E370 /* GatewayStore.swift */,
 				EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */,
 			);
@@ -438,6 +441,7 @@
 				2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */,
 				C9F21BCC5224D6A98DC17D83 /* ChatViewModel.swift in Sources */,
 				EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */,
+				8193459E27D3448F89556846 /* DesignTokens.swift in Sources */,
 				A8B6645D086598650A813BB8 /* ContentView.swift in Sources */,
 				AD3D252E3AB29E03F2448155 /* ConversationRecord.swift in Sources */,
 				D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */,
