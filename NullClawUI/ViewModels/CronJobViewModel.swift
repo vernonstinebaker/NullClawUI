@@ -1,98 +1,245 @@
-# NullClawUI — Agents & Roles
+import Foundation
+import Observation
 
-## Platform Baseline
+// MARK: - CronJobViewModel
 
-| Property | Value |
-|---|---|
-| **iOS Deployment Target** | iOS 26.0 |
-| **macOS Deployment Target** | macOS 26.0 (Tahoe) |
-| **Swift Version** | Swift 6 (strict concurrency) |
-| **UI Paradigm** | Liquid Glass (iOS 26 / visionOS-aligned materials) |
-| **Xcode Version** | Xcode 26+ |
-| **NullClaw API Reference** | See PLAN.md Phase 0 and the NullClaw Gateway OpenAPI spec at the configured gateway URL (/openapi.json). |
+/// Phase 15: Cron Job Manager.
+///
+/// Communicates with the active gateway exclusively through A2A natural-language prompts
+/// (message/stream) — there is no dedicated REST endpoint for cron management.
+///
+/// Lifecycle:
+///   • Call load() to fetch the current job list.
+///   • Call pause(_:), resume(_:), runNow(_:), delete(_:) for row-level actions.
+///   • Call addJob(_:) to create a new job.
+///   Each mutating call re-fetches the list afterward so the UI stays in sync.
+@Observable
+@MainActor
+final class CronJobViewModel {
 
-All agents operate under **Swift 6 strict concurrency** (-strict-concurrency=complete). Every network call must be async/await-based; no DispatchQueue usage. All state mutations touching the UI must happen on @MainActor.
+    // MARK: Published state
 
----
+    /// Current list of cron jobs, ordered as returned by the agent.
+    private(set) var jobs: [CronJob] = []
+    /// True while an A2A round-trip is in flight.
+    private(set) var isLoading: Bool = false
+    /// Non-nil when the last operation failed.
+    var errorMessage: String? = nil
+    /// Non-nil while a one-shot command (pause/resume/run/delete) is executing.
+    /// Contains the job id being acted upon.
+    private(set) var actionInProgress: String? = nil
 
-## Roles
+    // MARK: Dependencies
 
-### Swift/SwiftUI Architect
-- **Focus**: App lifecycle, navigation (NavigationStack / NavigationSplitView), and state management using the **Swift @Observable macro** (iOS 26 / Swift 6 preferred over legacy ObservableObject).
-- **Goal**: Clean, idiomatic SwiftUI structure that is easy to extend phase-by-phase.
-- **Notes**:
-  - Target iOS 26 exclusively — use new APIs freely; no @available guards needed.
-  - Favor NavigationSplitView for iPad; NavigationStack for iPhone compact-width.
-  - Apply **Liquid Glass** materials (GlassEffect, .glassBackgroundEffect()) for surfaces, cards, and overlaid controls.
+    /// The client to use for all A2A calls.
+    var client: GatewayClient
 
-### Network & Protocol Specialist
-- **Focus**: URLSession configuration, SSE (Server-Sent Events) streaming via AsyncSequence, JSON-RPC 2.0 serialization for the A2A protocol.
-- **Goal**: Robust, error-resistant communication with the NullClaw Gateway.
-- **A2A Request Shape**:
-  ```json
-  {
-    "jsonrpc": "2.0",
-    "id": "<uuid>",
-    "method": "message/send",
-    "params": { "message": { "role": "user", "parts": [{ "text": "…" }] } }
-  }
-  ```
-  Streaming uses method: "message/stream" and returns SSE lines of the form data: { …TaskStatusUpdateEvent… }.
-- **Notes**:
-  - Use NSAllowsLocalNetworking: true in Info.plist to permit plain-HTTP http:// gateway connections during development. Production should use HTTPS.
-  - Implement exponential-backoff reconnect for dropped SSE streams (max 3 retries).
-  - Endpoints: GET /health, GET /.well-known/agent-card.json, POST /pair, POST /a2a, GET /tasks/{id}, POST /tasks/{id}/cancel.
+    // MARK: Init
 
-### Security & Identity Guard
-- **Focus**: Pairing flow, Bearer token handling, and secure storage in the system Keychain.
-- **Goal**: Zero-leak credential management.
-- **Keychain Keying Strategy**: Each stored credential must be keyed by the normalized gateway base URL (scheme + host + port), allowing the user to connect to multiple gateways without collision. Example key: nullclaw.token.https://my-server.local:5111.
-- **Notes**:
-  - Use kSecAttrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly.
-  - On token deletion / re-pair, explicitly delete the old Keychain item before writing a new one.
+    init(client: GatewayClient) {
+        self.client = client
+    }
 
-### UX/UI Designer (Apple Standard)
-- **Focus**: HIG compliance, **Liquid Glass** design language, iconography, animations, and accessibility.
-- **Goal**: A professional, Apple-native feel targeting iOS 26 and iPadOS 26.
-- **Liquid Glass Guidelines**:
-  - Use .glassBackgroundEffect() for floating panels, modals, and overlaid toolbars.
-  - Use GlassEffect with .regularMaterial for card surfaces.
-  - Animate with withAnimation(.spring(duration: 0.35, bounce: 0.2)).
-  - Accent color should be dynamically sourced from agent-card.json once fetched; fall back to system tint.
-- **Notes**:
-  - iPad layout uses NavigationSplitView (sidebar = task list, detail = chat). Defined in Phase 6 but the architecture must support it from Phase 1.
-  - All interactive elements must have accessibilityLabel and accessibilityHint.
+    /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
+    /// release the session and avoid orphaned network connections.
+    func invalidate() {
+        let c = client
+        Task { await c.invalidate() }
+    }
 
-### Validation & QA Engineer
-- **Focus**: Unit tests (XCTest / Swift Testing framework), network mocking, and integration testing against a running NullClaw instance.
-- **Goal**: Verify that every phase of PLAN.md is fully functional and regression-free before advancing.
-- **How to Run NullClaw Locally**: A NullClaw Gateway instance must be running at http://localhost:5111. Refer to the NullClaw repository (README.md → "Running Locally") for setup steps.
-- **Test Targets**:
-  - NullClawUI — main app target.
-  - NullClawUITests — XCTest unit tests (JSON-RPC parsing, Keychain read/write, SSE token parsing).
-  - NullClawUIUITests — UI tests (XCUIApplication).
-- **Build & Test Commands**:
-  ```bash
-  # Unit tests
-  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2'
+    // MARK: - Public API
 
-  # UI tests
-  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2' -only-testing:NullClawUIUITests
-  ```
+    /// Fetches the current cron job list from the agent.
+    func load() async {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
 
-### Test Coverage Mandate
+        await loadInternal(client: client)
+    }
 
-**Every code change must be accompanied by tests.** No exceptions.
+    // MARK: - Private load helper
 
-- **Behavior changes** (new methods, changed logic): add or update `XCTestCase` tests in `NullClawUITests/NullClawUITests.swift` that directly exercise the changed code path.
-- **Bug fixes**: add a regression test that would have caught the original failure.
-- **Logging-only / pure UI-layout changes**: formal tests may not be practical. Add a comment near the change:
-  ```swift
-  // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
-  ```
-- **New ViewModel methods**: always test both the happy path and the key failure/edge cases. For `@MainActor` methods use `@MainActor func test...() async`.
-- **Keychain operations**: every method that reads or writes to the Keychain must be tested via `KeychainService` directly. Always call `KeychainService.deleteToken(for:)` in `tearDown()` to avoid state leakage between tests.
-- Regression tests must include a comment citing the bug they guard, e.g.:
-  ```swift
-  // Regression: unpairGateway(_:) on an inactive profile must not clear appModel.isPaired.
-  ```
+    /// Performs the actual network fetch without touching `isLoading`.
+    /// Called internally by mutating operations that already own `isLoading`.
+    private func loadInternal(client: GatewayClient) async {
+        do {
+            let reply = try await client.sendOneShot(Self.loadPrompt)
+            jobs = try parseCronJobs(from: reply)
+        } catch {
+            errorMessage = "Failed to load cron jobs: \(error.localizedDescription)"
+        }
+    }
+
+    /// Pauses the given job and refreshes the list.
+    func pause(_ job: CronJob) async {
+        await performAction("Pause the cron job with id \"\(job.id)\" in ~/.nullclaw/cron.json.", jobID: job.id)
+    }
+
+    /// Resumes (un-pauses) the given job and refreshes the list.
+    func resume(_ job: CronJob) async {
+        await performAction("Resume the cron job with id \"\(job.id)\" in ~/.nullclaw/cron.json.", jobID: job.id)
+    }
+
+    /// Triggers an immediate run of the given job and refreshes the list.
+    func runNow(_ job: CronJob) async {
+        await performAction("Run the cron job with id \"\(job.id)\" immediately.", jobID: job.id)
+    }
+
+    /// Deletes the given job and refreshes the list.
+    func delete(_ job: CronJob) async {
+        await performAction("Delete the cron job with id \"\(job.id)\" from ~/.nullclaw/cron.json.", jobID: job.id)
+    }
+
+    /// Submits a new cron job creation request to the agent, then refreshes the list.
+    func addJob(_ draft: CronJobDraft) async {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        let prompt = draft.toPrompt()
+        do {
+            _ = try await client.sendOneShot(prompt)
+            await loadInternal(client: client)
+        } catch {
+            errorMessage = "Failed to add cron job: \(error.localizedDescription)"
+        }
+    }
+
+    /// Updates an existing cron job by replacing it with the provided draft, then refreshes the list.
+    func editJob(_ job: CronJob, draft: CronJobDraft) async {
+        guard actionInProgress == nil else { return }
+        actionInProgress = job.id
+        errorMessage = nil
+        defer { actionInProgress = nil }
+
+        let prompt = draft.toEditPrompt(replacing: job.id)
+        do {
+            _ = try await client.sendOneShot(prompt)
+            await loadInternal(client: client)
+        } catch {
+            errorMessage = "Failed to update cron job: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Helpers (internal/package-visible for tests)
+
+    /// Parses a raw agent reply string into a `[CronJob]` array.
+    /// Locates the first `[` … `]` substring and decodes it as JSON.
+    func parseCronJobs(from text: String) throws -> [CronJob] {
+        guard let start = text.firstIndex(of: "["),
+              let end   = text.lastIndex(of: "]") else {
+            // Agent returned no JSON array — treat as empty list.
+            return []
+        }
+        let jsonSubstring = String(text[start...end])
+        guard let data = jsonSubstring.data(using: .utf8) else {
+            throw CronJobParseError.invalidUTF8
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        do {
+            return try decoder.decode([CronJob].self, from: data)
+        } catch {
+            throw CronJobParseError.decodingFailed(underlying: error)
+        }
+    }
+
+    // MARK: - Private
+
+    private func performAction(_ prompt: String, jobID: String) async {
+        guard actionInProgress == nil else { return }
+        actionInProgress = jobID
+        errorMessage = nil
+        defer { actionInProgress = nil }
+
+        do {
+            _ = try await client.sendOneShot(prompt)
+            await loadInternal(client: client)
+        } catch {
+            errorMessage = "\(prompt) failed: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Prompt constants (visible for tests)
+
+    /// Instructs the agent to read cron.json directly rather than relying on
+    /// in-memory state, which has proven unreliable (agent returns [] when asked
+    /// to "list cron jobs" without a direct file-read instruction).
+    static let loadPrompt = """
+        Read ~/.nullclaw/cron.json and respond with ONLY its raw contents as a valid \
+        JSON array, no extra text before or after.
+        """
+}
+
+// MARK: - CronJobParseError
+
+enum CronJobParseError: Error, LocalizedError {
+    case invalidUTF8
+    case decodingFailed(underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidUTF8:
+            return "Agent response contained invalid UTF-8."
+        case .decodingFailed(let e):
+            return "Could not decode cron job JSON: \(e.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - CronJobDraft
+
+/// Value type used by AddCronJobSheet to collect user input before submission.
+struct CronJobDraft: Sendable {
+    var id: String = ""
+    var expression: String = ""
+    var jobType: String = "agent"   // "agent" | "shell"
+    var commandOrPrompt: String = ""
+    var model: String = ""
+    var deliveryChannel: String = ""
+    var deliveryTo: String = ""
+    var oneShot: Bool = false
+    var deleteAfterRun: Bool = false
+
+    /// Composes the natural-language prompt sent to the agent.
+    func toPrompt() -> String {
+        let typeLabel   = jobType == "shell" ? "shell command" : "agent prompt"
+        let modelPart   = model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "" : ", model \(model.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let delivPart   = deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "" : ", delivery channel \(deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines)) to \(deliveryTo.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let oneShotPart = oneShot ? ", one_shot true" : ""
+        let delPart     = deleteAfterRun ? ", delete_after_run true" : ""
+        return """
+        Add a new cron job with the following settings:
+        id: \(id.trimmingCharacters(in: .whitespacesAndNewlines))
+        expression: \(expression.trimmingCharacters(in: .whitespacesAndNewlines))
+        type: \(typeLabel)
+        \(jobType == "shell" ? "command" : "prompt"): \(commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines))\(modelPart)\(delivPart)\(oneShotPart)\(delPart)
+        Confirm the job was added by replying with: "Cron job added."
+        """
+    }
+
+    /// Composes the natural-language prompt to update an existing cron job.
+    /// The agent should replace the job identified by `existingID` with the new settings.
+    func toEditPrompt(replacing existingID: String) -> String {
+        let typeLabel   = jobType == "shell" ? "shell command" : "agent prompt"
+        let modelPart   = model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "" : ", model \(model.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let delivPart   = deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "" : ", delivery channel \(deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines)) to \(deliveryTo.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let oneShotPart = oneShot ? ", one_shot true" : ", one_shot false"
+        let delPart     = deleteAfterRun ? ", delete_after_run true" : ", delete_after_run false"
+        return """
+        Update the cron job with id "\(existingID)" in ~/.nullclaw/cron.json with the following new settings:
+        id: \(id.trimmingCharacters(in: .whitespacesAndNewlines))
+        expression: \(expression.trimmingCharacters(in: .whitespacesAndNewlines))
+        type: \(typeLabel)
+        \(jobType == "shell" ? "command" : "prompt"): \(commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines))\(modelPart)\(delivPart)\(oneShotPart)\(delPart)
+        Confirm the job was updated by replying with: "Cron job updated."
+        """
+    }
+}

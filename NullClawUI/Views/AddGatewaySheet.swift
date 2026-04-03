@@ -1,98 +1,274 @@
-# NullClawUI — Agents & Roles
+import SwiftUI
 
-## Platform Baseline
+// MARK: - AddGatewaySheet
 
-| Property | Value |
-|---|---|
-| **iOS Deployment Target** | iOS 26.0 |
-| **macOS Deployment Target** | macOS 26.0 (Tahoe) |
-| **Swift Version** | Swift 6 (strict concurrency) |
-| **UI Paradigm** | Liquid Glass (iOS 26 / visionOS-aligned materials) |
-| **Xcode Version** | Xcode 26+ |
-| **NullClaw API Reference** | See PLAN.md Phase 0 and the NullClaw Gateway OpenAPI spec at the configured gateway URL (/openapi.json). |
+/// Sheet for adding a new gateway profile.
+/// Guides the user through: name → URL → connect probe → pairing (if required).
+/// On success, calls `onComplete(name, url)` so the caller can create the profile.
+struct AddGatewaySheet: View {
+    let onComplete: (String, String) -> Void
 
-All agents operate under **Swift 6 strict concurrency** (-strict-concurrency=complete). Every network call must be async/await-based; no DispatchQueue usage. All state mutations touching the UI must happen on @MainActor.
+    @Environment(\.dismiss) private var dismiss
+    @Environment(GatewayStore.self) private var store
 
----
+    @State private var name: String = ""
+    @State private var urlString: String = ""
+    @State private var isProbing: Bool = false
+    @State private var probeError: String? = nil
+    @State private var pairingModel: AddGatewayPairingModel? = nil
+    @State private var showPairing: Bool = false
 
-## Roles
+    var body: some View {
+        NavigationStack {
+            if showPairing, let pm = pairingModel {
+                pairingView(pm: pm)
+            } else {
+                formView
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .navigationTitle("Add Gateway")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+            }
+        }
+    }
 
-### Swift/SwiftUI Architect
-- **Focus**: App lifecycle, navigation (NavigationStack / NavigationSplitView), and state management using the **Swift @Observable macro** (iOS 26 / Swift 6 preferred over legacy ObservableObject).
-- **Goal**: Clean, idiomatic SwiftUI structure that is easy to extend phase-by-phase.
-- **Notes**:
-  - Target iOS 26 exclusively — use new APIs freely; no @available guards needed.
-  - Favor NavigationSplitView for iPad; NavigationStack for iPhone compact-width.
-  - Apply **Liquid Glass** materials (GlassEffect, .glassBackgroundEffect()) for surfaces, cards, and overlaid controls.
+    // MARK: - Form View
 
-### Network & Protocol Specialist
-- **Focus**: URLSession configuration, SSE (Server-Sent Events) streaming via AsyncSequence, JSON-RPC 2.0 serialization for the A2A protocol.
-- **Goal**: Robust, error-resistant communication with the NullClaw Gateway.
-- **A2A Request Shape**:
-  ```json
-  {
-    "jsonrpc": "2.0",
-    "id": "<uuid>",
-    "method": "message/send",
-    "params": { "message": { "role": "user", "parts": [{ "text": "…" }] } }
-  }
-  ```
-  Streaming uses method: "message/stream" and returns SSE lines of the form data: { …TaskStatusUpdateEvent… }.
-- **Notes**:
-  - Use NSAllowsLocalNetworking: true in Info.plist to permit plain-HTTP http:// gateway connections during development. Production should use HTTPS.
-  - Implement exponential-backoff reconnect for dropped SSE streams (max 3 retries).
-  - Endpoints: GET /health, GET /.well-known/agent-card.json, POST /pair, POST /a2a, GET /tasks/{id}, POST /tasks/{id}/cancel.
+    private var formView: some View {
+        Form {
+            Section {
+                TextField("Gateway Name", text: $name)
+                    .textInputAutocapitalization(.words)
+                    .accessibilityLabel("Gateway name")
+                    .accessibilityHint("A friendly name for this gateway")
 
-### Security & Identity Guard
-- **Focus**: Pairing flow, Bearer token handling, and secure storage in the system Keychain.
-- **Goal**: Zero-leak credential management.
-- **Keychain Keying Strategy**: Each stored credential must be keyed by the normalized gateway base URL (scheme + host + port), allowing the user to connect to multiple gateways without collision. Example key: nullclaw.token.https://my-server.local:5111.
-- **Notes**:
-  - Use kSecAttrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly.
-  - On token deletion / re-pair, explicitly delete the old Keychain item before writing a new one.
+                TextField("http://hostname:5111", text: $urlString)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .accessibilityLabel("Gateway URL")
+                    .accessibilityHint("The base URL of the NullClaw gateway")
+            } header: {
+                Text("Connection")
+            } footer: {
+                Text("Enter the base URL of your NullClaw gateway. The app will probe the connection to determine if pairing is required.")
+            }
 
-### UX/UI Designer (Apple Standard)
-- **Focus**: HIG compliance, **Liquid Glass** design language, iconography, animations, and accessibility.
-- **Goal**: A professional, Apple-native feel targeting iOS 26 and iPadOS 26.
-- **Liquid Glass Guidelines**:
-  - Use .glassBackgroundEffect() for floating panels, modals, and overlaid toolbars.
-  - Use GlassEffect with .regularMaterial for card surfaces.
-  - Animate with withAnimation(.spring(duration: 0.35, bounce: 0.2)).
-  - Accent color should be dynamically sourced from agent-card.json once fetched; fall back to system tint.
-- **Notes**:
-  - iPad layout uses NavigationSplitView (sidebar = task list, detail = chat). Defined in Phase 6 but the architecture must support it from Phase 1.
-  - All interactive elements must have accessibilityLabel and accessibilityHint.
+            if let error = probeError {
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Connection Error")
+                }
+            }
 
-### Validation & QA Engineer
-- **Focus**: Unit tests (XCTest / Swift Testing framework), network mocking, and integration testing against a running NullClaw instance.
-- **Goal**: Verify that every phase of PLAN.md is fully functional and regression-free before advancing.
-- **How to Run NullClaw Locally**: A NullClaw Gateway instance must be running at http://localhost:5111. Refer to the NullClaw repository (README.md → "Running Locally") for setup steps.
-- **Test Targets**:
-  - NullClawUI — main app target.
-  - NullClawUITests — XCTest unit tests (JSON-RPC parsing, Keychain read/write, SSE token parsing).
-  - NullClawUIUITests — UI tests (XCUIApplication).
-- **Build & Test Commands**:
-  ```bash
-  # Unit tests
-  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2'
+            Section {
+                Button {
+                    Task { await probeConnection() }
+                } label: {
+                    HStack {
+                        Spacer()
+                        if isProbing {
+                            ProgressView().controlSize(.small).tint(.white)
+                        } else {
+                            Label("Connect", systemImage: "network")
+                        }
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(isProbing || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !isValidGatewayURL(urlString))
+            }
+        }
+    }
 
-  # UI tests
-  xcodebuild test -scheme NullClawUI -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.2' -only-testing:NullClawUIUITests
-  ```
+    // MARK: - Pairing View
 
-### Test Coverage Mandate
+    private func pairingView(pm: AddGatewayPairingModel) -> some View {
+        Form {
+            Section {
+                LabeledContent("Name", value: name)
+                LabeledContent("URL") {
+                    Text(urlString)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
 
-**Every code change must be accompanied by tests.** No exceptions.
+            switch pm.step {
+            case .connecting:
+                Section {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Connecting to gateway…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
 
-- **Behavior changes** (new methods, changed logic): add or update `XCTestCase` tests in `NullClawUITests/NullClawUITests.swift` that directly exercise the changed code path.
-- **Bug fixes**: add a regression test that would have caught the original failure.
-- **Logging-only / pure UI-layout changes**: formal tests may not be practical. Add a comment near the change:
-  ```swift
-  // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
-  ```
-- **New ViewModel methods**: always test both the happy path and the key failure/edge cases. For `@MainActor` methods use `@MainActor func test...() async`.
-- **Keychain operations**: every method that reads or writes to the Keychain must be tested via `KeychainService` directly. Always call `KeychainService.deleteToken(for:)` in `tearDown()` to avoid state leakage between tests.
-- Regression tests must include a comment citing the bug they guard, e.g.:
-  ```swift
-  // Regression: unpairGateway(_:) on an inactive profile must not clear appModel.isPaired.
-  ```
+            case .requiresPairing:
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "number")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                        @Bindable var bpm = pm
+                        TextField("000000", text: $bpm.pairingCode)
+                            .keyboardType(.numberPad)
+                            .font(.title3.monospacedDigit())
+                            .accessibilityLabel("Pairing code")
+                            .accessibilityHint("6-digit code from the NullClaw admin interface")
+                    }
+                    .padding(.vertical, 4)
+
+                    Button {
+                        Task { await pm.pair(profileURL: urlString, store: store, profile: placeholderProfile) }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if pm.isPairing {
+                                ProgressView().controlSize(.small).tint(.white)
+                            } else {
+                                Label("Pair", systemImage: "checkmark.seal.fill")
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(pm.isPairing || pm.pairingCode.count != 6)
+                } header: {
+                    Text("Pair Device")
+                } footer: {
+                    Text("Enter the 6-digit code shown in the NullClaw admin interface.")
+                }
+
+            case .notRequired:
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Gateway is open — no pairing code required.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+
+                    Button("Complete") {
+                        completeAdd()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Complete gateway addition")
+                    .accessibilityHint("Finalises connection to this open gateway without a pairing code")
+                }
+
+            case .success:
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                        Text("Connected successfully.")
+                            .font(.subheadline)
+                    }
+                    .padding(.vertical, 4)
+                }
+                Section {
+                    Button("Done") {
+                        completeAdd()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Done")
+                    .accessibilityHint("Dismisses the add gateway sheet after successful connection")
+                }
+
+            case .failed(let message):
+                Section {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Could not connect")
+                                .font(.subheadline.weight(.semibold))
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    Button("Retry") {
+                        Task { await pm.connect() }
+                    }
+                } header: {
+                    Text("Connection Error")
+                }
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func probeConnection() async {
+        isProbing = true
+        probeError = nil
+        defer { isProbing = false }
+
+        guard let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            probeError = "Invalid URL format."
+            return
+        }
+
+        let pm = AddGatewayPairingModel(url: url)
+        pairingModel = pm
+        await pm.connect()
+
+        switch pm.step {
+        case .connecting:
+            break // Should not happen after connect() returns
+        case .requiresPairing:
+            showPairing = true
+        case .notRequired, .success:
+            showPairing = true
+        case .failed(let message):
+            probeError = message
+        }
+    }
+
+    private func completeAdd() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        onComplete(trimmedName, trimmedURL)
+        dismiss()
+    }
+
+    // MARK: - Placeholder Profile
+
+    /// A temporary profile used only during the pairing flow before the real
+    /// profile is created. The pairing model needs a profile to call
+    /// `setProfilePaired`, but the real profile isn't created until `onComplete`.
+    /// We use the URL as a unique identifier for this temporary profile.
+    private var placeholderProfile: GatewayProfile {
+        let url = URL(string: urlString) ?? URL(string: "http://localhost:5111")!
+        return GatewayProfile(
+            name: name,
+            url: urlString,
+            requiresPairing: true
+        )
+    }
+}
