@@ -21,6 +21,7 @@
 		599CCF57DCC74EEA49AAF9B8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */; };
 		6179FF6E2B511CEE18FDDD85 /* AddGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B696F053AE53239E808A6C /* AddGatewaySheet.swift */; };
 		A262208E8F1E4539BB681560 /* AddGatewayPairingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABE884815D440A185C4A19C /* AddGatewayPairingModel.swift */; };
+		20BE97C1B94846FABF245A12 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C3F7A2E1D5B49C0A6E8F3D1 /* Components.swift */; };
 		6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D18F96C48C0F9087431E70 /* MCPServerViewModel.swift */; };
 		784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DC885F054A771E27A3B26C /* UsageStats.swift */; };
 		792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4586808D41B6CE56D04176A0 /* GatewayProfile.swift */; };
@@ -108,6 +109,7 @@
 		92E90D83F4064D78944D31F1 /* GatewayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDetailView.swift; sourceTree = "<group>"; };
 		93B696F053AE53239E808A6C /* AddGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewaySheet.swift; sourceTree = "<group>"; };
 		4ABE884815D440A185C4A19C /* AddGatewayPairingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewayPairingModel.swift; sourceTree = "<group>"; };
+		8C3F7A2E1D5B49C0A6E8F3D1 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		94DC885F054A771E27A3B26C /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
 		A03240766199909EB8710D1B /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 				86331E234CC107BD5471DBE7 /* CronJobListView.swift */,
 				F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */,
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
+				8C3F7A2E1D5B49C0A6E8F3D1 /* Components.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */,
 				92E90D83F4064D78944D31F1 /* GatewayDetailView.swift */,
@@ -449,6 +452,7 @@
 				9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */,
 				A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */,
 				D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */,
+				20BE97C1B94846FABF245A12 /* Components.swift in Sources */,
 				C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */,
 				0AFA7786BAFF763E6CA8358E /* MCPServer.swift in Sources */,
 				E753F6E9FC6FFF5AE730C221 /* MCPServerListView.swift in Sources */,

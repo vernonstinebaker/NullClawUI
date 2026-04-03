@@ -202,3 +202,28 @@ final class GatewayErrorTests: XCTestCase {
         XCTAssertTrue(GatewayError.httpError(statusCode: 404).errorDescription!.contains("404"))
     }
 }
+
+// MARK: - HealthIndicator Tests
+
+final class HealthIndicatorTests: XCTestCase {
+    func testHealthyColor() {
+        XCTAssertEqual(HealthIndicator.healthy.color, .green)
+    }
+
+    func testDegradedColor() {
+        XCTAssertEqual(HealthIndicator.degraded.color, .yellow)
+    }
+
+    func testUnhealthyColor() {
+        XCTAssertEqual(HealthIndicator.unhealthy.color, .red)
+    }
+
+    func testUnknownColor() {
+        XCTAssertEqual(HealthIndicator.unknown.color, .orange)
+    }
+
+    func testEquatable() {
+        XCTAssertEqual(HealthIndicator.healthy, HealthIndicator.healthy)
+        XCTAssertNotEqual(HealthIndicator.healthy, HealthIndicator.unhealthy)
+    }
+}
