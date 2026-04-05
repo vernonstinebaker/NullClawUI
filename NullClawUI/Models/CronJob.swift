@@ -14,19 +14,21 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
     var expression: String
 
     // MARK: Execution
-    /// Human-readable command description (shown in the UI).
     var command: String?
-    /// Agent prompt text (only present for job_type == "agent").
     var prompt: String?
-    /// Optional model override; nil means gateway default.
     var model: String?
-    /// "shell" or "agent".
     var jobType: String
+    var sessionTarget: String?
 
     // MARK: Delivery
     var deliveryMode: String?
     var deliveryChannel: String?
+    var deliveryAccountId: String?
     var deliveryTo: String?
+    var deliveryPeerKind: String?
+    var deliveryPeerId: String?
+    var deliveryThreadId: String?
+    var deliveryBestEffort: Bool?
 
     // MARK: State flags
     var paused: Bool
@@ -35,12 +37,10 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
     var deleteAfterRun: Bool
 
     // MARK: Runtime
-    /// Unix timestamp (seconds) of when the job last ran.  Nil if never.
     var lastRunSecs: Double?
-    /// Last execution outcome, e.g. "success" or "failed".
     var lastStatus: String?
-    /// Unix timestamp (seconds) of the next scheduled run.
     var nextRunSecs: Double?
+    var createdAtS: Double?
 
     // MARK: - Computed helpers
 
@@ -72,6 +72,12 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
         return Date(timeIntervalSince1970: secs)
     }
 
+    /// Date the job was created, if available.
+    var createdDate: Date? {
+        guard let secs = createdAtS else { return nil }
+        return Date(timeIntervalSince1970: secs)
+    }
+
     /// Human-readable countdown to next run.
     var nextRunCountdown: String {
         guard let date = nextRunDate else { return "—" }
@@ -84,5 +90,101 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
         if hours > 0 { return "in \(hours)h \(mins % 60)m" }
         if mins  > 0 { return "in \(mins)m" }
         return "in <1m"
+    }
+}
+
+// MARK: - Cron REST API Request Types
+
+/// Request body for POST /cron/add.
+struct CronJobAddParams: Encodable, Sendable {
+    var expression: String?
+    var delay: String?
+    var command: String?
+    var prompt: String?
+    var model: String?
+    var sessionTarget: String?
+    var deliveryMode: String?
+    var deliveryChannel: String?
+    var deliveryAccountId: String?
+    var deliveryTo: String?
+    var deliveryPeerKind: String?
+    var deliveryPeerId: String?
+    var deliveryThreadId: String?
+    var deliveryBestEffort: Bool?
+}
+
+/// Request body for POST /cron/remove, /cron/pause, /cron/resume.
+struct CronJobIDParams: Encodable, Sendable {
+    let id: String
+}
+
+/// Request body for POST /cron/update.
+struct CronJobUpdateParams: Encodable, Sendable {
+    let id: String
+    var expression: String?
+    var command: String?
+    var prompt: String?
+    var model: String?
+    var sessionTarget: String?
+    var paused: Bool?
+    var enabled: Bool?
+}
+
+// MARK: - CronJobDraft
+
+/// Value type used by AddCronJobSheet to collect user input before submission.
+struct CronJobDraft: Sendable {
+    var id: String = ""
+    var expression: String = ""
+    var jobType: String = "agent"
+    var commandOrPrompt: String = ""
+    var model: String = ""
+    var deliveryChannel: String = ""
+    var deliveryTo: String = ""
+    var oneShot: Bool = false
+    var deleteAfterRun: Bool = false
+
+    /// Converts to REST API params for POST /cron/add.
+    func toRESTParams() -> CronJobAddParams {
+        var params = CronJobAddParams()
+        params.expression = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        params.model = model.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        params.deliveryChannel = deliveryChannel.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        params.deliveryTo = deliveryTo.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        params.deliveryBestEffort = true
+
+        if jobType == "shell" {
+            params.command = commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            params.prompt = commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        if oneShot {
+            params.expression = nil
+            params.delay = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        return params
+    }
+
+    /// Converts to REST API params for POST /cron/update.
+    func toUpdateRESTParams(existingID: String) -> CronJobUpdateParams {
+        var params = CronJobUpdateParams(id: existingID)
+        params.expression = expression.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        params.model = model.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+
+        if jobType == "shell" {
+            params.command = commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        } else {
+            params.prompt = commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        }
+
+        return params
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

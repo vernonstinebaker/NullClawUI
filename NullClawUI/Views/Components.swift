@@ -28,10 +28,10 @@ struct StatusBadge: View {
     var isPulsing: Bool = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DesignTokens.Spacing.tiny) {
             Circle()
                 .fill(health.color)
-                .frame(width: 8, height: 8)
+                .frame(width: 12, height: 12)
                 .symbolEffect(.pulse.wholeSymbol, isActive: isPulsing)
             Text(label)
                 .font(.caption.weight(.medium))
@@ -57,11 +57,12 @@ struct StatCard: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.minimal) {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
                         .font(.title3)
                         .foregroundStyle(color)
+                        .symbolEffect(.pulse.wholeSymbol, isActive: health != .healthy)
                     Text(count)
                         .font(.title2.weight(.bold))
                         .contentTransition(.numericText())
@@ -71,16 +72,18 @@ struct StatCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding()
+            .padding(DesignTokens.Spacing.standard)
             .contentShape(.rect)
 
-            Circle()
-                .fill(health.color)
-                .frame(width: 8, height: 8)
-                .padding(10)
-                .shadow(color: health.color.opacity(0.4), radius: 3)
+            if health != .healthy {
+                Circle()
+                    .fill(health.color)
+                    .frame(width: 8, height: 8)
+                    .padding(10)
+                    .shadow(color: health.color.opacity(0.4), radius: 3)
+            }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.card, style: .continuous))
         .onTapGesture { onTap?() }
     }
 }

@@ -23,8 +23,6 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>NullClaw needs access to your photo library so you can attach images to messages.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

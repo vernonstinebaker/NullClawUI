@@ -15,8 +15,8 @@ enum DesignTokens {
 
     /// Standard corner radius values used throughout the app.
     enum CornerRadius {
-        /// 20 — GlassCard, main containers, search bar
-        static let card: CGFloat = 20
+        /// 16 — GlassCard, main containers, server cards
+        static let card: CGFloat = 16
         /// 12 — Input fields, action buttons, secondary containers
         static let medium: CGFloat = 12
         /// 10 — Chat bubbles, error banners, attachment thumbnails
@@ -33,10 +33,10 @@ enum DesignTokens {
 
     /// Standard spacing values for VStack/HStack/ScrollView padding.
     enum Spacing {
-        /// 24 — Major section separation
-        static let section: CGFloat = 24
-        /// 20 — Card-to-card spacing, GlassCard padding
-        static let card: CGFloat = 20
+        /// 20 — Major section separation
+        static let section: CGFloat = 20
+        /// 16 — Card-to-card spacing, GlassCard padding
+        static let card: CGFloat = 16
         /// 16 — Internal card padding, form section spacing
         static let standard: CGFloat = 16
         /// 12 — Tight spacing within cards, between related elements

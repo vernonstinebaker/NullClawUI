@@ -232,6 +232,63 @@ actor GatewayClient {
         }
     }
 
+    // MARK: - Phase 15+: Cron Jobs (REST)
+
+    /// GET /cron — List all live scheduler jobs.
+    func listCronJobs() async throws -> [CronJob] {
+        let url = baseURL.appendingPathComponent("cron")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decode([CronJob].self, from: data)
+    }
+
+    /// POST /cron/add — Add a new cron job.
+    func addCronJob(_ params: CronJobAddParams) async throws -> CronJob {
+        let url = baseURL.appendingPathComponent("cron/add")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(params)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decode(CronJob.self, from: data)
+    }
+
+    /// POST /cron/remove — Remove a cron job by id.
+    func removeCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("cron/remove")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(CronJobIDParams(id: id))
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /cron/pause — Pause a cron job.
+    func pauseCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("cron/pause")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(CronJobIDParams(id: id))
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /cron/resume — Resume a cron job.
+    func resumeCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("cron/resume")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(CronJobIDParams(id: id))
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /cron/update — Partially update a cron job.
+    func updateCronJob(_ params: CronJobUpdateParams) async throws {
+        let url = baseURL.appendingPathComponent("cron/update")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(params)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
     // MARK: - Phase 5: Task History (JSON-RPC via POST /a2a)
     // Note: All task management methods are JSON-RPC, not REST.
     // Methods: tasks/list, tasks/get, tasks/cancel — all POSTed to /a2a.

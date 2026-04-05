@@ -232,7 +232,7 @@ final class HealthIndicatorTests: XCTestCase {
 
 final class DesignTokensTests: XCTestCase {
     func testCornerRadiusValues() {
-        XCTAssertEqual(DesignTokens.CornerRadius.card, 20)
+        XCTAssertEqual(DesignTokens.CornerRadius.card, 16)
         XCTAssertEqual(DesignTokens.CornerRadius.medium, 12)
         XCTAssertEqual(DesignTokens.CornerRadius.bubble, 10)
         XCTAssertEqual(DesignTokens.CornerRadius.small, 8)
@@ -241,8 +241,8 @@ final class DesignTokensTests: XCTestCase {
     }
 
     func testSpacingValues() {
-        XCTAssertEqual(DesignTokens.Spacing.section, 24)
-        XCTAssertEqual(DesignTokens.Spacing.card, 20)
+        XCTAssertEqual(DesignTokens.Spacing.section, 20)
+        XCTAssertEqual(DesignTokens.Spacing.card, 16)
         XCTAssertEqual(DesignTokens.Spacing.standard, 16)
         XCTAssertEqual(DesignTokens.Spacing.tight, 12)
         XCTAssertEqual(DesignTokens.Spacing.minimal, 8)
@@ -317,3 +317,297 @@ final class AppModelErrorHandlingTests: XCTestCase {
         XCTAssertNil(appModel.presentedErrorMessage)
     }
 }
+
+// MARK: - CronJob REST Decoding Tests
+
+final class CronJobDecodingTests: XCTestCase {
+    private let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
+    }()
+
+    func testDecodeShellCronJob() throws {
+        let json = """
+        {
+            "id": "job-1",
+            "expression": "*/5 * * * *",
+            "command": "echo hello",
+            "next_run_secs": 1712345678,
+            "last_run_secs": 1712345600,
+            "last_status": "ok",
+            "paused": false,
+            "one_shot": false,
+            "job_type": "shell",
+            "session_target": "isolated",
+            "enabled": true,
+            "delete_after_run": false,
+            "prompt": null,
+            "model": null,
+            "delivery_mode": "none",
+            "delivery_channel": null,
+            "delivery_account_id": null,
+            "delivery_to": null,
+            "delivery_peer_kind": null,
+            "delivery_peer_id": null,
+            "delivery_thread_id": null,
+            "delivery_best_effort": true,
+            "created_at_s": 1712345000
+        }
+        """
+        let job = try decoder.decode(CronJob.self, from: Data(json.utf8))
+        XCTAssertEqual(job.id, "job-1")
+        XCTAssertEqual(job.expression, "*/5 * * * *")
+        XCTAssertEqual(job.command, "echo hello")
+        XCTAssertEqual(job.jobType, "shell")
+        XCTAssertFalse(job.paused)
+        XCTAssertTrue(job.enabled)
+        XCTAssertFalse(job.oneShot)
+        XCTAssertFalse(job.deleteAfterRun)
+        XCTAssertEqual(job.nextRunSecs, 1712345678)
+        XCTAssertEqual(job.lastRunSecs, 1712345600)
+        XCTAssertEqual(job.lastStatus, "ok")
+        XCTAssertEqual(job.createdAtS, 1712345000)
+        XCTAssertNil(job.prompt)
+        XCTAssertNil(job.model)
+    }
+
+    func testDecodeAgentCronJob() throws {
+        let json = """
+        {
+            "id": "agent-1",
+            "expression": "0 * * * *",
+            "command": "Summarize alerts",
+            "prompt": "Summarize alerts",
+            "model": "openrouter/anthropic/claude-sonnet-4",
+            "job_type": "agent",
+            "session_target": "main",
+            "paused": false,
+            "enabled": true,
+            "one_shot": false,
+            "delete_after_run": false,
+            "delivery_mode": "always",
+            "delivery_channel": "telegram",
+            "delivery_account_id": "main",
+            "delivery_to": "-1001234567890",
+            "delivery_peer_kind": "group",
+            "delivery_peer_id": "-1001234567890",
+            "delivery_thread_id": "42",
+            "delivery_best_effort": true,
+            "next_run_secs": 1712349200,
+            "last_run_secs": null,
+            "last_status": null,
+            "created_at_s": 1712340000
+        }
+        """
+        let job = try decoder.decode(CronJob.self, from: Data(json.utf8))
+        XCTAssertEqual(job.id, "agent-1")
+        XCTAssertEqual(job.jobType, "agent")
+        XCTAssertEqual(job.prompt, "Summarize alerts")
+        XCTAssertEqual(job.model, "openrouter/anthropic/claude-sonnet-4")
+        XCTAssertEqual(job.sessionTarget, "main")
+        XCTAssertEqual(job.deliveryMode, "always")
+        XCTAssertEqual(job.deliveryChannel, "telegram")
+        XCTAssertEqual(job.deliveryAccountId, "main")
+        XCTAssertEqual(job.deliveryTo, "-1001234567890")
+        XCTAssertEqual(job.deliveryPeerKind, "group")
+        XCTAssertEqual(job.deliveryPeerId, "-1001234567890")
+        XCTAssertEqual(job.deliveryThreadId, "42")
+        XCTAssertTrue(job.deliveryBestEffort ?? false)
+        XCTAssertNil(job.lastRunSecs)
+        XCTAssertNil(job.lastStatus)
+    }
+
+    func testDecodeCronJobArray() throws {
+        let json = """
+        [
+            {"id": "job-1", "expression": "*/5 * * * *", "command": "echo hello", "job_type": "shell", "paused": false, "enabled": true, "one_shot": false, "delete_after_run": false, "next_run_secs": 100, "last_run_secs": null, "last_status": null, "created_at_s": 0},
+            {"id": "job-2", "expression": "0 * * * *", "command": "test", "prompt": "test", "job_type": "agent", "paused": true, "enabled": false, "one_shot": false, "delete_after_run": false, "next_run_secs": 200, "last_run_secs": null, "last_status": null, "created_at_s": 0}
+        ]
+        """
+        let jobs = try decoder.decode([CronJob].self, from: Data(json.utf8))
+        XCTAssertEqual(jobs.count, 2)
+        XCTAssertEqual(jobs[0].id, "job-1")
+        XCTAssertEqual(jobs[1].id, "job-2")
+        XCTAssertTrue(jobs[1].paused)
+        XCTAssertFalse(jobs[1].enabled)
+    }
+}
+
+// MARK: - CronJob REST Encoding Tests
+
+final class CronJobEncodingTests: XCTestCase {
+    private let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.outputFormatting = .withoutEscapingSlashes
+        return e
+    }()
+
+    func testEncodeCronJobIDParams() throws {
+        let params = CronJobIDParams(id: "job-1")
+        let data = try encoder.encode(params)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["id"] as? String, "job-1")
+    }
+
+    func testEncodeCronJobAddParamsShell() throws {
+        var params = CronJobAddParams()
+        params.expression = "*/5 * * * *"
+        params.command = "echo hello"
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(params)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["expression"] as? String, "*/5 * * * *")
+        XCTAssertEqual(dict?["command"] as? String, "echo hello")
+        XCTAssertNil(dict?["prompt"])
+    }
+
+    func testEncodeCronJobAddParamsAgent() throws {
+        var params = CronJobAddParams()
+        params.expression = "0 * * * *"
+        params.prompt = "Summarize alerts"
+        params.model = "openrouter/anthropic/claude-sonnet-4"
+        params.deliveryChannel = "telegram"
+        params.deliveryTo = "-1001234567890"
+        params.deliveryBestEffort = true
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(params)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["expression"] as? String, "0 * * * *")
+        XCTAssertEqual(dict?["prompt"] as? String, "Summarize alerts")
+        XCTAssertEqual(dict?["model"] as? String, "openrouter/anthropic/claude-sonnet-4")
+        XCTAssertEqual(dict?["delivery_channel"] as? String, "telegram")
+        XCTAssertEqual(dict?["delivery_to"] as? String, "-1001234567890")
+        XCTAssertEqual(dict?["delivery_best_effort"] as? Bool, true)
+    }
+
+    func testEncodeCronJobAddParamsOneShot() throws {
+        var params = CronJobAddParams()
+        params.delay = "30m"
+        params.command = "echo later"
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(params)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["delay"] as? String, "30m")
+        XCTAssertEqual(dict?["command"] as? String, "echo later")
+        XCTAssertNil(dict?["expression"])
+    }
+
+    func testEncodeCronJobUpdateParams() throws {
+        let params = CronJobUpdateParams(
+            id: "job-1",
+            expression: "*/10 * * * *",
+            command: "echo updated",
+            prompt: nil,
+            model: "gpt-4",
+            sessionTarget: nil,
+            paused: false,
+            enabled: true
+        )
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(params)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["id"] as? String, "job-1")
+        XCTAssertEqual(dict?["expression"] as? String, "*/10 * * * *")
+        XCTAssertEqual(dict?["command"] as? String, "echo updated")
+        XCTAssertEqual(dict?["model"] as? String, "gpt-4")
+        XCTAssertEqual(dict?["paused"] as? Bool, false)
+        XCTAssertEqual(dict?["enabled"] as? Bool, true)
+    }
+}
+
+// MARK: - CronJobDraft REST Conversion Tests
+
+final class CronJobDraftRESTConversionTests: XCTestCase {
+    func testDraftToRESTParamsShell() {
+        var draft = CronJobDraft()
+        draft.id = "job-1"
+        draft.expression = "*/5 * * * *"
+        draft.jobType = "shell"
+        draft.commandOrPrompt = "echo hello"
+        draft.model = ""
+        draft.deliveryChannel = ""
+        draft.deliveryTo = ""
+
+        let params = draft.toRESTParams()
+        XCTAssertEqual(params.expression, "*/5 * * * *")
+        XCTAssertEqual(params.command, "echo hello")
+        XCTAssertNil(params.prompt)
+        XCTAssertNil(params.model)
+        XCTAssertNil(params.deliveryChannel)
+        XCTAssertNil(params.delay)
+    }
+
+    func testDraftToRESTParamsAgent() {
+        var draft = CronJobDraft()
+        draft.id = "agent-1"
+        draft.expression = "0 * * * *"
+        draft.jobType = "agent"
+        draft.commandOrPrompt = "Summarize alerts"
+        draft.model = "gpt-4"
+        draft.deliveryChannel = "telegram"
+        draft.deliveryTo = "-1001234567890"
+
+        let params = draft.toRESTParams()
+        XCTAssertEqual(params.expression, "0 * * * *")
+        XCTAssertEqual(params.prompt, "Summarize alerts")
+        XCTAssertNil(params.command)
+        XCTAssertEqual(params.model, "gpt-4")
+        XCTAssertEqual(params.deliveryChannel, "telegram")
+        XCTAssertEqual(params.deliveryTo, "-1001234567890")
+    }
+
+    func testDraftToRESTParamsOneShot() {
+        var draft = CronJobDraft()
+        draft.expression = "30m"
+        draft.jobType = "shell"
+        draft.commandOrPrompt = "echo later"
+        draft.oneShot = true
+
+        let params = draft.toRESTParams()
+        XCTAssertNil(params.expression)
+        XCTAssertEqual(params.delay, "30m")
+        XCTAssertEqual(params.command, "echo later")
+    }
+
+    func testDraftToUpdateRESTParams() {
+        var draft = CronJobDraft()
+        draft.expression = "*/10 * * * *"
+        draft.jobType = "agent"
+        draft.commandOrPrompt = "New prompt"
+        draft.model = "gpt-4"
+
+        let params = draft.toUpdateRESTParams(existingID: "job-1")
+        XCTAssertEqual(params.id, "job-1")
+        XCTAssertEqual(params.expression, "*/10 * * * *")
+        XCTAssertEqual(params.prompt, "New prompt")
+        XCTAssertNil(params.command)
+        XCTAssertEqual(params.model, "gpt-4")
+    }
+
+    func testDraftToRESTParamsTrimsWhitespace() {
+        var draft = CronJobDraft()
+        draft.expression = "  */5 * * * *  \n"
+        draft.jobType = "shell"
+        draft.commandOrPrompt = "  echo hello  "
+        draft.model = "  gpt-4  "
+
+        let params = draft.toRESTParams()
+        XCTAssertEqual(params.expression, "*/5 * * * *")
+        XCTAssertEqual(params.command, "echo hello")
+        XCTAssertEqual(params.model, "gpt-4")
+    }
+}
+
+// NOTE: CronJobViewModel REST migration tests require a running gateway or mock server.
+// Integration tests will be added once MockURLProtocol or MockGatewayServer is in place.
+// The ViewModel now calls client.listCronJobs(), client.pauseCronJob(id:), etc.
+// instead of client.sendOneShot(naturalLanguagePrompt).
