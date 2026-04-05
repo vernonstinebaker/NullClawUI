@@ -62,6 +62,7 @@
 		E753F6E9FC6FFF5AE730C221 /* MCPServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */; };
 		EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */; };
 		F3D4BAE9C1B1CEB5270A3757 /* AutonomyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C553FAFF0D68B6C3FC70E2C6 /* AutonomyView.swift */; };
+		F8A8806F434F03E966B9A87D /* ServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74207CFB19C11BAB4C15394D /* ServersView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -108,6 +109,7 @@
 		5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		617B5F453C34591C1D492407 /* ChannelInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelInfo.swift; sourceTree = "<group>"; };
 		72DA2CB9C003C8025B742C7D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		74207CFB19C11BAB4C15394D /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
 		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		791BDD6617D04FC234EA4C30 /* AddGatewayPairingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewayPairingModel.swift; sourceTree = "<group>"; };
 		7CC1A87698B2B35470BAFF5D /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
@@ -247,6 +249,7 @@
 				F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
 				54DAFB37DE546D95AF604D82 /* ServerCard.swift */,
+				74207CFB19C11BAB4C15394D /* ServersView.swift */,
 				8A879BA976476DF9DECFFA87 /* SettingsView.swift */,
 				8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */,
 				2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */,
@@ -481,6 +484,7 @@
 				7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */,
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
 				A49516912E3F7ACE2517EF0A /* ServerCard.swift in Sources */,
+				F8A8806F434F03E966B9A87D /* ServersView.swift in Sources */,
 				28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */,
 				51D91DC2B8D5B19632AC55EB /* TaskHistoryView.swift in Sources */,
 				784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */,

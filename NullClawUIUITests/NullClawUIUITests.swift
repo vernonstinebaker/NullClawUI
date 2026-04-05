@@ -106,66 +106,64 @@ final class PairedUITests: XCTestCase {
 
     // MARK: - Tab Navigation (iPhone)
 
+    func testServersTabExists() {
+        let serversTab = app.tabBars.buttons["Servers"]
+        XCTAssertTrue(serversTab.waitForExistence(timeout: 5), "Servers tab should exist in tab bar")
+    }
+
     func testChatTabExists() {
         let chatTab = app.tabBars.buttons["Chat"]
         XCTAssertTrue(chatTab.waitForExistence(timeout: 5), "Chat tab should exist in tab bar")
     }
 
-    func testHistoryTabExists() {
-        let historyTab = app.tabBars.buttons["History"]
-        XCTAssertTrue(historyTab.waitForExistence(timeout: 5), "History tab should exist in tab bar")
-    }
-
-    func testSettingsTabExists() {
-        let settingsTab = app.tabBars.buttons["Settings"]
-        XCTAssertTrue(settingsTab.waitForExistence(timeout: 5), "Settings tab should exist in tab bar")
-    }
-
-    func testSwitchToHistoryTab() {
-        let historyTab = app.tabBars.buttons["History"]
-        guard historyTab.waitForExistence(timeout: 5) else {
-            return XCTFail("History tab not found")
+    func testSwitchToServersTab() {
+        // Start on Chat (default), switch to Servers
+        let serversTab = app.tabBars.buttons["Servers"]
+        guard serversTab.waitForExistence(timeout: 5) else {
+            return XCTFail("Servers tab not found")
         }
-        historyTab.tap()
-        XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 5),
-                      "History navigation bar should appear after switching to History tab")
+        serversTab.tap()
+        XCTAssertTrue(app.navigationBars["Servers"].waitForExistence(timeout: 5),
+                      "Servers navigation bar should appear after switching to Servers tab")
     }
 
-    func testSwitchToSettingsTab() {
-        let settingsTab = app.tabBars.buttons["Settings"]
-        guard settingsTab.waitForExistence(timeout: 5) else {
-            return XCTFail("Settings tab not found")
+    func testSwitchToChatTab() {
+        let chatTab = app.tabBars.buttons["Chat"]
+        guard chatTab.waitForExistence(timeout: 5) else {
+            return XCTFail("Chat tab not found")
         }
-        settingsTab.tap()
-        XCTAssertTrue(app.navigationBars["Gateways"].waitForExistence(timeout: 5),
-                      "Gateways navigation bar should appear after switching to Settings tab")
+        chatTab.tap()
+        XCTAssertTrue(app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5),
+                      "Chat screen should show the gateway picker title button")
     }
 
     func testSwitchBackToChatTab() {
-        // Navigate away from Chat, then return
-        let historyTab = app.tabBars.buttons["History"]
-        guard historyTab.waitForExistence(timeout: 5) else {
-            return XCTFail("History tab not found")
+        // Navigate to Servers, then return to Chat
+        let serversTab = app.tabBars.buttons["Servers"]
+        guard serversTab.waitForExistence(timeout: 5) else {
+            return XCTFail("Servers tab not found")
         }
-        historyTab.tap()
-        _ = app.navigationBars["History"].waitForExistence(timeout: 3)
+        serversTab.tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 3)
         app.tabBars.buttons["Chat"].tap()
-        // The message input should appear in the Chat tab
-        XCTAssertTrue(app.textFields["Message input"].waitForExistence(timeout: 5),
-                      "Message input should reappear after switching back to Chat tab")
+        XCTAssertTrue(app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5),
+                      "Chat screen should reappear after switching back to Chat tab")
     }
 
     // MARK: - ChatView
 
     func testChatViewNavigationTitle() {
-        // The title is now a principal toolbar button showing the agent name.
+        // Navigate to Chat tab first
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let pickerBtn = app.buttons["gatewayPickerButton"]
         XCTAssertTrue(pickerBtn.waitForExistence(timeout: 5),
                       "Chat screen should show the gateway picker title button")
     }
 
     func testNewConversationButtonExists() {
-        // Button is in the navigation toolbar; query by accessibilityIdentifier for reliability
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let btn = app.buttons.matching(
             NSPredicate(format: "identifier == 'newConversationButton' OR label == 'New conversation'")
         ).firstMatch
@@ -173,6 +171,8 @@ final class PairedUITests: XCTestCase {
     }
 
     func testNewConversationButtonIsHittable() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let btn = app.buttons.matching(
             NSPredicate(format: "identifier == 'newConversationButton' OR label == 'New conversation'")
         ).firstMatch
@@ -181,22 +181,30 @@ final class PairedUITests: XCTestCase {
     }
 
     func testMessageInputFieldExists() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let input = app.textFields["Message input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5), "Message input field should exist in ChatView")
     }
 
     func testMessageInputFieldIsHittable() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let input = app.textFields["Message input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         XCTAssertTrue(input.isHittable)
     }
 
     func testSendButtonExists() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let sendBtn = app.buttons["Send message"]
         XCTAssertTrue(sendBtn.waitForExistence(timeout: 5), "Send button should exist in ChatView")
     }
 
     func testSendButtonDisabledWhenInputEmpty() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let sendBtn = app.buttons["Send message"]
         guard sendBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Send button not found")
@@ -206,6 +214,8 @@ final class PairedUITests: XCTestCase {
     }
 
     func testSendButtonEnabledAfterTyping() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let input = app.textFields["Message input"]
         guard input.waitForExistence(timeout: 5) else {
             return XCTFail("Message input not found")
@@ -219,7 +229,8 @@ final class PairedUITests: XCTestCase {
     }
 
     func testNewConversationButtonClearsInput() {
-        // Type some text, then tap New Conversation — input should clear
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let input = app.textFields["Message input"]
         guard input.waitForExistence(timeout: 5) else {
             return XCTFail("Message input not found")
@@ -238,112 +249,100 @@ final class PairedUITests: XCTestCase {
                       "Input should be empty after tapping New Conversation, got: \(value)")
     }
 
-    // MARK: - TaskHistoryView
+    // MARK: - ServersView
 
-    func testHistoryNavigationTitle() {
-        app.tabBars.buttons["History"].tap()
-        XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 5),
-                      "History screen should show 'History' navigation title")
+    func testServersViewShowsServerCards() {
+        // The Servers tab shows ServerCard views for each gateway.
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        // At least one server card should be visible.
+        XCTAssertTrue(app.staticTexts["TestAgent"].waitForExistence(timeout: 5),
+                      "Servers view should show at least one server card")
     }
 
-    func testHistoryEmptyStateAppearsWhenNoTasks() {
-        // With --uitesting-paired, the gateway is unreachable so task list returns empty.
-        app.tabBars.buttons["History"].tap()
-        // The empty state shows a "No History Yet" static text
-        let emptyLabel = app.staticTexts["No History Yet"]
-        XCTAssertTrue(emptyLabel.waitForExistence(timeout: 10),
-                      "Empty state should appear when no tasks are available")
-    }
-
-    // MARK: - PairedSettingsView
-
-    func testPairedSettingsNavigationTitle() {
-        app.tabBars.buttons["Settings"].tap()
-        XCTAssertTrue(app.navigationBars["Gateways"].waitForExistence(timeout: 5),
-                      "PairedSettingsView should show 'Gateways' navigation title")
-    }
-
-    func testGatewayRowNavigatesToDetail() {
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        // The active gateway row is a NavigationLink — tap it to open the detail page.
-        let gatewayRow = app.cells.firstMatch
-        XCTAssertTrue(gatewayRow.waitForExistence(timeout: 5), "Gateway list should have at least one row")
-        gatewayRow.tap()
+    func testTappingServerCardOpensDetail() {
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        // Tap the server card via its accessibility label.
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "Server card button should exist")
+        card.tap()
         XCTAssertTrue(app.navigationBars["TestAgent"].waitForExistence(timeout: 5),
-                      "Detail page should show the gateway name as its navigation title")
+                      "Tapping a server card should open the gateway detail page")
     }
+
+    // MARK: - ChatView
 
     func testUnpairButtonExists() {
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        app.cells.firstMatch.tap()
-        
-        let list = app.collectionViews.firstMatch
-        if list.waitForExistence(timeout: 5) {
-            list.swipeUp()
-            list.swipeUp()
-        }
-        
-        let unpairBtn = app.buttons["Unpair this device"]
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "Server card should exist")
+        card.tap()
+        _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
+        let unpairBtn = findUnpairButton()
         XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5), "Unpair button should exist in gateway detail")
     }
 
     func testUnpairButtonIsHittable() {
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        app.cells.firstMatch.tap()
-        
-        let list = app.collectionViews.firstMatch
-        if list.waitForExistence(timeout: 5) {
-            list.swipeUp()
-            list.swipeUp()
-        }
-        
-        let unpairBtn = app.buttons["Unpair this device"]
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
+        let unpairBtn = findUnpairButton()
         XCTAssertTrue(unpairBtn.waitForExistence(timeout: 5))
-        XCTAssertTrue(unpairBtn.exists, "Unpair button should be present on the detail screen")
+        XCTAssertTrue(unpairBtn.isHittable, "Unpair button should be hittable")
     }
 
     func testGatewayInfoInlineURLExists() {
-        // URL is now shown on the gateway detail page.
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        app.cells.firstMatch.tap()
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
         let urlLabel = app.staticTexts["URL"]
         XCTAssertTrue(urlLabel.waitForExistence(timeout: 5),
                       "Gateway URL label should be visible on the detail page")
     }
 
     func testGatewayInfoInlineStatusExists() {
-        // Status is shown on the gateway detail page for the active gateway.
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        app.cells.firstMatch.tap()
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
         let statusLabel = app.staticTexts["Status"]
         XCTAssertTrue(statusLabel.waitForExistence(timeout: 5),
                       "Gateway Status label should be visible on the detail page")
     }
 
     func testUnpairTransitionsToSetupScreen() {
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        app.cells.firstMatch.tap()
-        
-        let list = app.collectionViews.firstMatch
-        if list.waitForExistence(timeout: 5) {
-            list.swipeUp()
-            list.swipeUp()
-        }
-        
-        let unpairBtn = app.buttons["Unpair this device"]
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
+        let unpairBtn = findUnpairButton()
         guard unpairBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Unpair button not found")
         }
         unpairBtn.tap()
-        // After unpairing, ContentView should show SettingsView with the Gateway URL field
         XCTAssertTrue(app.textFields["Gateway URL"].waitForExistence(timeout: 5),
                       "App should return to setup screen after unpairing")
+    }
+
+    private func findUnpairButton() -> XCUIElement {
+        let list = app.collectionViews.firstMatch
+        if list.waitForExistence(timeout: 3) {
+            list.swipeUp()
+            list.swipeUp()
+        }
+        return app.buttons["Unpair this device"]
     }
 }
 
@@ -360,10 +359,12 @@ final class GatewayDetailSubPageTests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["--uitesting-paired"]
         app.launch()
-        // Navigate to Settings → gateway detail once for all sub-page tests.
-        app.tabBars.buttons["Settings"].tap()
-        _ = app.navigationBars["Gateways"].waitForExistence(timeout: 5)
-        app.cells.firstMatch.tap()
+        // Navigate to Servers → gateway detail once for all sub-page tests.
+        app.tabBars.buttons["Servers"].tap()
+        _ = app.navigationBars["Servers"].waitForExistence(timeout: 5)
+        let card = app.staticTexts["TestAgent"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "Server card should exist")
+        card.tap()
         _ = app.navigationBars["TestAgent"].waitForExistence(timeout: 5)
     }
 
@@ -486,7 +487,9 @@ final class GatewaySwitcherTests: XCTestCase {
     }
 
     func testPickerButtonHasChevronWhenMultipleGateways() {
-        // With two gateways the picker button is enabled (shows chevron in its label area).
+        // Navigate to Chat tab where the picker button lives
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let pickerBtn = app.buttons["gatewayPickerButton"]
         XCTAssertTrue(pickerBtn.waitForExistence(timeout: 5),
                       "Gateway picker button should be present when multiple gateways are configured")
@@ -495,24 +498,26 @@ final class GatewaySwitcherTests: XCTestCase {
     }
 
     func testPickerButtonTapShowsDialog() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let pickerBtn = app.buttons["gatewayPickerButton"]
         guard pickerBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Gateway picker button not found")
         }
         pickerBtn.tap()
-        // The confirmation dialog title is "Switch Gateway"
         XCTAssertTrue(app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5),
                       "Tapping the picker button should present the Switch Gateway dialog")
     }
 
     func testPickerDialogShowsAllGateways() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let pickerBtn = app.buttons["gatewayPickerButton"]
         guard pickerBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Gateway picker button not found")
         }
         pickerBtn.tap()
         _ = app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5)
-        // Both gateway names should appear as action buttons in the dialog.
         XCTAssertTrue(app.buttons["TestAgent"].waitForExistence(timeout: 3),
                       "TestAgent should appear as a choice in the switcher dialog")
         XCTAssertTrue(app.buttons["SecondAgent"].waitForExistence(timeout: 3),
@@ -520,21 +525,19 @@ final class GatewaySwitcherTests: XCTestCase {
     }
 
     func testPickerDialogCanBeDismissed() {
+        app.tabBars.buttons["Chat"].tap()
+        _ = app.buttons["gatewayPickerButton"].waitForExistence(timeout: 5)
         let pickerBtn = app.buttons["gatewayPickerButton"]
         guard pickerBtn.waitForExistence(timeout: 5) else {
             return XCTFail("Gateway picker button not found")
         }
         pickerBtn.tap()
         _ = app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5)
-        // Dismiss by tapping the non-current gateway ("SecondAgent").
-        // This switches the gateway and dismisses the dialog.
         let otherBtn = app.buttons["SecondAgent"]
         XCTAssertTrue(otherBtn.waitForExistence(timeout: 3), "SecondAgent button should exist in the dialog")
         otherBtn.tap()
-        // After dismiss the dialog must disappear.
         XCTAssertFalse(app.staticTexts["Switch Gateway"].waitForExistence(timeout: 5),
                        "Switch Gateway dialog should be dismissed after selecting a gateway")
-        // The app should still be on the Chat tab with a navigation bar visible.
         XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 10),
                       "Chat view navigation bar should be visible after dismissing the switcher dialog")
     }

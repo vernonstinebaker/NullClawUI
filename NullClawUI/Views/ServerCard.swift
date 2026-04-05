@@ -1,56 +1,47 @@
 import SwiftUI
 
-// MARK: - ServerCard
+// MARK: - ServerCardContent
 
-/// Tappable card representing a single gateway profile in the Servers dashboard.
-/// Shows status, URL, mini-stats, and last-checked time.
-struct ServerCard: View {
+/// Visual content of a server card — used both standalone (tappable) and inside NavigationLink.
+struct ServerCardContent: View {
     let profile: GatewayProfile
     let healthStatus: ConnectionStatus
     let lastChecked: Date?
     let taskCount: Int
     let cronJobCount: Int
-    let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.tight) {
-                // Top row: status dot + name + chevron
-                HStack {
-                    statusDot
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(profile.name)
-                            .font(.title3.weight(.semibold))
-                        Text(profile.displayHost)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.tight) {
+            HStack {
+                statusDot
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profile.name)
+                        .font(.title3.weight(.semibold))
+                    Text(profile.displayHost)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
                 }
-
-                // Mini stats grid
-                if healthStatus == .online {
-                    miniStatsGrid
-                }
-
-                // Footer: last checked
-                if let lastChecked {
-                    HStack(spacing: DesignTokens.Spacing.tiny) {
-                        Image(systemName: "clock")
-                            .font(.caption2)
-                        Text(lastChecked, style: .relative)
-                            .font(.caption2)
-                    }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.tertiary)
-                }
             }
-            .padding(DesignTokens.Spacing.standard)
-            .contentShape(.rect(cornerRadius: DesignTokens.CornerRadius.card))
+
+            if healthStatus == .online {
+                miniStatsGrid
+            }
+
+            if let lastChecked {
+                HStack(spacing: DesignTokens.Spacing.tiny) {
+                    Image(systemName: "clock")
+                        .font(.caption2)
+                    Text(lastChecked, style: .relative)
+                        .font(.caption2)
+                }
+                .foregroundStyle(.tertiary)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(DesignTokens.Spacing.standard)
         .background(
             .regularMaterial,
             in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.card, style: .continuous)
@@ -62,11 +53,7 @@ struct ServerCard: View {
                     lineWidth: 1
                 )
         )
-        .accessibilityLabel("\(profile.name), \(healthStatus == .online ? "online" : "offline")")
-        .accessibilityHint("Tap to view gateway details")
     }
-
-    // MARK: - Subviews
 
     @ViewBuilder
     private var statusDot: some View {
@@ -109,5 +96,33 @@ struct ServerCard: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+// MARK: - ServerCard (standalone tappable version)
+
+/// Tappable card representing a single gateway profile.
+/// Use `ServerCardContent` when placing inside a NavigationLink.
+struct ServerCard: View {
+    let profile: GatewayProfile
+    let healthStatus: ConnectionStatus
+    let lastChecked: Date?
+    let taskCount: Int
+    let cronJobCount: Int
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            ServerCardContent(
+                profile: profile,
+                healthStatus: healthStatus,
+                lastChecked: lastChecked,
+                taskCount: taskCount,
+                cronJobCount: cronJobCount
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(profile.name), \(healthStatus == .online ? "online" : "offline")")
+        .accessibilityHint("Tap to view gateway details")
     }
 }
