@@ -18,6 +18,7 @@
 		4C0AC42B91F7ED0360B8D394 /* CronJobListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86331E234CC107BD5471DBE7 /* CronJobListView.swift */; };
 		51D91DC2B8D5B19632AC55EB /* TaskHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */; };
 		599CCF57DCC74EEA49AAF9B8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */; };
+		5D73F4DDEED905D5CF2BC932 /* ServerCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5B973FAF15D52F395667BD0 /* ServerCardTests.swift */; };
 		6179FF6E2B511CEE18FDDD85 /* AddGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B696F053AE53239E808A6C /* AddGatewaySheet.swift */; };
 		6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D18F96C48C0F9087431E70 /* MCPServerViewModel.swift */; };
 		784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DC885F054A771E27A3B26C /* UsageStats.swift */; };
@@ -38,6 +39,7 @@
 		9BC494860EB9CB61196054F6 /* GatewayStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */; };
 		9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F344154517C845148851E370 /* GatewayStore.swift */; };
 		9C894E397E1CBEC120B4B713 /* ErrorPresentationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF549B4B1840371EC46F8E72 /* ErrorPresentationModifier.swift */; };
+		A49516912E3F7ACE2517EF0A /* ServerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DAFB37DE546D95AF604D82 /* ServerCard.swift */; };
 		A5338296196C1D18DD564955 /* GatewayPairSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6740BF2DB0CA71D5931D8AE /* GatewayPairSheet.swift */; };
 		A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */; };
 		A79C34E9677310603EE2CBB0 /* ChannelStatusListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A024AECFAB790964AA72196 /* ChannelStatusListView.swift */; };
@@ -100,6 +102,7 @@
 		46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A2AMessage.swift; sourceTree = "<group>"; };
 		4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewModel.swift; sourceTree = "<group>"; };
 		53862F9DC7908CB505A84627 /* CronJobViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobViewModel.swift; sourceTree = "<group>"; };
+		54DAFB37DE546D95AF604D82 /* ServerCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerCard.swift; sourceTree = "<group>"; };
 		550E418EF7CAB589E16FF6BA /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStatusViewModel.swift; sourceTree = "<group>"; };
 		5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -134,6 +137,7 @@
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
 		F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerListView.swift; sourceTree = "<group>"; };
 		F344154517C845148851E370 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
+		F5B973FAF15D52F395667BD0 /* ServerCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerCardTests.swift; sourceTree = "<group>"; };
 		F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGatewaySheet.swift; sourceTree = "<group>"; };
 		FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -242,6 +246,7 @@
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */,
 				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
+				54DAFB37DE546D95AF604D82 /* ServerCard.swift */,
 				8A879BA976476DF9DECFFA87 /* SettingsView.swift */,
 				8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */,
 				2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */,
@@ -296,6 +301,7 @@
 				3D75A443C0C31BE389A235E6 /* ComponentTests.swift */,
 				123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */,
 				389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */,
+				F5B973FAF15D52F395667BD0 /* ServerCardTests.swift */,
 			);
 			path = NullClawUITests;
 			sourceTree = "<group>";
@@ -424,6 +430,7 @@
 				856B9F183D6B6685BD65FBD8 /* ComponentTests.swift in Sources */,
 				DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */,
 				95B6DB68141F596399C77651 /* NullClawUITests.swift in Sources */,
+				5D73F4DDEED905D5CF2BC932 /* ServerCardTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -473,6 +480,7 @@
 				BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */,
 				7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */,
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
+				A49516912E3F7ACE2517EF0A /* ServerCard.swift in Sources */,
 				28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */,
 				51D91DC2B8D5B19632AC55EB /* TaskHistoryView.swift in Sources */,
 				784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */,
