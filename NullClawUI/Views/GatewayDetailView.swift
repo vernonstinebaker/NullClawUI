@@ -25,47 +25,31 @@ struct GatewayDetailView: View {
 
     var body: some View {
         List {
-            // Agent info — fetched directly from this gateway, always shown.
-            Section("Agent") {
-                if isLoadingCard {
-                    HStack(spacing: 10) {
-                        ProgressView().controlSize(.small)
-                        Text("Fetching agent info…")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                } else if let card = agentCard {
-                    LabeledContent("Name", value: card.name)
-                    LabeledContent("Version", value: card.version)
-                    if let desc = card.description, !desc.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Description")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(desc)
-                                .font(.subheadline)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                } else {
-                    Label(
-                        cardError ?? "Unable to fetch agent info",
-                        systemImage: "exclamationmark.triangle"
-                    )
+            // Agent info card
+            Section {
+                agentInfoCard
+            } header: {
+                Text("Agent")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .font(.subheadline)
-                }
+                    .textCase(nil)
             }
 
             if let caps = agentCard?.capabilities {
-                Section("Capabilities") {
+                Section {
                     capRow("Streaming", value: caps.streaming == true)
                     if let mm = caps.multiModal { capRow("Multi-modal", value: mm) }
                     if let hist = caps.history   { capRow("History", value: hist) }
+                } header: {
+                    Text("Capabilities")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
                 }
             }
 
-            Section("Gateway") {
+            // Gateway info card
+            Section {
                 LabeledContent("Name", value: profile.name)
                 LabeledContent("URL") {
                     Text(profile.url)
@@ -83,63 +67,44 @@ struct GatewayDetailView: View {
                         Text(profile.isPaired ? "Yes" : "No")
                     }
                 }
+            } header: {
+                Text("Gateway")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(nil)
             }
 
-            // Gateway management — available for every gateway with a valid URL.
+            // Management links
             if URL(string: profile.url) != nil {
                 Section {
-                    NavigationLink {
+                    managementLink(icon: "clock.badge.checkmark", label: "Cron Jobs", hint: "View, add, pause, and delete scheduled cron jobs") {
                         CronJobListView(profile: profile)
-                    } label: {
-                        Label("Cron Jobs", systemImage: "clock.badge.checkmark")
                     }
-                    .accessibilityLabel("Cron Jobs")
-                    .accessibilityHint("View, add, pause, and delete scheduled cron jobs on this gateway")
-
-                    NavigationLink {
+                    managementLink(icon: "puzzlepiece.extension.fill", label: "MCP Servers", hint: "View, add, and remove MCP server integrations") {
                         MCPServerListView(profile: profile)
-                    } label: {
-                        Label("MCP Servers", systemImage: "puzzlepiece.extension.fill")
                     }
-                    .accessibilityLabel("MCP Servers")
-                    .accessibilityHint("View, add, and remove MCP server integrations for this gateway")
-
-                    NavigationLink {
+                    managementLink(icon: "antenna.radiowaves.left.and.right", label: "Channels", hint: "View connection status of communication channels") {
                         ChannelStatusListView(profile: profile)
-                    } label: {
-                        Label("Channels", systemImage: "antenna.radiowaves.left.and.right")
                     }
-                    .accessibilityLabel("Channels")
-                    .accessibilityHint("View the connection status and configuration of gateway communication channels")
-
-                    NavigationLink {
+                    managementLink(icon: "slider.horizontal.3", label: "Agent Configuration", hint: "Adjust model, temperature, and limits") {
                         AgentConfigView(profile: profile)
-                    } label: {
-                        Label("Agent Configuration", systemImage: "slider.horizontal.3")
                     }
-                    .accessibilityLabel("Agent Configuration")
-                    .accessibilityHint("View and adjust live-editable agent settings such as model, temperature, and limits")
-
-                    NavigationLink {
+                    managementLink(icon: "shield.lefthalf.filled", label: "Autonomy & Safety", hint: "Adjust autonomy level and safety controls") {
                         AutonomyView(profile: profile)
-                    } label: {
-                        Label("Autonomy & Safety", systemImage: "shield.lefthalf.filled")
                     }
-                    .accessibilityLabel("Autonomy & Safety")
-                    .accessibilityHint("View and adjust autonomy level, action limits, and safety controls for this gateway")
-
-                    NavigationLink {
+                    managementLink(icon: "chart.bar.fill", label: "Cost & Usage", hint: "View token usage and configure spend limits") {
                         UsageStatsView(profile: profile)
-                    } label: {
-                        Label("Cost & Usage", systemImage: "chart.bar.fill")
                     }
-                    .accessibilityLabel("Cost & Usage")
-                    .accessibilityHint("View token usage and cost data, and configure spend limits for this gateway")
+                } header: {
+                    Text("Management")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
                 }
             }
 
+            // Actions
             Section {
-                // Edit button — always available
                 Button {
                     editingProfile = profile
                 } label: {
@@ -147,7 +112,6 @@ struct GatewayDetailView: View {
                 }
             }
 
-            // Pair section — available for any unpaired profile
             if !profile.isPaired {
                 Section {
                     Button {
@@ -164,7 +128,6 @@ struct GatewayDetailView: View {
                 }
             }
 
-            // Unpair section — available for any paired profile
             if profile.isPaired {
                 Section {
                     Button(role: .destructive) {
@@ -190,7 +153,6 @@ struct GatewayDetailView: View {
         .sheet(item: $editingProfile) { prof in
             EditGatewaySheet(profile: prof) { updated, previousURL in
                 store.updateProfile(updated, previousURL: previousURL)
-                // If the edited profile is the active one, silently reconnect the chat client.
                 if updated.id == store.activeProfile?.id,
                    let refreshed = store.activeProfile {
                     Task {
@@ -200,6 +162,55 @@ struct GatewayDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var agentInfoCard: some View {
+        if isLoadingCard {
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text("Fetching agent info…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        } else if let card = agentCard {
+            LabeledContent("Name", value: card.name)
+            LabeledContent("Version", value: card.version)
+            if let desc = card.description, !desc.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Description")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(desc)
+                        .font(.subheadline)
+                }
+                .padding(.vertical, 4)
+            }
+        } else {
+            Label(
+                cardError ?? "Unable to fetch agent info",
+                systemImage: "exclamationmark.triangle"
+            )
+            .foregroundStyle(.secondary)
+            .font(.subheadline)
+        }
+    }
+
+    private func managementLink<Destination: View>(
+        icon: String,
+        label: String,
+        hint: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            Label(label, systemImage: icon)
+        }
+        .accessibilityLabel(label)
+        .accessibilityHint(hint)
     }
 
     // MARK: - Per-profile fetch
