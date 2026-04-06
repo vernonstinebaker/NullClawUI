@@ -61,6 +61,7 @@
 		E72EE619A9FEA20B89F5C6F7 /* UsageStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */; };
 		E753F6E9FC6FFF5AE730C221 /* MCPServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */; };
 		EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */; };
+		F0E93E306CD7085B0A883696 /* RestApiModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089D59695295ADA15F58B920 /* RestApiModels.swift */; };
 		F3D4BAE9C1B1CEB5270A3757 /* AutonomyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C553FAFF0D68B6C3FC70E2C6 /* AutonomyView.swift */; };
 		F8A8806F434F03E966B9A87D /* ServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74207CFB19C11BAB4C15394D /* ServersView.swift */; };
 /* End PBXBuildFile section */
@@ -83,6 +84,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		089D59695295ADA15F58B920 /* RestApiModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestApiModels.swift; sourceTree = "<group>"; };
 		0F27D4DC37FD7A7C678D285C /* ConversationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRecord.swift; sourceTree = "<group>"; };
 		123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayLiveIntegrationTests.swift; sourceTree = "<group>"; };
 		13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDetailView.swift; sourceTree = "<group>"; };
@@ -167,6 +169,7 @@
 				3B541BEB81F62E4F0D3174FA /* CronJob.swift */,
 				4586808D41B6CE56D04176A0 /* GatewayProfile.swift */,
 				354198F01B07BCCD5083AA9A /* MCPServer.swift */,
+				089D59695295ADA15F58B920 /* RestApiModels.swift */,
 				94DC885F054A771E27A3B26C /* UsageStats.swift */,
 			);
 			path = Models;
@@ -483,6 +486,7 @@
 				BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */,
 				7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */,
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
+				F0E93E306CD7085B0A883696 /* RestApiModels.swift in Sources */,
 				A49516912E3F7ACE2517EF0A /* ServerCard.swift in Sources */,
 				F8A8806F434F03E966B9A87D /* ServersView.swift in Sources */,
 				28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */,

@@ -9,6 +9,7 @@ enum GatewayError: Error, LocalizedError, Sendable {
     case networkError(underlying: Error)
     case jsonRPCError(code: Int, message: String)
     case unpaired
+    case apiError(code: String, message: String)
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,7 @@ enum GatewayError: Error, LocalizedError, Sendable {
         case .networkError(let e):   return e.localizedDescription
         case .jsonRPCError(_, let m):return "RPC error: \(m)"
         case .unpaired:              return "Not paired with gateway."
+        case .apiError(let code, let message): return "API error [\(code)]: \(message)"
         }
     }
 }
@@ -234,8 +236,8 @@ actor GatewayClient {
 
     // MARK: - Phase 15+: Cron Jobs (REST)
 
-    /// GET /cron — List all live scheduler jobs.
-    func listCronJobs() async throws -> [CronJob] {
+    /// GET /cron — List all live scheduler jobs (legacy endpoint).
+    func listCronJobsLegacy() async throws -> [CronJob] {
         let url = baseURL.appendingPathComponent("cron")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
@@ -243,8 +245,8 @@ actor GatewayClient {
         return try decode([CronJob].self, from: data)
     }
 
-    /// POST /cron/add — Add a new cron job.
-    func addCronJob(_ params: CronJobAddParams) async throws -> CronJob {
+    /// POST /cron/add — Add a new cron job (legacy endpoint).
+    func addCronJobLegacy(_ params: CronJobAddParams) async throws -> CronJob {
         let url = baseURL.appendingPathComponent("cron/add")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(params)
@@ -253,8 +255,8 @@ actor GatewayClient {
         return try decode(CronJob.self, from: data)
     }
 
-    /// POST /cron/remove — Remove a cron job by id.
-    func removeCronJob(id: String) async throws {
+    /// POST /cron/remove — Remove a cron job by id (legacy endpoint).
+    func removeCronJobLegacy(id: String) async throws {
         let url = baseURL.appendingPathComponent("cron/remove")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(CronJobIDParams(id: id))
@@ -262,8 +264,8 @@ actor GatewayClient {
         try validate(response)
     }
 
-    /// POST /cron/pause — Pause a cron job.
-    func pauseCronJob(id: String) async throws {
+    /// POST /cron/pause — Pause a cron job (legacy endpoint).
+    func pauseCronJobLegacy(id: String) async throws {
         let url = baseURL.appendingPathComponent("cron/pause")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(CronJobIDParams(id: id))
@@ -271,8 +273,8 @@ actor GatewayClient {
         try validate(response)
     }
 
-    /// POST /cron/resume — Resume a cron job.
-    func resumeCronJob(id: String) async throws {
+    /// POST /cron/resume — Resume a cron job (legacy endpoint).
+    func resumeCronJobLegacy(id: String) async throws {
         let url = baseURL.appendingPathComponent("cron/resume")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(CronJobIDParams(id: id))
@@ -280,11 +282,229 @@ actor GatewayClient {
         try validate(response)
     }
 
-    /// POST /cron/update — Partially update a cron job.
-    func updateCronJob(_ params: CronJobUpdateParams) async throws {
+    /// POST /cron/update — Partially update a cron job (legacy endpoint).
+    func updateCronJobLegacy(_ params: CronJobUpdateParams) async throws {
         let url = baseURL.appendingPathComponent("cron/update")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(params)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    // MARK: - REST Admin API (/api/*)
+
+    /// Envelope used by all /api/* responses: {"success":true,"data":...,"error":null}
+    struct ApiEnvelope<T: Decodable>: Decodable {
+        let success: Bool
+        let data: T?
+        let error: ApiError?
+
+        struct ApiError: Decodable {
+            let code: String
+            let message: String
+        }
+    }
+
+    /// Decodes an /api/* response envelope, throwing `GatewayError.apiError` on failure.
+    private func decodeEnvelope<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let envelope = try decoder.decode(ApiEnvelope<T>.self, from: data)
+        if let err = envelope.error {
+            throw GatewayError.apiError(code: err.code, message: err.message)
+        }
+        guard let result = envelope.data else {
+            throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "API envelope data is null")))
+        }
+        return result
+    }
+
+    /// Decodes an /api/* response envelope where the data is an array.
+    private func decodeArrayEnvelope<T: Decodable>(_ type: T.Type, from data: Data) throws -> [T] {
+        let envelope = try decoder.decode(ApiEnvelope<[T]>.self, from: data)
+        if let err = envelope.error {
+            throw GatewayError.apiError(code: err.code, message: err.message)
+        }
+        return envelope.data ?? []
+    }
+
+    // MARK: Status & Config
+
+    /// GET /api/status — System status, uptime, health components.
+    func apiStatus() async throws -> ApiStatusResponse {
+        let url = baseURL.appendingPathComponent("api/status")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(ApiStatusResponse.self, from: data)
+    }
+
+    /// GET /api/config?path=<dotted.path> — Read a single config value.
+    func apiConfigValue(path: String) async throws -> ConfigValueResponse {
+        var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let url = components.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(ConfigValueResponse.self, from: data)
+    }
+
+    /// GET /api/models — Available providers and default model.
+    func apiModels() async throws -> ApiModelsResponse {
+        let url = baseURL.appendingPathComponent("api/models")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(ApiModelsResponse.self, from: data)
+    }
+
+    // MARK: Cron (REST Admin API)
+
+    /// GET /api/cron — List all scheduled jobs (envelope-wrapped).
+    func apiListCronJobs() async throws -> [CronJob] {
+        let url = baseURL.appendingPathComponent("api/cron")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeArrayEnvelope(CronJob.self, from: data)
+    }
+
+    /// POST /api/cron — Create a new cron job.
+    func apiCreateCronJob(_ params: CronJobAddParams) async throws -> CronJob {
+        let url = baseURL.appendingPathComponent("api/cron")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(params)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(CronJob.self, from: data)
+    }
+
+    /// POST /api/cron/once — Create a one-shot delayed job.
+    func apiCreateCronJobOnce(_ params: CronJobAddParams) async throws -> CronJob {
+        let url = baseURL.appendingPathComponent("api/cron/once")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode(params)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(CronJob.self, from: data)
+    }
+
+    /// POST /api/cron/:id/run — Trigger immediate run.
+    func apiRunCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)/run")
+        let req = try makeRequest(url: url, method: "POST", authenticated: true)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /api/cron/:id/pause — Pause a cron job.
+    func apiPauseCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)/pause")
+        let req = try makeRequest(url: url, method: "POST", authenticated: true)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /api/cron/:id/resume — Resume a cron job.
+    func apiResumeCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)/resume")
+        let req = try makeRequest(url: url, method: "POST", authenticated: true)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// PATCH /api/cron/:id — Partially update a cron job.
+    func apiUpdateCronJob(id: String, _ params: CronJobUpdateParams) async throws {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)")
+        var req = try makeRequest(url: url, method: "PATCH", authenticated: true)
+        req.httpBody = try encoder.encode(params)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// DELETE /api/cron/:id — Delete a cron job.
+    func apiDeleteCronJob(id: String) async throws {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)")
+        let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    // MARK: Channels
+
+    /// GET /api/channels — List all configured channels with status.
+    func apiListChannels() async throws -> [ApiChannelInfo] {
+        let url = baseURL.appendingPathComponent("api/channels")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeArrayEnvelope(ApiChannelInfo.self, from: data)
+    }
+
+    /// GET /api/channels/:name — Get detail for a specific channel type.
+    func apiGetChannel(name: String) async throws -> ApiChannelDetail {
+        let url = baseURL.appendingPathComponent("api/channels/\(name)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(ApiChannelDetail.self, from: data)
+    }
+
+    // MARK: MCP Servers
+
+    /// GET /api/mcp — List all configured MCP servers.
+    func apiListMCPServers() async throws -> [ApiMCPServerInfo] {
+        let url = baseURL.appendingPathComponent("api/mcp")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeArrayEnvelope(ApiMCPServerInfo.self, from: data)
+    }
+
+    /// GET /api/mcp/:name — Get detail for a specific MCP server.
+    func apiGetMCPServer(name: String) async throws -> ApiMCPServerDetail {
+        let url = baseURL.appendingPathComponent("api/mcp/\(name)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response)
+        return try decodeEnvelope(ApiMCPServerDetail.self, from: data)
+    }
+
+    // MARK: Config Mutation
+
+    /// PATCH /api/config — Set a config value at a dotted path.
+    func apiSetConfigValue(path: String, value: AnyEncodable) async throws {
+        var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let url = components.url else { throw GatewayError.invalidURL }
+        var req = try makeRequest(url: url, method: "PATCH", authenticated: true)
+        req.httpBody = try encoder.encode(["value": value])
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// DELETE /api/config — Unset a config value at a dotted path.
+    func apiUnsetConfigValue(path: String) async throws {
+        var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let url = components.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /api/config/reload — Hot-reload config from disk.
+    func apiReloadConfig() async throws {
+        let url = baseURL.appendingPathComponent("api/config/reload")
+        let req = try makeRequest(url: url, method: "POST", authenticated: true)
+        let (_, response) = try await session.data(for: req)
+        try validate(response)
+    }
+
+    /// POST /api/config/validate — Validate config without applying.
+    func apiValidateConfig() async throws {
+        let url = baseURL.appendingPathComponent("api/config/validate")
+        let req = try makeRequest(url: url, method: "POST", authenticated: true)
         let (_, response) = try await session.data(for: req)
         try validate(response)
     }

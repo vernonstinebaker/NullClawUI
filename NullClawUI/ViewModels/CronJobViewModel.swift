@@ -50,7 +50,7 @@ final class CronJobViewModel {
         defer { isLoading = false }
 
         do {
-            jobs = try await client.listCronJobs()
+            jobs = try await client.apiListCronJobs()
         } catch {
             errorMessage = "Failed to load cron jobs: \(error.localizedDescription)"
         }
@@ -59,7 +59,7 @@ final class CronJobViewModel {
     /// Pauses the given job and refreshes the list.
     func pause(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.pauseCronJob(id: job.id) },
+            action: { try await self.client.apiPauseCronJob(id: job.id) },
             jobID: job.id,
             errorPrefix: "Failed to pause job"
         )
@@ -68,26 +68,26 @@ final class CronJobViewModel {
     /// Resumes (un-pauses) the given job and refreshes the list.
     func resume(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.resumeCronJob(id: job.id) },
+            action: { try await self.client.apiResumeCronJob(id: job.id) },
             jobID: job.id,
             errorPrefix: "Failed to resume job"
         )
     }
 
     /// Triggers an immediate run of the given job and refreshes the list.
-    /// Note: The gateway doesn't expose a REST endpoint for "run now", so this
-    /// falls back to the A2A one-shot prompt.
+    /// Uses the REST endpoint POST /api/cron/:id/run.
     func runNow(_ job: CronJob) async {
-        await performActionViaA2A(
-            "Run the cron job with id \"\(job.id)\" immediately.",
-            jobID: job.id
+        await performMutation(
+            action: { try await self.client.apiRunCronJob(id: job.id) },
+            jobID: job.id,
+            errorPrefix: "Failed to run job"
         )
     }
 
     /// Deletes the given job and refreshes the list.
     func delete(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.removeCronJob(id: job.id) },
+            action: { try await self.client.apiDeleteCronJob(id: job.id) },
             jobID: job.id,
             errorPrefix: "Failed to delete job"
         )
@@ -102,8 +102,12 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toRESTParams()
-            _ = try await client.addCronJob(params)
-            jobs = try await client.listCronJobs()
+            if params.expression == nil && params.delay != nil {
+                _ = try await client.apiCreateCronJobOnce(params)
+            } else {
+                _ = try await client.apiCreateCronJob(params)
+            }
+            jobs = try await client.apiListCronJobs()
         } catch {
             errorMessage = "Failed to add cron job: \(error.localizedDescription)"
         }
@@ -118,8 +122,8 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toUpdateRESTParams(existingID: job.id)
-            try await client.updateCronJob(params)
-            jobs = try await client.listCronJobs()
+            try await client.apiUpdateCronJob(id: job.id, params)
+            jobs = try await client.apiListCronJobs()
         } catch {
             errorMessage = "Failed to update cron job: \(error.localizedDescription)"
         }
@@ -140,24 +144,9 @@ final class CronJobViewModel {
 
         do {
             try await action()
-            jobs = try await client.listCronJobs()
+            jobs = try await client.apiListCronJobs()
         } catch {
             errorMessage = "\(errorPrefix): \(error.localizedDescription)"
-        }
-    }
-
-    /// Falls back to A2A for operations without dedicated REST endpoints (e.g. run now).
-    private func performActionViaA2A(_ prompt: String, jobID: String) async {
-        guard actionInProgress == nil else { return }
-        actionInProgress = jobID
-        errorMessage = nil
-        defer { actionInProgress = nil }
-
-        do {
-            _ = try await client.sendOneShot(prompt)
-            jobs = try await client.listCronJobs()
-        } catch {
-            errorMessage = "\(prompt) failed: \(error.localizedDescription)"
         }
     }
 }

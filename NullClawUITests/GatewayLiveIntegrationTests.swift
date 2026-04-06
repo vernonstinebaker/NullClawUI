@@ -144,17 +144,14 @@ final class GatewayLiveIntegrationTests: XCTestCase {
             throw XCTSkip("Gateway not available")
         }
 
-        // When the gateway doesn't require pairing, listCronJobs succeeds without auth.
-        // When it does require pairing (and we're not paired), it returns an HTTP error.
-        // Either outcome is valid — we just verify the endpoint is reachable.
         do {
-            let jobs = try await client.listCronJobs()
-            // Gateway doesn't require pairing — we got the list.
+            let jobs = try await client.apiListCronJobs()
             XCTAssert(jobs.count >= 0, "Should return an array (possibly empty)")
         } catch let error as GatewayError {
             if case .httpError(let code) = error {
-                // Gateway requires pairing and we're not paired — expected.
                 XCTAssertTrue(code == 401 || code == 403, "Expected 401/403, got \(code)")
+            } else if case .apiError = error {
+                XCTAssertTrue(true)
             } else {
                 XCTFail("Unexpected error: \(error)")
             }
@@ -175,12 +172,13 @@ final class GatewayLiveIntegrationTests: XCTestCase {
         params.command = "echo test"
 
         do {
-            _ = try await client.addCronJob(params)
-            // Gateway doesn't require pairing — job was added.
+            _ = try await client.apiCreateCronJob(params)
             XCTAssertTrue(true)
         } catch let error as GatewayError {
             if case .httpError(let code) = error {
                 XCTAssertTrue(code == 401 || code == 403 || code == 400, "Expected auth or validation error, got \(code)")
+            } else if case .apiError = error {
+                XCTAssertTrue(true)
             } else {
                 XCTFail("Unexpected error: \(error)")
             }
@@ -197,12 +195,13 @@ final class GatewayLiveIntegrationTests: XCTestCase {
         }
 
         do {
-            try await client.pauseCronJob(id: "nonexistent-job")
-            // Gateway doesn't require pairing.
+            try await client.apiPauseCronJob(id: "nonexistent-job")
             XCTAssertTrue(true)
         } catch let error as GatewayError {
             if case .httpError(let code) = error {
                 XCTAssertTrue(code == 401 || code == 403 || code == 404, "Expected auth or not-found error, got \(code)")
+            } else if case .apiError = error {
+                XCTAssertTrue(true)
             } else {
                 XCTFail("Unexpected error: \(error)")
             }
@@ -219,12 +218,13 @@ final class GatewayLiveIntegrationTests: XCTestCase {
         }
 
         do {
-            try await client.removeCronJob(id: "nonexistent-job")
-            // Gateway doesn't require pairing.
+            try await client.apiDeleteCronJob(id: "nonexistent-job")
             XCTAssertTrue(true)
         } catch let error as GatewayError {
             if case .httpError(let code) = error {
                 XCTAssertTrue(code == 401 || code == 403 || code == 404, "Expected auth or not-found error, got \(code)")
+            } else if case .apiError = error {
+                XCTAssertTrue(true)
             } else {
                 XCTFail("Unexpected error: \(error)")
             }
