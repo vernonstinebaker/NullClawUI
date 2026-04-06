@@ -98,10 +98,9 @@ final class AgentConfigViewModel {
     //   agent.compact_context, agent.compaction_max_source_chars
 
     func setTemperature(_ value: Double) async {
-        // Hot-reloadable: default_temperature
         await applyChange(
             path: "default_temperature",
-            value: String(format: "%.2f", value),
+            value: value,
             hotReload: true,
             update: { $0.temperature = value },
             confirmation: "Temperature set to \(String(format: "%.2f", value))."
@@ -110,11 +109,9 @@ final class AgentConfigViewModel {
 
     func setPrimaryModel(_ model: String) async {
         guard !model.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        // Hot-reloadable: agents.defaults.model.primary (value must be a JSON string)
-        let jsonString = "\"\(model)\""
         await applyChange(
             path: "agents.defaults.model.primary",
-            value: jsonString,
+            value: model,
             hotReload: true,
             update: { $0.primaryModel = model },
             confirmation: "Primary model set to \"\(model)\"."
@@ -122,10 +119,9 @@ final class AgentConfigViewModel {
     }
 
     func setMaxToolIterations(_ value: Int) async {
-        // Hot-reloadable: agent.max_tool_iterations
         await applyChange(
             path: "agent.max_tool_iterations",
-            value: "\(value)",
+            value: value,
             hotReload: true,
             update: { $0.maxToolIterations = value },
             confirmation: "Max tool iterations set to \(value)."
@@ -133,10 +129,9 @@ final class AgentConfigViewModel {
     }
 
     func setMessageTimeout(_ seconds: Int) async {
-        // Hot-reloadable: agent.message_timeout_secs
         await applyChange(
             path: "agent.message_timeout_secs",
-            value: "\(seconds)",
+            value: seconds,
             hotReload: true,
             update: { $0.messageTimeoutSecs = seconds },
             confirmation: "Message timeout set to \(seconds)s."
@@ -144,10 +139,9 @@ final class AgentConfigViewModel {
     }
 
     func setCompactContext(_ enabled: Bool) async {
-        // NOT hot-reloadable — persisted to disk, takes effect on next gateway restart.
         await applyChange(
             path: "agent.compact_context",
-            value: enabled ? "true" : "false",
+            value: enabled,
             hotReload: false,
             update: { $0.compactContext = enabled },
             confirmation: "Compact context \(enabled ? "enabled" : "disabled"). Restart gateway to apply."
@@ -155,10 +149,9 @@ final class AgentConfigViewModel {
     }
 
     func setCompactionThreshold(_ value: Int) async {
-        // NOT hot-reloadable — persisted to disk, takes effect on next gateway restart.
         await applyChange(
             path: "agent.compaction_max_source_chars",
-            value: "\(value)",
+            value: value,
             hotReload: false,
             update: { $0.compactionThreshold = value },
             confirmation: "Compaction threshold set to \(value) chars. Restart gateway to apply."
@@ -189,7 +182,6 @@ final class AgentConfigViewModel {
             c.provider = raw.provider ?? ""
             c.temperature = raw.temperature ?? 1.0
             c.maxToolIterations = raw.max_tool_iterations ?? 25
-            // Accept both key variants the agent may emit
             c.messageTimeoutSecs = raw.message_timeout_secs ?? raw.message_timeout_seconds ?? 300
             c.compactContext = raw.compact_context ?? raw.compaction_enabled ?? false
             c.compactionThreshold = raw.compaction_max_source_chars ?? raw.compaction_threshold ?? 8000
@@ -201,13 +193,13 @@ final class AgentConfigViewModel {
 
     // MARK: - Private helpers
 
-    /// Applies a config change via `/config apply set <path> <value>`, optionally
-    /// followed by `/config reload` for hot-reloadable fields.
-    private func applyChange(
+    /// Applies a config change via the REST Admin API PATCH /api/config, optionally
+    /// followed by POST /api/config/reload for hot-reloadable fields.
+    private func applyChange<T: Encodable & Sendable>(
         path: String,
-        value: String,
+        value: T,
         hotReload: Bool,
-        update: (inout AgentConfig) -> Void,
+        update: @MainActor (inout AgentConfig) -> Void,
         confirmation: String
     ) async {
         isSaving = true
@@ -216,9 +208,10 @@ final class AgentConfigViewModel {
         defer { isSaving = false }
 
         do {
-            try await client.sendConfigApply(path: path, value: value)
+            let c = client
+            try await c.apiSetConfigValue(path: path, value: value)
             if hotReload {
-                try await client.sendConfigReload()
+                try await c.apiReloadConfig()
             }
             update(&config)
             confirmationMessage = confirmation

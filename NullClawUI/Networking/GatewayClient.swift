@@ -473,7 +473,7 @@ actor GatewayClient {
     // MARK: Config Mutation
 
     /// PATCH /api/config — Set a config value at a dotted path.
-    func apiSetConfigValue(path: String, value: AnyEncodable) async throws {
+    func apiSetConfigValue<T: Encodable>(path: String, value: T) async throws {
         var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "path", value: path)]
         guard let url = components.url else { throw GatewayError.invalidURL }
