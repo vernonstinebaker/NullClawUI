@@ -20,8 +20,9 @@ enum MCPServerParseError: Error, LocalizedError, Sendable {
 
 /// Phase 18: MCP Server Management.
 ///
-/// Communicates with the active gateway exclusively through A2A natural-language prompts.
-/// There is no dedicated REST endpoint for MCP server management.
+/// Uses REST Admin API endpoints (GET /api/mcp, GET /api/mcp/:name) for listing
+/// and checking server status. Add/remove still use A2A prompts since the gateway
+/// doesn't expose mutation endpoints for MCP servers yet.
 ///
 /// Lifecycle:
 ///   • Call load() to fetch the current MCP server list.
@@ -33,15 +34,10 @@ final class MCPServerViewModel {
 
     // MARK: Published state
 
-    /// Current list of MCP servers, ordered as returned by the agent.
     var servers: [MCPServer] = []
-    /// True while a load or add round-trip is in flight.
     private(set) var isLoading: Bool = false
-    /// Non-nil while a remove operation is executing. Contains the server name being removed.
     private(set) var removingName: String? = nil
-    /// Non-nil when the last operation failed.
     var errorMessage: String? = nil
-    /// Non-nil after a successful mutation.
     var confirmationMessage: String? = nil
 
     // MARK: Dependencies
@@ -56,7 +52,6 @@ final class MCPServerViewModel {
 
     // MARK: - Load
 
-    /// Fetches the MCP server list from the gateway config via the agent.
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -67,14 +62,22 @@ final class MCPServerViewModel {
         await loadInternal(client: client)
     }
 
-    // MARK: - Private load helper
-
-    /// Performs the actual network fetch without touching `isLoading`.
-    /// Called internally by mutating operations that already own `isLoading`.
     private func loadInternal(client: GatewayClient) async {
         do {
-            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
-            servers = try parseMCPServers(from: reply)
+            let apiServers = try await client.apiListMCPServers()
+            servers = apiServers.map { apiServer in
+                MCPServer(
+                    name: apiServer.name,
+                    transport: apiServer.transport,
+                    command: apiServer.command,
+                    args: nil,
+                    env: nil,
+                    url: nil,
+                    headers: nil,
+                    timeoutMs: nil,
+                    connected: nil
+                )
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -82,7 +85,6 @@ final class MCPServerViewModel {
 
     // MARK: - Remove
 
-    /// Removes the named MCP server by instructing the agent to delete it from config.
     func remove(_ server: MCPServer) async {
         guard removingName == nil else { return }
         removingName = server.name
@@ -102,16 +104,8 @@ final class MCPServerViewModel {
 
     // MARK: - Check Status
 
-    /// Non-nil while a check-status operation is executing. Contains the server name being checked.
     private(set) var checkingStatusName: String? = nil
 
-    /// Asks the gateway agent whether the named MCP server is currently reachable and updates
-    /// `servers[i].connected` with the result.
-    /// Verifies that a specific MCP server entry is present and validly configured in config.json.
-    ///
-    /// The agent is asked to read `~/.nullclaw/config.json` and confirm the named entry exists
-    /// with a non-empty command/URL, then reply `{"connected": true|false}`.
-    /// If the reply cannot be parsed, `connected` is set to `false` and an error is surfaced.
     func checkStatus(for serverName: String) async {
         guard checkingStatusName == nil else { return }
         checkingStatusName = serverName
@@ -119,19 +113,26 @@ final class MCPServerViewModel {
         confirmationMessage = nil
         defer { checkingStatusName = nil }
 
-        let prompt = Self.checkStatusPrompt(for: serverName)
         do {
-            let reply = try await client.sendOneShotNonStreaming(prompt)
-            let connected = parseCheckStatus(from: reply)
-            // Update the matching server in-place.
+            let detail = try await client.apiGetMCPServer(name: serverName)
             if let idx = servers.firstIndex(where: { $0.name == serverName }) {
-                servers[idx].connected = connected
+                servers[idx].connected = true
+                servers[idx].args = detail.args
             }
-            confirmationMessage = connected
-                ? "\"\(serverName)\" is configured."
-                : "\"\(serverName)\" is not configured or has an invalid entry."
+            confirmationMessage = "\"\(serverName)\" is configured."
+        } catch let error as GatewayError {
+            if case .apiError = error {
+                if let idx = servers.firstIndex(where: { $0.name == serverName }) {
+                    servers[idx].connected = false
+                }
+                confirmationMessage = "\"\(serverName)\" is not configured."
+            } else {
+                if let idx = servers.firstIndex(where: { $0.name == serverName }) {
+                    servers[idx].connected = false
+                }
+                errorMessage = error.localizedDescription
+            }
         } catch {
-            // On network/RPC error, mark the server as failed.
             if let idx = servers.firstIndex(where: { $0.name == serverName }) {
                 servers[idx].connected = false
             }
@@ -141,7 +142,6 @@ final class MCPServerViewModel {
 
     // MARK: - Add
 
-    /// Adds a new MCP server by instructing the agent to write the entry to config.
     func addServer(_ draft: MCPServerDraft) async {
         guard !isLoading else { return }
         isLoading = true
