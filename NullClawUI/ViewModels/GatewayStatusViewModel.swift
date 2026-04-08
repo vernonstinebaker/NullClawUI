@@ -1,9 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - Profile Health State
-
-/// The health state for a single gateway profile, including resource counts.
 struct ProfileHealthState {
     var status: ConnectionStatus = .unknown
     var lastChecked: Date?
@@ -13,10 +10,6 @@ struct ProfileHealthState {
     var channelCount: Int?
 }
 
-// MARK: - GatewayStatusViewModel
-
-/// Lightweight multi-gateway health overview with resource counts.
-/// Fires concurrent GET /health + REST API calls against every known profile.
 @Observable
 @MainActor
 final class GatewayStatusViewModel {
@@ -30,8 +23,6 @@ final class GatewayStatusViewModel {
         self.store = store
         self.mockSessionConfig = mockSessionConfig
     }
-
-    // MARK: - Public API
 
     func refresh() async {
         guard !isRefreshing else { return }
@@ -61,13 +52,26 @@ final class GatewayStatusViewModel {
                 let urlString = profile.url
                 let cfg = mockSessionConfig
                 group.addTask {
-                    let (status, cronCount, mcpCount, channelCount) = await Self.checkHealthAndCounts(
+                    let healthStatus = await Self.checkHealth(
                         urlString: urlString,
                         sessionConfig: cfg
                     )
+                    guard healthStatus == .online else {
+                        return HealthResult(
+                            id: profileID,
+                            status: healthStatus,
+                            cronJobCount: nil,
+                            mcpServerCount: nil,
+                            channelCount: nil
+                        )
+                    }
+
+                    let (cronCount, mcpCount, channelCount) = await Self.fetchCounts(
+                        urlString: urlString
+                    )
                     return HealthResult(
                         id: profileID,
-                        status: status,
+                        status: healthStatus,
                         cronJobCount: cronCount,
                         mcpServerCount: mcpCount,
                         channelCount: channelCount
@@ -87,13 +91,9 @@ final class GatewayStatusViewModel {
         }
     }
 
-    // MARK: - Convenience accessors
-
     func healthState(for profile: GatewayProfile) -> ProfileHealthState {
         healthStates[profile.id] ?? ProfileHealthState()
     }
-
-    // MARK: - Private helpers
 
     private static func checkHealth(
         urlString: String,
@@ -105,7 +105,14 @@ final class GatewayStatusViewModel {
         request.httpMethod = "GET"
         request.timeoutInterval = 8
 
-        let session = makeSession(config: sessionConfig)
+        let session: URLSession
+        if let cfg = sessionConfig {
+            session = URLSession(configuration: cfg)
+        } else {
+            let cfg = URLSessionConfiguration.ephemeral
+            cfg.timeoutIntervalForRequest = 8
+            session = URLSession(configuration: cfg)
+        }
         defer { session.invalidateAndCancel() }
         do {
             let (_, response) = try await session.data(for: request)
@@ -121,85 +128,27 @@ final class GatewayStatusViewModel {
         }
     }
 
-    private static func checkHealthAndCounts(
-        urlString: String,
-        sessionConfig: URLSessionConfiguration?
-    ) async -> (ConnectionStatus, Int?, Int?, Int?) {
-        let status = await checkHealth(urlString: urlString, sessionConfig: sessionConfig)
-        guard status == .online else {
-            return (status, nil, nil, nil)
-        }
-
-        let session = makeSession(config: sessionConfig)
-        defer { session.invalidateAndCancel() }
-        guard let base = URL(string: urlString) else {
-            return (status, nil, nil, nil)
-        }
-
+    private static func fetchCounts(
+        urlString: String
+    ) async -> (Int?, Int?, Int?) {
+        guard let base = URL(string: urlString) else { return (nil, nil, nil) }
         let token = KeychainService.retrieveTokenIfAvailable(for: urlString)
+        let client = GatewayClient(baseURL: base, token: token, requiresPairing: false)
+        defer { Task { await client.invalidate() } }
 
-        async let cronCount = fetchCount(session: session, baseURL: base, path: "/api/cron", token: token) { data in
-            if let array = try? JSONDecoder().decode([CronJob].self, from: data) {
-                return array.count
-            }
-            return nil
-        }
-        async let mcpCount = fetchCount(session: session, baseURL: base, path: "/api/mcp", token: token) { data in
-            if let array = try? JSONDecoder().decode([ApiMCPServerInfo].self, from: data) {
-                return array.count
-            }
-            return nil
-        }
-        async let channelCount = fetchCount(
-            session: session,
-            baseURL: base,
-            path: "/api/channels",
-            token: token
-        ) { data in
-            if let array = try? JSONDecoder().decode([ApiChannelInfo].self, from: data) {
-                return array.count
-            }
-            return nil
-        }
+        async let cronJobs: [CronJob]? = {
+            do { return try await client.apiListCronJobs() } catch { return nil }
+        }()
 
-        let (c, m, ch) = await (cronCount, mcpCount, channelCount)
-        return (status, c, m, ch)
-    }
+        async let mcpServers: [ApiMCPServerInfo]? = {
+            do { return try await client.apiListMCPServers() } catch { return nil }
+        }()
 
-    private static func fetchCount(
-        session: URLSession,
-        baseURL: URL,
-        path: String,
-        token: String?,
-        parser: @Sendable (Data) -> Int?
-    ) async -> Int? {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
-        request.httpMethod = "GET"
-        request.timeoutInterval = 8
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        do {
-            let (data, response) = try await session.data(for: request)
-            guard
-                let http = response as? HTTPURLResponse,
-                (200 ..< 300).contains(http.statusCode) else
-            {
-                return nil
-            }
-            return parser(data)
-        } catch {
-            return nil
-        }
-    }
+        async let channels: [ApiChannelInfo]? = {
+            do { return try await client.apiListChannels() } catch { return nil }
+        }()
 
-    private static func makeSession(config: URLSessionConfiguration?) -> URLSession {
-        if let cfg = config {
-            return URLSession(configuration: cfg)
-        }
-        let cfg = URLSessionConfiguration.ephemeral
-        cfg.timeoutIntervalForRequest = 8
-        return URLSession(configuration: cfg)
+        let (c, m, ch) = await (cronJobs, mcpServers, channels)
+        return (c?.count, m?.count, ch?.count)
     }
 }

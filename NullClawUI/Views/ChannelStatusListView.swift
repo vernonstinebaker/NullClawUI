@@ -1,13 +1,5 @@
 import SwiftUI
 
-// NOTE: No unit test — pure layout change for the ChannelStatusListView body; covered by visual inspection in
-// Simulator.
-
-// MARK: - ChannelStatusListView
-
-/// Phase 20: Channel Status & Management.
-/// Displays all configured gateway communication channels with connection status badges
-/// and a read-only detail view per channel. Includes a persistent restart-required banner.
 struct ChannelStatusListView: View {
     let profile: GatewayProfile
 
@@ -24,7 +16,6 @@ struct ChannelStatusListView: View {
 
     var body: some View {
         List {
-            // Restart-required banner — only shown once channels have loaded (not on empty/loading state)
             if !viewModel.channels.isEmpty {
                 restartBanner
             }
@@ -60,7 +51,6 @@ struct ChannelStatusListView: View {
                 channelListSection
             }
 
-            // Error banner
             if let err = viewModel.errorMessage {
                 Section {
                     Label(err, systemImage: "exclamationmark.triangle")
@@ -90,8 +80,6 @@ struct ChannelStatusListView: View {
         }
     }
 
-    // MARK: - Restart banner
-
     private var restartBanner: some View {
         Section {
             HStack(spacing: 10) {
@@ -109,25 +97,16 @@ struct ChannelStatusListView: View {
         }
     }
 
-    // MARK: - Channel list
-
     private var channelListSection: some View {
         Section {
             ForEach(viewModel.channels) { channel in
-                NavigationLink {
-                    ChannelDetailView(channel: channel)
-                } label: {
-                    channelRow(channel)
-                }
+                channelRow(channel)
             }
         }
     }
 
-    // MARK: - Row
-
     private func channelRow(_ channel: ChannelInfo) -> some View {
         HStack(spacing: 12) {
-            // Channel type icon
             ZStack {
                 Circle()
                     .fill(channelColor(for: channel.name))
@@ -157,13 +136,11 @@ struct ChannelStatusListView: View {
 
             Spacer(minLength: 0)
 
-            // Connection status badge
             connectionBadge(for: channel.connected)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(channelAccessibilityLabel(for: channel))
-        .accessibilityHint("Tap to view channel details.")
     }
 
     @ViewBuilder
@@ -174,8 +151,6 @@ struct ChannelStatusListView: View {
             .foregroundStyle(color)
             .accessibilityLabel("Status: \(label)")
     }
-
-    // MARK: - Helpers
 
     private func channelColor(for name: String) -> Color {
         switch name.lowercased() {
@@ -201,69 +176,5 @@ struct ChannelStatusListView: View {
     private func channelAccessibilityLabel(for channel: ChannelInfo) -> String {
         let status = connectionInfo(for: channel.connected).0
         return "\(channel.displayName), \(status)"
-    }
-}
-
-// MARK: - ChannelDetailView
-
-/// Read-only detail view for a single channel.
-private struct ChannelDetailView: View {
-    let channel: ChannelInfo
-
-    var body: some View {
-        List {
-            Section("Identity") {
-                LabeledContent("Channel", value: channel.displayName)
-                LabeledContent("Status") {
-                    HStack(spacing: 4) {
-                        switch channel.connected {
-                        case true:
-                            Image(systemName: "circle.fill").foregroundStyle(.green)
-                            Text("Connected")
-                        case false:
-                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
-                            Text("Offline")
-                        case nil:
-                            Image(systemName: "circle.dotted").foregroundStyle(.secondary)
-                            Text("Unknown")
-                        }
-                    }
-                    .font(.subheadline)
-                }
-            }
-
-            if channel.serverURL != nil || channel.botName != nil {
-                Section("Configuration") {
-                    if let serverURL = channel.serverURL, !serverURL.isEmpty {
-                        LabeledContent("Server URL") {
-                            Text(serverURL)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .accessibilityLabel("Server URL: \(serverURL)")
-                    }
-                    if let botName = channel.botName, !botName.isEmpty {
-                        LabeledContent("Bot Name", value: botName)
-                            .accessibilityLabel("Bot name: \(botName)")
-                    }
-                }
-            }
-
-            Section {
-                HStack(spacing: 10) {
-                    Image(systemName: "arrow.clockwise.circle.fill")
-                        .foregroundStyle(.orange)
-                        .accessibilityHidden(true)
-                    Text("Channel configuration changes require a gateway restart.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Channel configuration changes require a gateway restart.")
-            }
-        }
-        .navigationTitle(channel.displayName)
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
