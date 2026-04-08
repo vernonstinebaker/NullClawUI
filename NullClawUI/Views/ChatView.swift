@@ -8,6 +8,12 @@ import UniformTypeIdentifiers
     import UIKit
 #endif
 
+// MARK: - Navigation destination type
+
+/// Minimal hashable value type used by NavigationLink(value:) to push
+/// the ConversationHistoryView onto the ChatView's NavigationStack.
+struct ConversationHistoryDestination: Hashable {}
+
 // MARK: - ChatView
 
 /// Phase 3 & 4: Chat UI with streaming support.
@@ -27,17 +33,27 @@ struct ChatView: View {
     @State private var showingDocumentPicker = false
     /// Whether the photos picker sheet is showing (triggered from the attachment Menu).
     @State private var showingPhotosPicker = false
-    /// Whether the per-gateway history drawer is expanded.
-    @State private var showHistory: Bool = false
+    /// Navigation path for the conversation history screen.
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             messageList
                 .navigationBarTitleDisplayMode(.inline)
+                .navigationDestination(for: ConversationHistoryDestination.self) { _ in
+                    ConversationHistoryView(viewModel: viewModel, gatewayViewModel: gatewayViewModel)
+                }
                 .toolbar {
-                    // Gateway picker in the title position
                     ToolbarItem(placement: .principal) {
                         gatewayPickerButton
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink(value: ConversationHistoryDestination()) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .fontWeight(.medium)
+                        }
+                        .accessibilityLabel("Previous conversations")
+                        .accessibilityHint("View and search your conversation history")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
@@ -126,9 +142,6 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 offlineBanner
-
-                // Per-gateway history drawer
-                historySection
 
                 if viewModel.messages.isEmpty {
                     emptyState
@@ -234,94 +247,6 @@ struct ChatView: View {
             systemImage: "bubble.left.and.bubble.right",
             description: Text("Type a message below to get started.")
         )
-    }
-
-    // MARK: - Per-gateway history section
-
-    @Environment(ConversationStore.self) private var conversationStore
-
-    private var activeGatewayRecords: [ConversationRecord] {
-        guard let activeID = store.activeProfile?.id else { return [] }
-        return conversationStore.records
-            .filter { $0.gatewayProfileID == activeID }
-            .sorted { $0.lastMessageAt > $1.lastMessageAt }
-    }
-
-    @ViewBuilder
-    private var historySection: some View {
-        if !activeGatewayRecords.isEmpty {
-            VStack(spacing: DesignTokens.Spacing.minimal) {
-                Button {
-                    withAnimation(DesignTokens.Animation.spring()) {
-                        showHistory.toggle()
-                    }
-                } label: {
-                    HStack {
-                        HStack(spacing: DesignTokens.Spacing.tiny) {
-                            Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                                .font(.caption)
-                            Text("Previous conversations")
-                                .font(.caption.weight(.semibold))
-                            Text("(\(activeGatewayRecords.count))")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        .foregroundStyle(.secondary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .rotationEffect(.degrees(showHistory ? 90 : 0))
-                    }
-                    .padding(.horizontal, DesignTokens.Spacing.standard)
-                    .padding(.vertical, DesignTokens.Spacing.tight)
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-
-                if showHistory {
-                    VStack(spacing: 0) {
-                        ForEach(activeGatewayRecords.prefix(10)) { record in
-                            Button {
-                                Task { await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
-                            } label: {
-                                HStack(spacing: DesignTokens.Spacing.tight) {
-                                    Circle()
-                                        .fill(Color.accentColor.opacity(0.12))
-                                        .frame(width: 28, height: 28)
-                                        .overlay {
-                                            Image(systemName: "bubble.left.and.bubble.right.fill")
-                                                .font(.system(size: 11, weight: .medium))
-                                                .foregroundStyle(Color.accentColor)
-                                        }
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(record.title)
-                                            .font(.subheadline)
-                                            .lineLimit(1)
-                                            .foregroundStyle(.primary)
-                                        Text(record.lastMessageAt, style: .relative)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, DesignTokens.Spacing.standard)
-                                .padding(.vertical, DesignTokens.Spacing.tight)
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .background(
-                        .regularMaterial,
-                        in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.medium, style: .continuous)
-                    )
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 8)
-        }
     }
 
     // MARK: - Thinking indicator (before first SSE token arrives)

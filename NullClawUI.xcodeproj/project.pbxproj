@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01405946687559711B834382 /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF060F24BF32E8FC544665E2 /* TestFixtures.swift */; };
+		06A921F3A58BB1C1F280147B /* ConversationHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CBCCF753A35118FA04B34D6 /* ConversationHistoryView.swift */; };
 		0AFA7786BAFF763E6CA8358E /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354198F01B07BCCD5083AA9A /* MCPServer.swift */; };
 		2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */; };
 		28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A879BA976476DF9DECFFA87 /* SettingsView.swift */; };
@@ -94,6 +95,7 @@
 		13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDetailView.swift; sourceTree = "<group>"; };
 		1A024AECFAB790964AA72196 /* ChannelStatusListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusListView.swift; sourceTree = "<group>"; };
 		1CAFCE3D5DD22F4C2040022C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		1CBCCF753A35118FA04B34D6 /* ConversationHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationHistoryView.swift; sourceTree = "<group>"; };
 		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDiscoveryModel.swift; sourceTree = "<group>"; };
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -242,6 +244,7 @@
 				BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */,
 				7CC1A87698B2B35470BAFF5D /* Components.swift */,
 				2211EF38611CF618453B2921 /* ContentView.swift */,
+				1CBCCF753A35118FA04B34D6 /* ConversationHistoryView.swift */,
 				86331E234CC107BD5471DBE7 /* CronJobListView.swift */,
 				F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */,
 				13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */,
@@ -527,6 +530,7 @@
 				EB037840C8BE017C749CF641 /* Color+Extensions.swift in Sources */,
 				7C9349B5DF3CCABA478FCD27 /* Components.swift in Sources */,
 				A8B6645D086598650A813BB8 /* ContentView.swift in Sources */,
+				06A921F3A58BB1C1F280147B /* ConversationHistoryView.swift in Sources */,
 				AD3D252E3AB29E03F2448155 /* ConversationRecord.swift in Sources */,
 				D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */,
 				4C0AC42B91F7ED0360B8D394 /* CronJobListView.swift in Sources */,
