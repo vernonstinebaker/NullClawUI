@@ -40,6 +40,7 @@ targets:
       - name: SwiftLint
         script: |
           set -e
+          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
           # Skip SwiftLint when Periphery is running to avoid sandbox permission issues
           if [[ -n "${RUN_PERIPHERY}" ]]; then
             echo "Skipping SwiftLint (Periphery build)"
@@ -56,6 +57,7 @@ targets:
       - name: SwiftFormat
         script: |
           set -e
+          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
           # Skip SwiftFormat when Periphery is running to avoid sandbox permission issues
           if [[ -n "${RUN_PERIPHERY}" ]]; then
             echo "Skipping SwiftFormat (Periphery build)"
@@ -73,6 +75,7 @@ targets:
       - name: Periphery (Conditional)
         script: |
           set -e
+          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
           if [[ -n "${RUN_PERIPHERY}" ]]; then
             if which periphery >/dev/null; then
               periphery scan --config .periphery.yml
