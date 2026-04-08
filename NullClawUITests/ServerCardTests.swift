@@ -1,8 +1,6 @@
 @testable import NullClawUI
 import XCTest
 
-// MARK: - ServerCard Unit Tests
-
 @MainActor
 final class ServerCardTests: XCTestCase {
     private func makeProfile(
@@ -13,16 +11,15 @@ final class ServerCardTests: XCTestCase {
         GatewayProfile(name: name, url: url, isPaired: isPaired)
     }
 
-    // MARK: Tests
-
     func testServerCardShowsGatewayName() {
         let profile = makeProfile(name: "MyGateway")
         let card = ServerCard(
             profile: profile,
             healthStatus: .online,
             lastChecked: nil,
-            taskCount: 0,
-            cronJobCount: 0,
+            cronJobCount: 2,
+            mcpServerCount: 3,
+            channelCount: 1,
             onTap: {}
         )
         XCTAssertEqual(card.profile.name, "MyGateway")
@@ -34,8 +31,9 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .online,
             lastChecked: nil,
-            taskCount: 0,
-            cronJobCount: 0,
+            cronJobCount: nil,
+            mcpServerCount: nil,
+            channelCount: nil,
             onTap: {}
         )
         XCTAssertTrue(card.profile.displayHost.contains("gateway.local"))
@@ -47,8 +45,9 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .online,
             lastChecked: nil,
-            taskCount: 5,
             cronJobCount: 3,
+            mcpServerCount: 1,
+            channelCount: 2,
             onTap: {}
         )
         XCTAssertEqual(card.healthStatus, .online)
@@ -60,8 +59,9 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .offline,
             lastChecked: nil,
-            taskCount: 0,
-            cronJobCount: 0,
+            cronJobCount: nil,
+            mcpServerCount: nil,
+            channelCount: nil,
             onTap: {}
         )
         XCTAssertEqual(card.healthStatus, .offline)
@@ -73,8 +73,9 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .unknown,
             lastChecked: nil,
-            taskCount: 0,
-            cronJobCount: 0,
+            cronJobCount: nil,
+            mcpServerCount: nil,
+            channelCount: nil,
             onTap: {}
         )
         XCTAssertEqual(card.healthStatus, .unknown)
@@ -87,8 +88,9 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .online,
             lastChecked: nil,
-            taskCount: 0,
             cronJobCount: 0,
+            mcpServerCount: 0,
+            channelCount: 0,
             onTap: { expectation.fulfill() }
         )
         XCTAssertNotNil(card.onTap)
@@ -96,18 +98,36 @@ final class ServerCardTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    func testServerCardShowsMiniStats() {
+    func testServerCardShowsResourceCounts() {
         let profile = makeProfile()
         let card = ServerCard(
             profile: profile,
             healthStatus: .online,
             lastChecked: nil,
-            taskCount: 7,
-            cronJobCount: 2,
+            cronJobCount: 7,
+            mcpServerCount: 2,
+            channelCount: 3,
             onTap: {}
         )
-        XCTAssertEqual(card.taskCount, 7)
-        XCTAssertEqual(card.cronJobCount, 2)
+        XCTAssertEqual(card.cronJobCount, 7)
+        XCTAssertEqual(card.mcpServerCount, 2)
+        XCTAssertEqual(card.channelCount, 3)
+    }
+
+    func testServerCardNilCounts() {
+        let profile = makeProfile()
+        let card = ServerCard(
+            profile: profile,
+            healthStatus: .offline,
+            lastChecked: nil,
+            cronJobCount: nil,
+            mcpServerCount: nil,
+            channelCount: nil,
+            onTap: {}
+        )
+        XCTAssertNil(card.cronJobCount)
+        XCTAssertNil(card.mcpServerCount)
+        XCTAssertNil(card.channelCount)
     }
 
     func testServerCardShowsLastCheckedTime() {
@@ -117,24 +137,12 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .online,
             lastChecked: now,
-            taskCount: 0,
             cronJobCount: 0,
+            mcpServerCount: 0,
+            channelCount: 0,
             onTap: {}
         )
         XCTAssertNotNil(card.lastChecked)
-    }
-
-    func testServerCardHidesMiniStatsWhenOffline() {
-        let profile = makeProfile()
-        let card = ServerCard(
-            profile: profile,
-            healthStatus: .offline,
-            lastChecked: nil,
-            taskCount: 5,
-            cronJobCount: 3,
-            onTap: {}
-        )
-        XCTAssertEqual(card.healthStatus, .offline)
     }
 
     func testServerCardShowsPairedStatus() {
@@ -150,8 +158,9 @@ final class ServerCardTests: XCTestCase {
             profile: profile,
             healthStatus: .online,
             lastChecked: nil,
-            taskCount: 0,
             cronJobCount: 0,
+            mcpServerCount: 0,
+            channelCount: 0,
             onTap: {}
         )
         XCTAssertEqual(card.profile.name, "TestGateway")

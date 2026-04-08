@@ -94,7 +94,6 @@ struct ServersView: View {
     @ViewBuilder
     private func serverCard(for profile: GatewayProfile) -> some View {
         let state = statusVM.healthState(for: profile)
-        let taskCount = profile.conversationRecords.count
 
         NavigationLink {
             GatewayDetailView(profile: profile)
@@ -103,8 +102,9 @@ struct ServersView: View {
                 profile: profile,
                 healthStatus: state.status,
                 lastChecked: state.lastChecked,
-                taskCount: taskCount,
-                cronJobCount: 0
+                cronJobCount: state.cronJobCount,
+                mcpServerCount: state.mcpServerCount,
+                channelCount: state.channelCount
             )
         }
         .buttonStyle(.plain)

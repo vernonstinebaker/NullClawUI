@@ -51,6 +51,10 @@ enum KeychainService {
         (try? retrieveToken(for: gatewayURL))?.isEmpty == false
     }
 
+    static func retrieveTokenIfAvailable(for gatewayURL: String) -> String? {
+        (try? retrieveToken(for: gatewayURL)).flatMap(\.self)
+    }
+
     static func moveToken(from oldGatewayURL: String, to newGatewayURL: String) throws {
         let oldKey = itemKey(for: oldGatewayURL)
         let newKey = itemKey(for: newGatewayURL)

@@ -2,29 +2,20 @@ import SwiftUI
 
 // MARK: - GatewayDetailView
 
-/// Detail page for a single gateway profile.
-/// Fetches agent card and health directly from this profile's URL — no dependency
-/// on which gateway the chat client is currently pointed at.
-/// Gateway switching is done exclusively from the Chat tab nav-bar picker.
 struct GatewayDetailView: View {
     let profile: GatewayProfile
 
     @Environment(GatewayStore.self) private var store
     @Environment(GatewayViewModel.self) private var gatewayVM
     @Environment(ChatViewModel.self) private var chatVM
+    @Environment(GatewayStatusViewModel.self) private var statusVM
     @State private var editingProfile: GatewayProfile? = nil
     @State private var showingPairSheet: Bool = false
 
-    // Per-profile agent card (fetched on appear, independent of chat client)
     @State private var agentCard: AgentCard? = nil
     @State private var isLoadingCard: Bool = false
     @State private var cardError: String? = nil
-
-    /// Per-profile health (fetched on appear)
     @State private var healthStatus: ConnectionStatus = .unknown
-
-    /// Per-profile MCP server count (fetched on appear alongside health/card)
-    @State private var mcpServerCount: Int? = nil
 
     var body: some View {
         List {
@@ -63,10 +54,6 @@ struct GatewayDetailView: View {
                 LabeledContent("Status") {
                     ConnectionBadge(status: healthStatus)
                 }
-                LabeledContent("MCP Servers") {
-                    Text(mcpServerCount.map { "\($0)" } ?? "—")
-                        .foregroundStyle(mcpServerCount == nil ? .secondary : .primary)
-                }
             } header: {
                 Text("Gateway")
                     .font(.caption.weight(.semibold))
@@ -77,48 +64,60 @@ struct GatewayDetailView: View {
             // Management links
             if URL(string: profile.url) != nil {
                 Section {
+                    let state = statusVM.healthState(for: profile)
+
                     managementLink(
                         icon: "clock.badge.checkmark",
                         label: "Cron Jobs",
-                        hint: "View, add, pause, and delete scheduled cron jobs"
+                        hint: "View, add, pause, and delete scheduled cron jobs",
+                        badge: state.cronJobCount.map { "\($0)" }
                     ) {
                         CronJobListView(profile: profile)
                     }
                     managementLink(
                         icon: "puzzlepiece.extension.fill",
                         label: "MCP Servers",
-                        hint: "View, add, and remove MCP server integrations"
+                        hint: "View, add, and remove MCP server integrations",
+                        badge: state.mcpServerCount.map { "\($0)" }
                     ) {
                         MCPServerListView(profile: profile)
                     }
                     managementLink(
                         icon: "antenna.radiowaves.left.and.right",
                         label: "Channels",
-                        hint: "View connection status of communication channels"
+                        hint: "View connection status of communication channels",
+                        badge: state.channelCount.map { "\($0)" }
                     ) {
                         ChannelStatusListView(profile: profile)
                     }
                     managementLink(
                         icon: "slider.horizontal.3",
                         label: "Agent Configuration",
-                        hint: "Adjust model, temperature, and limits"
+                        hint: "Adjust model, temperature, and limits",
+                        badge: nil
                     ) {
                         AgentConfigView(profile: profile)
                     }
                     managementLink(
                         icon: "shield.lefthalf.filled",
                         label: "Autonomy & Safety",
-                        hint: "Adjust autonomy level and safety controls"
+                        hint: "Adjust autonomy level and safety controls",
+                        badge: nil
                     ) {
                         AutonomyView(profile: profile)
                     }
-                    managementLink(
-                        icon: "chart.bar.fill",
-                        label: "Cost & Usage",
-                        hint: "View token usage and configure spend limits"
-                    ) {
-                        UsageStatsView(profile: profile)
-                    }
+
+                    // NOTE: Cost & Usage temporarily hidden — UsageStatsViewModel uses
+                    // sendOneShot which can hang on some gateway configurations.
+                    // Uncomment when REST API endpoint is available.
+                    // managementLink(
+                    //     icon: "chart.bar.fill",
+                    //     label: "Cost & Usage",
+                    //     hint: "View token usage and configure spend limits",
+                    //     badge: nil
+                    // ) {
+                    //     UsageStatsView(profile: profile)
+                    // }
                 } header: {
                     Text("Management")
                         .font(.caption.weight(.semibold))
@@ -228,12 +227,24 @@ struct GatewayDetailView: View {
         icon: String,
         label: String,
         hint: String,
+        badge: String?,
         @ViewBuilder destination: () -> some View
     ) -> some View {
         NavigationLink {
             destination()
         } label: {
-            Label(label, systemImage: icon)
+            HStack {
+                Label(label, systemImage: icon)
+                Spacer()
+                if let badge {
+                    Text(badge)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(.fill.tertiary, in: Capsule())
+                }
+            }
         }
         .accessibilityLabel(label)
         .accessibilityHint(hint)
@@ -246,7 +257,6 @@ struct GatewayDetailView: View {
         guard let url = URL(string: profile.url) else { return }
         let client = GatewayClient(baseURL: url)
 
-        // Health check
         healthStatus = .unknown
         async let healthTask: ConnectionStatus = {
             do {
@@ -257,7 +267,6 @@ struct GatewayDetailView: View {
             }
         }()
 
-        // Agent card fetch
         isLoadingCard = true
         cardError = nil
         async let cardTask: AgentCard? = {
@@ -268,20 +277,9 @@ struct GatewayDetailView: View {
             }
         }()
 
-        // MCP server count
-        async let mcpTask: Int? = {
-            do {
-                let servers = try await client.apiListMCPServers()
-                return servers.count
-            } catch {
-                return nil
-            }
-        }()
-
-        let (health, card, mcp) = await (healthTask, cardTask, mcpTask)
+        let (health, card) = await (healthTask, cardTask)
         healthStatus = health
         agentCard = card
-        mcpServerCount = mcp
         isLoadingCard = false
         if card == nil {
             cardError = "Could not reach \(profile.displayHost)"

@@ -4,9 +4,9 @@ import SwiftUI
 
 // MARK: - MCPServerListView
 
-/// Phase 18: MCP Server Management.
-/// Displays all MCP servers registered in the gateway config with transport type
-/// and connection status. Accessed via a NavigationLink inside GatewayDetailView.
+/// MCP Server Management with inline status display.
+/// On load, fetches the server list and checks each server's status concurrently.
+/// Status is shown inline with green/red dots — no sub-navigation required.
 struct MCPServerListView: View {
     let profile: GatewayProfile
 
@@ -20,6 +20,15 @@ struct MCPServerListView: View {
         _viewModel = State(wrappedValue: MCPServerViewModel(
             client: GatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
         ))
+    }
+
+    private var sortedServers: [MCPServer] {
+        viewModel.servers.sorted { a, b in
+            let typeA = a.transport.lowercased() == "http" ? 1 : 0
+            let typeB = b.transport.lowercased() == "http" ? 1 : 0
+            if typeA != typeB { return typeA < typeB }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
     }
 
     var body: some View {
@@ -53,31 +62,18 @@ struct MCPServerListView: View {
                 }
             } else {
                 Section {
-                    ForEach(viewModel.servers) { server in
-                        NavigationLink {
-                            MCPServerDetailView(viewModel: viewModel, serverName: server.name)
-                        } label: {
-                            serverRow(server)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                Task { await viewModel.remove(server) }
-                            } label: {
-                                Label("Remove", systemImage: "trash")
+                    ForEach(sortedServers) { server in
+                        serverRow(server)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    Task { await viewModel.remove(server) }
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                                .tint(.red)
+                                .accessibilityLabel("Remove MCP server \(server.name)")
                             }
-                            .tint(.red)
-                            .accessibilityLabel("Remove MCP server \(server.name)")
-                        }
                     }
-                }
-            }
-
-            // Confirmation banner
-            if let msg = viewModel.confirmationMessage {
-                Section {
-                    Label(msg, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .accessibilityLabel("Success: \(msg)")
                 }
             }
 
@@ -93,7 +89,7 @@ struct MCPServerListView: View {
         }
         .navigationTitle("MCP Servers")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await viewModel.load() }
+        .refreshable { await fullRefresh() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -113,7 +109,7 @@ struct MCPServerListView: View {
         }
         .task {
             if viewModel.servers.isEmpty, profile.isPaired {
-                await viewModel.load()
+                await fullRefresh()
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -128,9 +124,10 @@ struct MCPServerListView: View {
     @ViewBuilder
     private func serverRow(_ server: MCPServer) -> some View {
         let isRemoving = viewModel.removingName == server.name
+        let isChecking = viewModel.checkingStatusName == server.name
 
         HStack(spacing: 12) {
-            // Transport icon
+            // Transport icon with status overlay
             ZStack {
                 Circle()
                     .fill(transportColor(for: server.transport))
@@ -152,7 +149,6 @@ struct MCPServerListView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
 
-                    // Transport badge
                     Text(server.transportLabel)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white)
@@ -169,29 +165,57 @@ struct MCPServerListView: View {
 
             Spacer(minLength: 0)
 
-            // Connection status badge — only shown after a Check Status has been run.
-            if let connected = server.connected {
-                connectionBadge(for: connected)
+            // Status indicator + refresh button
+            if isChecking {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                HStack(spacing: 6) {
+                    statusDot(for: server.connected)
+                    Button {
+                        Task { await viewModel.checkStatus(for: server.name) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Refresh status for \(server.name)")
+                }
             }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(for: server))
-        .accessibilityHint("Tap to view details. Swipe left to remove.")
+        .accessibilityHint("Swipe left to remove")
     }
 
     @ViewBuilder
-    private func connectionBadge(for connected: Bool) -> some View {
-        let (label, color, icon): (String, Color, String) = connected
-            ? ("Connected", .green, "circle.fill")
-            : ("Failed", .red, "exclamationmark.circle.fill")
-        Label(label, systemImage: icon)
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(color)
-            .accessibilityLabel("Status: \(label)")
+    private func statusDot(for connected: Bool?) -> some View {
+        switch connected {
+        case true:
+            Circle()
+                .fill(.green)
+                .frame(width: 10, height: 10)
+        case false:
+            Circle()
+                .fill(.red)
+                .frame(width: 10, height: 10)
+        case nil:
+            Circle()
+                .strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1.5, dash: [3]))
+                .frame(width: 10, height: 10)
+        }
     }
 
     // MARK: - Helpers
+
+    private func fullRefresh() async {
+        await viewModel.load()
+        if !viewModel.servers.isEmpty {
+            await viewModel.checkAllStatuses()
+        }
+    }
 
     private func transportIcon(for transport: String) -> String {
         transport.lowercased() == "http" ? "globe" : "terminal.fill"
@@ -210,173 +234,8 @@ struct MCPServerListView: View {
     }
 }
 
-// MARK: - MCPServerDetailView
-
-/// Read-only detail view for a single MCP server, with an on-demand "Check Status" button.
-private struct MCPServerDetailView: View {
-    @Bindable var viewModel: MCPServerViewModel
-    let serverName: String
-
-    /// Live server from the VM — falls back to a placeholder if removed between load cycles.
-    private var server: MCPServer? {
-        viewModel.servers.first(where: { $0.name == serverName })
-    }
-
-    private var isCheckingStatus: Bool {
-        viewModel.checkingStatusName == serverName
-    }
-
-    var body: some View {
-        Group {
-            if let server {
-                serverDetail(server)
-            } else {
-                ContentUnavailableView(
-                    "Server Not Found",
-                    systemImage: "puzzlepiece.extension",
-                    description: Text("This MCP server may have been removed.")
-                )
-            }
-        }
-        .navigationTitle(serverName)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if isCheckingStatus {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Checking server status")
-                }
-            }
-        }
-    }
-
-    private func serverDetail(_ server: MCPServer) -> some View {
-        List {
-            Section("Identity") {
-                LabeledContent("Name", value: server.name)
-                LabeledContent("Transport", value: server.transportLabel)
-                LabeledContent("Status") {
-                    HStack(spacing: 6) {
-                        statusContent(for: server.connected)
-                        if isCheckingStatus {
-                            ProgressView()
-                                .controlSize(.small)
-                                .accessibilityLabel("Checking status")
-                        }
-                    }
-                    .font(.subheadline)
-                }
-                Button {
-                    Task { await viewModel.checkStatus(for: serverName) }
-                } label: {
-                    if isCheckingStatus {
-                        Label("Checking…", systemImage: "arrow.triangle.2.circlepath")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Label("Check Status", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                }
-                .disabled(isCheckingStatus)
-                .accessibilityLabel("Check connection status")
-                .accessibilityHint("Probes the MCP server to verify it is reachable")
-            }
-
-            if server.transport.lowercased() == "http" {
-                Section("HTTP") {
-                    if let url = server.url {
-                        LabeledContent("URL") {
-                            Text(url)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                    }
-                    if let headers = server.headers, !headers.isEmpty {
-                        LabeledContent("Headers", value: "")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        ForEach(headers.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                            LabeledContent(key, value: value)
-                                .font(.caption.monospaced())
-                        }
-                    }
-                }
-            } else {
-                Section("Subprocess") {
-                    if let cmd = server.command {
-                        LabeledContent("Command") {
-                            Text(cmd)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                    }
-                    if let args = server.args, !args.isEmpty {
-                        LabeledContent("Arguments") {
-                            Text(args.joined(separator: " "))
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                    }
-                    if let env = server.env, !env.isEmpty {
-                        LabeledContent("Environment", value: "")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        ForEach(env.sorted(by: { $0.key < $1.key }), id: \.key) { key, _ in
-                            LabeledContent(key, value: "●●●●●●")
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            if let timeout = server.timeoutMs {
-                Section("Options") {
-                    LabeledContent("Timeout", value: "\(timeout) ms")
-                }
-            }
-
-            // Confirmation / error banners scoped to this detail view's last check.
-            if let msg = viewModel.confirmationMessage, viewModel.checkingStatusName == nil {
-                Section {
-                    Label(msg, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .accessibilityLabel("Status: \(msg)")
-                }
-            }
-            if let err = viewModel.errorMessage, viewModel.checkingStatusName == nil {
-                Section {
-                    Label(err, systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel("Error: \(err)")
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func statusContent(for connected: Bool?) -> some View {
-        switch connected {
-        case true:
-            Image(systemName: "circle.fill").foregroundStyle(.green)
-            Text("Connected")
-        case false:
-            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
-            Text("Failed")
-        case nil:
-            Image(systemName: "circle.dotted").foregroundStyle(.secondary)
-            Text("Unknown")
-        }
-    }
-}
-
 // MARK: - AddMCPServerSheet
 
-/// Form for registering a new MCP server via the agent.
 private struct AddMCPServerSheet: View {
     let onAdd: (MCPServerDraft) -> Void
 

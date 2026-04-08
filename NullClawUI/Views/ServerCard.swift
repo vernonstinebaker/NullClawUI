@@ -2,13 +2,13 @@ import SwiftUI
 
 // MARK: - ServerCardContent
 
-/// Visual content of a server card — used both standalone (tappable) and inside NavigationLink.
 struct ServerCardContent: View {
     let profile: GatewayProfile
     let healthStatus: ConnectionStatus
     let lastChecked: Date?
-    let taskCount: Int
-    let cronJobCount: Int
+    let cronJobCount: Int?
+    let mcpServerCount: Int?
+    let channelCount: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.tight) {
@@ -76,11 +76,36 @@ struct ServerCardContent: View {
     }
 
     private var miniStatsGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: DesignTokens.Spacing.minimal) {
-            miniStatItem(icon: "bubble.left.and.bubble.right", value: "\(taskCount)", label: "Tasks", color: .blue)
-            miniStatItem(icon: "clock.badge.checkmark", value: "\(cronJobCount)", label: "Cron", color: .orange)
-            miniStatItem(icon: "server.rack", value: profile.isPaired ? "✓" : "—", label: "Paired", color: .green)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: DesignTokens.Spacing.minimal) {
+            miniStatItem(
+                icon: "clock.badge.checkmark",
+                value: countText(cronJobCount),
+                label: "Cron",
+                color: .orange
+            )
+            miniStatItem(
+                icon: "puzzlepiece.extension.fill",
+                value: countText(mcpServerCount),
+                label: "MCP",
+                color: .purple
+            )
+            miniStatItem(
+                icon: "antenna.radiowaves.left.and.right",
+                value: countText(channelCount),
+                label: "Channels",
+                color: .teal
+            )
+            miniStatItem(
+                icon: "checkmark.shield.fill",
+                value: profile.isPaired ? "✓" : "—",
+                label: "Paired",
+                color: .green
+            )
         }
+    }
+
+    private func countText(_ count: Int?) -> String {
+        if let count { "\(count)" } else { "—" }
     }
 
     private func miniStatItem(icon: String, value: String, label: String, color: Color) -> some View {
@@ -92,7 +117,7 @@ struct ServerCardContent: View {
                 .font(.caption.weight(.bold))
                 .contentTransition(.numericText())
             Text(label)
-                .font(.caption2)
+                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
         }
     }
@@ -100,14 +125,13 @@ struct ServerCardContent: View {
 
 // MARK: - ServerCard (standalone tappable version)
 
-/// Tappable card representing a single gateway profile.
-/// Use `ServerCardContent` when placing inside a NavigationLink.
 struct ServerCard: View {
     let profile: GatewayProfile
     let healthStatus: ConnectionStatus
     let lastChecked: Date?
-    let taskCount: Int
-    let cronJobCount: Int
+    let cronJobCount: Int?
+    let mcpServerCount: Int?
+    let channelCount: Int?
     let onTap: () -> Void
 
     var body: some View {
@@ -116,8 +140,9 @@ struct ServerCard: View {
                 profile: profile,
                 healthStatus: healthStatus,
                 lastChecked: lastChecked,
-                taskCount: taskCount,
-                cronJobCount: cronJobCount
+                cronJobCount: cronJobCount,
+                mcpServerCount: mcpServerCount,
+                channelCount: channelCount
             )
         }
         .buttonStyle(.plain)

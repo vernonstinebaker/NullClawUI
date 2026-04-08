@@ -139,6 +139,31 @@ final class MCPServerViewModel {
         }
     }
 
+    /// Checks status of all servers concurrently using TaskGroup.
+    func checkAllStatuses() async {
+        let names = servers.map(\.name)
+        await withTaskGroup(of: Void.self) { group in
+            for name in names {
+                group.addTask {
+                    do {
+                        _ = try await self.client.apiGetMCPServer(name: name)
+                        await MainActor.run {
+                            if let idx = self.servers.firstIndex(where: { $0.name == name }) {
+                                self.servers[idx].connected = true
+                            }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            if let idx = self.servers.firstIndex(where: { $0.name == name }) {
+                                self.servers[idx].connected = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Add
 
     func addServer(_ draft: MCPServerDraft) async {

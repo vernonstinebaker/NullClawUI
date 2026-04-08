@@ -3,37 +3,28 @@ import Observation
 
 // MARK: - Profile Health State
 
-/// The health state for a single gateway profile, used by the Status tab.
+/// The health state for a single gateway profile, including resource counts.
 struct ProfileHealthState {
     var status: ConnectionStatus = .unknown
     var lastChecked: Date?
     var isChecking: Bool = false
+    var cronJobCount: Int?
+    var mcpServerCount: Int?
+    var channelCount: Int?
 }
 
 // MARK: - GatewayStatusViewModel
 
-/// Phase 14 (redesigned): lightweight multi-gateway health overview.
-/// Fires concurrent GET /health checks against every known profile — no A2A prompts,
-/// no tokens required.  Results are nearly instant (<1 s on LAN).
+/// Lightweight multi-gateway health overview with resource counts.
+/// Fires concurrent GET /health + REST API calls against every known profile.
 @Observable
 @MainActor
 final class GatewayStatusViewModel {
-    // MARK: Published state
-
-    /// Health state keyed by profile ID.  Ordered to match GatewayStore.profiles.
     private(set) var healthStates: [UUID: ProfileHealthState] = [:]
-    /// True while at least one profile is being checked.
-    /// Internal (not private) so tests can inspect and simulate concurrent-refresh scenarios.
     var isRefreshing: Bool = false
 
-    // MARK: Dependencies
-
-    /// Provides all known profiles in display order.
     var store: GatewayStore
-    /// Optional: if a custom session config is injected (for tests), use it.
     var mockSessionConfig: URLSessionConfiguration?
-
-    // MARK: Init
 
     init(store: GatewayStore, mockSessionConfig: URLSessionConfiguration? = nil) {
         self.store = store
@@ -42,8 +33,6 @@ final class GatewayStatusViewModel {
 
     // MARK: - Public API
 
-    /// Fires concurrent GET /health checks for all profiles and updates healthStates.
-    /// Calling again while already refreshing is a no-op.
     func refresh() async {
         guard !isRefreshing else { return }
         let profiles = store.profiles
@@ -52,19 +41,18 @@ final class GatewayStatusViewModel {
         isRefreshing = true
         defer { isRefreshing = false }
 
-        // Mark all profiles as currently checking.
         for profile in profiles {
             var state = healthStates[profile.id] ?? ProfileHealthState()
             state.isChecking = true
             healthStates[profile.id] = state
         }
 
-        // Collect results from concurrent health checks.
-        // TaskGroup needs a concrete result type; wrap in a named struct to avoid
-        // inference issues with tuples in strict-concurrency mode.
         struct HealthResult: Sendable {
             let id: UUID
             let status: ConnectionStatus
+            let cronJobCount: Int?
+            let mcpServerCount: Int?
+            let channelCount: Int?
         }
 
         await withTaskGroup(of: HealthResult.self) { group in
@@ -73,8 +61,17 @@ final class GatewayStatusViewModel {
                 let urlString = profile.url
                 let cfg = mockSessionConfig
                 group.addTask {
-                    let status = await Self.checkHealth(urlString: urlString, sessionConfig: cfg)
-                    return HealthResult(id: profileID, status: status)
+                    let (status, cronCount, mcpCount, channelCount) = await Self.checkHealthAndCounts(
+                        urlString: urlString,
+                        sessionConfig: cfg
+                    )
+                    return HealthResult(
+                        id: profileID,
+                        status: status,
+                        cronJobCount: cronCount,
+                        mcpServerCount: mcpCount,
+                        channelCount: channelCount
+                    )
                 }
             }
             for await result in group {
@@ -82,6 +79,9 @@ final class GatewayStatusViewModel {
                 state.status = result.status
                 state.lastChecked = Date()
                 state.isChecking = false
+                state.cronJobCount = result.cronJobCount
+                state.mcpServerCount = result.mcpServerCount
+                state.channelCount = result.channelCount
                 healthStates[result.id] = state
             }
         }
@@ -95,8 +95,6 @@ final class GatewayStatusViewModel {
 
     // MARK: - Private helpers
 
-    /// Performs a single GET /health and returns the resulting ConnectionStatus.
-    /// Never throws — always returns .online or .offline.
     private static func checkHealth(
         urlString: String,
         sessionConfig: URLSessionConfiguration?
@@ -105,17 +103,9 @@ final class GatewayStatusViewModel {
         let url = base.appendingPathComponent("health")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 8 // fast timeout for a health check
+        request.timeoutInterval = 8
 
-        let session: URLSession
-        if let cfg = sessionConfig {
-            session = URLSession(configuration: cfg)
-        } else {
-            let cfg = URLSessionConfiguration.ephemeral
-            cfg.timeoutIntervalForRequest = 8
-            session = URLSession(configuration: cfg)
-        }
-
+        let session = makeSession(config: sessionConfig)
         defer { session.invalidateAndCancel() }
         do {
             let (_, response) = try await session.data(for: request)
@@ -129,5 +119,87 @@ final class GatewayStatusViewModel {
         } catch {
             return .offline
         }
+    }
+
+    private static func checkHealthAndCounts(
+        urlString: String,
+        sessionConfig: URLSessionConfiguration?
+    ) async -> (ConnectionStatus, Int?, Int?, Int?) {
+        let status = await checkHealth(urlString: urlString, sessionConfig: sessionConfig)
+        guard status == .online else {
+            return (status, nil, nil, nil)
+        }
+
+        let session = makeSession(config: sessionConfig)
+        defer { session.invalidateAndCancel() }
+        guard let base = URL(string: urlString) else {
+            return (status, nil, nil, nil)
+        }
+
+        let token = KeychainService.retrieveTokenIfAvailable(for: urlString)
+
+        async let cronCount = fetchCount(session: session, baseURL: base, path: "/api/cron", token: token) { data in
+            if let array = try? JSONDecoder().decode([CronJob].self, from: data) {
+                return array.count
+            }
+            return nil
+        }
+        async let mcpCount = fetchCount(session: session, baseURL: base, path: "/api/mcp", token: token) { data in
+            if let array = try? JSONDecoder().decode([ApiMCPServerInfo].self, from: data) {
+                return array.count
+            }
+            return nil
+        }
+        async let channelCount = fetchCount(
+            session: session,
+            baseURL: base,
+            path: "/api/channels",
+            token: token
+        ) { data in
+            if let array = try? JSONDecoder().decode([ApiChannelInfo].self, from: data) {
+                return array.count
+            }
+            return nil
+        }
+
+        let (c, m, ch) = await (cronCount, mcpCount, channelCount)
+        return (status, c, m, ch)
+    }
+
+    private static func fetchCount(
+        session: URLSession,
+        baseURL: URL,
+        path: String,
+        token: String?,
+        parser: @Sendable (Data) -> Int?
+    ) async -> Int? {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard
+                let http = response as? HTTPURLResponse,
+                (200 ..< 300).contains(http.statusCode) else
+            {
+                return nil
+            }
+            return parser(data)
+        } catch {
+            return nil
+        }
+    }
+
+    private static func makeSession(config: URLSessionConfiguration?) -> URLSession {
+        if let cfg = config {
+            return URLSession(configuration: cfg)
+        }
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 8
+        return URLSession(configuration: cfg)
     }
 }
