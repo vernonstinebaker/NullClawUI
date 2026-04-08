@@ -22,23 +22,23 @@ A native iOS client for [NullClaw](https://github.com/nullclaw) AI Gateways.
     <td align="center"><b>Chat</b></td>
   </tr>
   <tr>
-    <td><img src="Screenshots/Servers-Dashboard.PNG" width="300" alt="Servers Dashboard"></td>
-    <td><img src="Screenshots/Chat-status.PNG" width="300" alt="Chat"></td>
+    <td><img src="Screenshots/Servers-Dashboard.PNG" width="390" alt="Servers Dashboard"></td>
+    <td><img src="Screenshots/Chat-status.PNG" width="390" alt="Chat"></td>
   </tr>
   <tr>
     <td align="center"><b>Server Settings</b></td>
     <td align="center"><b>Cron Jobs</b></td>
   </tr>
   <tr>
-    <td><img src="Screenshots/Server-Settings.PNG" width="300" alt="Server Settings"></td>
-    <td><img src="Screenshots/Cron-Jobs.PNG" width="300" alt="Cron Jobs"></td>
+    <td><img src="Screenshots/Server-Settings.PNG" width="390" alt="Server Settings"></td>
+    <td><img src="Screenshots/Cron-Jobs.PNG" width="390" alt="Cron Jobs"></td>
   </tr>
   <tr>
     <td align="center"><b>MCP Servers</b></td>
     <td></td>
   </tr>
   <tr>
-    <td><img src="Screenshots/MCP-Servers.PNG" width="300" alt="MCP Servers"></td>
+    <td><img src="Screenshots/MCP-Servers.PNG" width="390" alt="MCP Servers"></td>
     <td></td>
   </tr>
 </table>
