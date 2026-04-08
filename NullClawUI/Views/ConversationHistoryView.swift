@@ -6,8 +6,9 @@ struct ConversationHistoryView: View {
 
     @Environment(GatewayStore.self) private var store
     @Environment(ConversationStore.self) private var conversationStore
-    @State private var searchText: String = ""
-    @State private var expandedRecordID: UUID? = nil
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+    @State private var expandedRecordID: UUID?
 
     private var activeGatewayRecords: [ConversationRecord] {
         guard let activeID = store.activeProfile?.id else { return [] }
@@ -50,7 +51,11 @@ struct ConversationHistoryView: View {
         let isActive = viewModel.activeRecordID == record.id
 
         Button {
-            Task { await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel) }
+            guard !isActive else { return }
+            Task {
+                await viewModel.openRecord(record, gatewayViewModel: gatewayViewModel)
+                dismiss()
+            }
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
