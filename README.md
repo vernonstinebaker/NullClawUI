@@ -1,51 +1,55 @@
 # NullClawUI
 
-A native iOS/iPadOS client for interacting with a [NullClaw](https://github.com/nullclaw) AI Gateway using the **A2A (Agent-to-Agent)** protocol.
+A native iOS client for [NullClaw](https://github.com/nullclaw) AI Gateways.
 
 ---
 
-## Platform Requirements
+## Requirements
 
-| Property | Value |
+| | |
 |---|---|
-| **iOS / iPadOS** | 26.0+ |
-| **macOS** | 26.0 Tahoe+ (Mac Catalyst, optional) |
-| **Xcode** | 26+ |
-| **Swift** | 6 (strict concurrency) |
+| iOS / iPadOS | 26.0+ |
+| Xcode | 26+ |
+| Swift | 6 (strict concurrency) |
 
 ---
 
-## Features (by phase)
+## Features
 
-| Phase | Name | Status |
+- **Multi-gateway chat** — connect to multiple NullClaw Gateways; switch instantly with the title-bar picker
+- **Real-time streaming** — SSE-based streaming with exponential back-off reconnect
+- **Conversation history** — searchable list of past conversations with expand/collapse; tap to resume
+- **Secure pairing** — Bearer tokens stored in the system Keychain, keyed per gateway
+- **Cron Jobs** — view, create, pause, resume, run, and delete scheduled jobs
+- **MCP Servers** — view registered servers with live health status (auto-checked on load), add new servers
+- **Channels** — view connection status of configured communication channels
+- **Agent Configuration** — adjust model, temperature, system prompt, and limits
+- **Autonomy & Safety** — set autonomy level and safety controls
+- **Multi-modal input** — attach images and documents when the gateway supports it
+- **Health monitoring** — per-gateway online/offline status with resource counts on the server card
+- **Cost & Usage** — _hidden pending REST API endpoint_ (code preserved)
+
+### Gateway REST API Dependencies
+
+NullClawUI communicates with the gateway via two protocols:
+
+1. **A2A protocol** (JSON-RPC over HTTP/SSE) for chat and task management
+2. **Gateway REST API** (`/api/*`) for management features
+
+Several REST endpoints used by this app **have not yet been merged into the NullClaw core**. Features that depend on unmerged endpoints may return errors or show placeholder data. Key endpoints in use:
+
+| Endpoint | Purpose | Status |
 |---|---|---|
-| 0 | Project Setup | ✅ Complete |
-| 1 | Foundation & Discovery | ✅ Complete |
-| 2 | Secure Pairing | ✅ Complete |
-| 3 | Simple Interaction (Chat) | ✅ Complete |
-| 4 | Real-time Streaming | ✅ Complete |
-| 5 | Task Management & History | ✅ Complete |
-| 6 | Polish & Native Integration | ✅ Complete |
-| 7 | Code Quality & UX Bugs | ✅ Complete |
-| 8 | UI Polish & New Chat | ✅ Complete |
-| 9 | Multiple Gateways | ✅ Complete |
-| 10 | UX Hardening & Settings Redesign | ✅ Complete |
-| 11 | SwiftData Migration & iCloud Sync | ✅ Complete |
-| 12 | LAN Gateway Discovery | ✅ Complete |
-| 13 | Health Monitoring & Reconnect | ✅ Complete |
-| 14 | Gateway Status Dashboard | ✅ Complete |
-| 15 | Cron Job Manager | ✅ Complete |
-| 16 | Agent Configuration | ✅ Complete |
-| 17 | Autonomy & Safety Controls | ✅ Complete |
-| 18 | MCP Server Management | ✅ Complete |
-| 19 | Cost & Usage Monitoring | ✅ Complete |
-| 20 | Channel Status & Management | ✅ Complete |
-| 21 | Multi-modal Input | ✅ Complete |
-| 22 | Voice Input | ⏸️ Deferred |
-| 23 | APNs Notifications | ❌ Not started |
-| 24 | macOS Menubar App | ❌ Not started |
+| `GET /api/cron` | List cron jobs | Pending merge |
+| `POST /api/cron` | Create cron job | Pending merge |
+| `GET /api/mcp` | List MCP servers | Pending merge |
+| `GET /api/mcp/:name` | MCP server status | Pending merge |
+| `GET /api/channels` | List channels | Pending merge |
+| `GET /api/capabilities` | Gateway capabilities | Pending merge |
+| `GET /api/config/*` | Read/write config | Pending merge |
+| `GET /api/doctor` | Health diagnostics | Pending merge |
 
-See [`PLAN.md`](./PLAN.md) for full details on each phase.
+Additional endpoints need to be implemented to enable features like adding/configuring channels directly from the app.
 
 ---
 
@@ -53,15 +57,15 @@ See [`PLAN.md`](./PLAN.md) for full details on each phase.
 
 ```
 NullClawUI/
-├── App/              # @main entry point, AppModel (@Observable)
-├── Views/            # SwiftUI screens
+├── App/              # @main entry, AppModel, DesignTokens, GatewayStore
+├── Views/            # SwiftUI screens (ChatView, ServersView, etc.)
 ├── ViewModels/       # @Observable view models
-├── Networking/       # URLSession, A2AClient, SSEParser (AsyncSequence)
-├── Security/         # KeychainService (per-gateway credential storage)
-├── Models/           # Codable types: AgentCard, Task, Message, …
+├── Networking/       # GatewayClient (URLSession, SSE, JSON-RPC)
+├── Security/         # KeychainService
+├── Models/           # Codable types (AgentCard, ConversationRecord, REST API models)
 └── Resources/        # Assets.xcassets, Info.plist
-NullClawUITests/      # XCTest unit tests
-NullClawUIUITests/    # XCUIApplication UI tests
+NullClawUITests/      # Unit tests
+NullClawUIUITests/    # UI tests
 ```
 
 ---
@@ -70,56 +74,40 @@ NullClawUIUITests/    # XCUIApplication UI tests
 
 ### Prerequisites
 
-1. **Xcode 26** or later installed.
-2. A running **NullClaw Gateway** instance (see the [NullClaw repository](https://github.com/nullclaw) for setup instructions). Default address: `http://localhost:5111`.
+1. Xcode 26+
+2. A running NullClaw Gateway instance (default: `http://localhost:5111`)
+3. [xcodegen](https://github.com/yonaskolb/xcodegen) — run `brew install xcodegen`
+4. [SwiftLint](https://github.com/realm/SwiftLint) — `brew install swiftlint`
+5. [SwiftFormat](https://github.com/nicklockwood/SwiftFormat) — `brew install swiftformat`
 
 ### Build & Run
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd NullClawUI
+git clone <repo-url> && cd NullClawUI
 
-# Open in Xcode (recommended)
+# Regenerate the Xcode project (needed after any source file changes)
+xcodegen generate
+
+# Open in Xcode
 open NullClawUI.xcodeproj
-
-# Or build from the command line
-xcodebuild build \
-  -scheme NullClawUI \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.0'
 ```
+
+Set your development team in **Signing & Capabilities** before building.
 
 ### Run Tests
 
 ```bash
-# Unit tests
 xcodebuild test \
   -scheme NullClawUI \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.0'
-
-# UI tests (separate test plan)
-xcodebuild test \
-  -scheme NullClawUI \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.0' \
-  -testPlan NullClawUIUITests
+  -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
----
+### Lint & Format
 
-## Design Language
-
-NullClawUI follows the **Liquid Glass** design language introduced in iOS 26:
-
-- Panels and cards use `.glassBackgroundEffect()` / `GlassEffect`.
-- Accent color is dynamically sourced from the gateway's `agent-card.json`.
-- All animations use `spring(duration:bounce:)` for a fluid, native feel.
-- Full Light / Dark mode and Dynamic Type support.
-
----
-
-## Security
-
-Credentials (Bearer tokens) are stored exclusively in the **system Keychain**, keyed by the normalized gateway URL. No tokens are written to disk, UserDefaults, or iCloud. See [`AGENTS.md`](./AGENTS.md) — Security & Identity Guard for the full credential management policy.
+```bash
+swiftlint --strict
+swiftformat --lint .
+```
 
 ---
 
@@ -127,21 +115,27 @@ Credentials (Bearer tokens) are stored exclusively in the **system Keychain**, k
 
 | Layer | Technology |
 |---|---|
-| State | `@Observable` macro (Swift 6) |
-| Navigation | `NavigationSplitView` (iPad) / `NavigationStack` (iPhone) |
-| Networking | `URLSession` + `async/await`, `AsyncSequence` for SSE |
-| Persistence | SwiftData + CloudKit (Phase 11) |
-| Keychain | `Security` framework |
-| Markdown | `swift-markdown-ui` |
-| LAN Discovery | `Network.framework` (`NWBrowser`, Bonjour) |
+| State management | `@Observable` macro (Swift 6) |
+| Navigation | `NavigationStack` with programmatic `NavigationPath` |
+| Networking | `URLSession` + `async/await`; `AsyncSequence` for SSE |
+| Persistence | SwiftData (`ConversationRecord`, `GatewayProfile`) |
+| Credentials | System Keychain (`Security` framework) |
+| Markdown | `AttributedString` (native) |
+| Code generation | [xcodegen](https://github.com/yonaskolb/xcodegen) (`project.yml`) |
 
-All UI mutations are `@MainActor`-isolated. Network operations run in unstructured `Task {}` off the main actor.
+All UI mutations are `@MainActor`-isolated. No `DispatchQueue` usage.
+
+---
+
+## Security
+
+Bearer tokens are stored exclusively in the **system Keychain**, keyed by the normalized gateway URL. No tokens are written to UserDefaults, disk files, or iCloud.
 
 ---
 
 ## Contributing
 
-See [`AGENTS.md`](./AGENTS.md) for the agent roles and responsibilities used during development.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for guidelines.
 
 ---
 

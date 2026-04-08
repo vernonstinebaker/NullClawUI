@@ -89,6 +89,7 @@ targets:
         sandbox: false
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: plus.agillity.nullclawui
+      DEVELOPMENT_TEAM: ""
       SWIFT_VERSION: "6.0"
       SWIFT_STRICT_CONCURRENCY: complete
       IPHONEOS_DEPLOYMENT_TARGET: "26.0"
