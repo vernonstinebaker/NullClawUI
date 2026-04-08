@@ -18,7 +18,7 @@ struct EditGatewaySheet: View {
         self.profile = profile
         self.onSave = onSave
         _name = State(wrappedValue: profile.name)
-        _url  = State(wrappedValue: profile.url)
+        _url = State(wrappedValue: profile.url)
     }
 
     private var urlErrorMessage: String? {
@@ -46,7 +46,7 @@ struct EditGatewaySheet: View {
                             Text(msg)
                                 .font(.caption)
                                 .foregroundStyle(.red)
-                                // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
+                            // NOTE: No unit test — pure layout change; covered by visual inspection in Simulator.
                         }
                     }
                 }
@@ -65,12 +65,12 @@ struct EditGatewaySheet: View {
                         // the old and new URLs are the same and the move is silently skipped.
                         let previousURL = profile.url
                         profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        profile.url  = url.trimmingCharacters(in: .whitespacesAndNewlines)
+                        profile.url = url.trimmingCharacters(in: .whitespacesAndNewlines)
                         onSave(profile, previousURL)
                         dismiss()
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                              !isValidGatewayURL(url))
+                        !isValidGatewayURL(url))
                 }
             }
         }

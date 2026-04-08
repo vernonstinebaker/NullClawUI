@@ -4,43 +4,41 @@ import Foundation
 
 /// Live-editable autonomy and safety configuration fields from the gateway's autonomy block.
 /// Field names mirror the real config schema in ~/.nullclaw/config.json under `autonomy`.
-struct AutonomyConfig: Sendable, Equatable {
-    var level: String = "medium"                           // "low" | "medium" | "high"
-    var maxActionsPerHour: Int = 60                        // autonomy.max_actions_per_hour
-    var blockHighRiskCommands: Bool = true                 // autonomy.block_high_risk_commands
-    var requireApprovalForMediumRisk: Bool = false         // autonomy.require_approval_for_medium_risk
-    var allowedCommands: [String] = []                     // autonomy.allowed_commands
+struct AutonomyConfig: Equatable {
+    var level: String = "medium" // "low" | "medium" | "high"
+    var maxActionsPerHour: Int = 60 // autonomy.max_actions_per_hour
+    var blockHighRiskCommands: Bool = true // autonomy.block_high_risk_commands
+    var requireApprovalForMediumRisk: Bool = false // autonomy.require_approval_for_medium_risk
+    var allowedCommands: [String] = [] // autonomy.allowed_commands
 }
 
-// MARK: - Parse error
+// MARK: - REST payload struct
 
-enum AutonomyConfigParseError: Error, LocalizedError, Sendable {
-    case noConfigFound
-    case decodingFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .noConfigFound:
-            return "No autonomy configuration data found in the agent reply."
-        case .decodingFailed(let detail):
-            return "Failed to parse autonomy configuration: \(detail)"
-        }
-    }
+/// Decoded from GET /api/config?path=autonomy → data.value
+/// Keys use camelCase to match the GatewayClient decoder's convertFromSnakeCase strategy.
+struct AutonomyConfigPayload: Decodable {
+    var level: String?
+    var maxActionsPerHour: Int?
+    var blockHighRiskCommands: Bool?
+    var requireApprovalForMediumRisk: Bool?
+    var allowedCommands: [String]?
+    /// Additional fields present in the live gateway response (not exposed in the UI):
+    var workspaceOnly: Bool?
 }
 
 // MARK: - ViewModel
 
-@Observable @MainActor
+@Observable
+@MainActor
 final class AutonomyViewModel {
-
     // MARK: Published state
 
-    private(set) var config: AutonomyConfig = AutonomyConfig()
+    private(set) var config: AutonomyConfig = .init()
     private(set) var isLoading: Bool = false
     private(set) var isSaving: Bool = false
     private(set) var isLoaded: Bool = false
-    var errorMessage: String? = nil
-    var confirmationMessage: String? = nil
+    var errorMessage: String?
+    var confirmationMessage: String?
 
     // MARK: Dependencies
 
@@ -61,7 +59,7 @@ final class AutonomyViewModel {
 
     // MARK: - Load
 
-    /// Asks the agent for the current autonomy configuration and parses the reply.
+    /// Fetches autonomy configuration via REST (GET /api/config?path=autonomy).
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -70,8 +68,8 @@ final class AutonomyViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
-            config = try parseConfig(from: reply)
+            let payload = try await client.apiConfigObjectValue(path: "autonomy", as: AutonomyConfigPayload.self)
+            config = Self.buildConfig(from: payload)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -79,15 +77,15 @@ final class AutonomyViewModel {
     }
 
     // MARK: - Setters
+
     //
     // autonomy.* paths are NOT in the gateway's hot_reload_paths list.
-    // Changes are persisted to disk via /config apply set and take effect on next restart.
-    // No /config reload call is needed (it would be a no-op for these paths).
+    // Changes are persisted to disk via PATCH /api/config and take effect on next restart.
 
     func setLevel(_ level: String) async {
         await applyChange(
             path: "autonomy.level",
-            value: "\"\(level)\"",
+            value: level,
             update: { $0.level = level },
             confirmation: "Autonomy level set to \"\(level)\". Restart gateway to apply."
         )
@@ -96,7 +94,7 @@ final class AutonomyViewModel {
     func setMaxActionsPerHour(_ value: Int) async {
         await applyChange(
             path: "autonomy.max_actions_per_hour",
-            value: "\(value)",
+            value: value,
             update: { $0.maxActionsPerHour = value },
             confirmation: "Max actions per hour set to \(value). Restart gateway to apply."
         )
@@ -105,7 +103,7 @@ final class AutonomyViewModel {
     func setBlockHighRiskCommands(_ enabled: Bool) async {
         await applyChange(
             path: "autonomy.block_high_risk_commands",
-            value: enabled ? "true" : "false",
+            value: enabled,
             update: { $0.blockHighRiskCommands = enabled },
             confirmation: "Block high-risk commands \(enabled ? "enabled" : "disabled"). Restart gateway to apply."
         )
@@ -114,61 +112,41 @@ final class AutonomyViewModel {
     func setRequireApprovalForMediumRisk(_ enabled: Bool) async {
         await applyChange(
             path: "autonomy.require_approval_for_medium_risk",
-            value: enabled ? "true" : "false",
+            value: enabled,
             update: { $0.requireApprovalForMediumRisk = enabled },
             confirmation: "Require approval for medium-risk \(enabled ? "enabled" : "disabled"). Restart gateway to apply."
         )
     }
 
     func setAllowedCommands(_ commands: [String]) async {
-        // Encode the array as a JSON array literal for /config apply set.
-        let jsonArray = "[" + commands.map { "\"\($0)\"" }.joined(separator: ",") + "]"
         await applyChange(
             path: "autonomy.allowed_commands",
-            value: jsonArray,
+            value: commands,
             update: { $0.allowedCommands = commands },
             confirmation: "Allowed commands list updated. Restart gateway to apply."
         )
     }
 
-    // MARK: - Parse (internal — visible for tests)
+    // MARK: - Build config (internal — visible for tests)
 
-    /// Parses an `AutonomyConfig` from an agent reply that contains a JSON object.
-    /// The parser is lenient: it extracts the first `{…}` block found in `text`.
-    func parseConfig(from text: String) throws -> AutonomyConfig {
-        guard
-            let start = text.firstIndex(of: "{"),
-            let end = text.lastIndex(of: "}")
-        else {
-            throw AutonomyConfigParseError.noConfigFound
-        }
-
-        let jsonString = String(text[start...end])
-        guard let data = jsonString.data(using: .utf8) else {
-            throw AutonomyConfigParseError.decodingFailed("UTF-8 encoding failed")
-        }
-
-        do {
-            let raw = try JSONDecoder().decode(AutonomyConfigRaw.self, from: data)
-            var c = AutonomyConfig()
-            c.level = raw.level ?? "medium"
-            c.maxActionsPerHour = raw.max_actions_per_hour ?? 60
-            c.blockHighRiskCommands = raw.block_high_risk_commands ?? true
-            c.requireApprovalForMediumRisk = raw.require_approval_for_medium_risk ?? false
-            c.allowedCommands = raw.allowed_commands ?? []
-            return c
-        } catch {
-            throw AutonomyConfigParseError.decodingFailed(error.localizedDescription)
-        }
+    /// Converts a decoded AutonomyConfigPayload into an AutonomyConfig.
+    static func buildConfig(from payload: AutonomyConfigPayload) -> AutonomyConfig {
+        var c = AutonomyConfig()
+        c.level = payload.level ?? "medium"
+        c.maxActionsPerHour = payload.maxActionsPerHour ?? 60
+        c.blockHighRiskCommands = payload.blockHighRiskCommands ?? true
+        c.requireApprovalForMediumRisk = payload.requireApprovalForMediumRisk ?? false
+        c.allowedCommands = payload.allowedCommands ?? []
+        return c
     }
 
     // MARK: - Private helpers
 
-    /// Applies a config change via `/config apply set <path> <value>`.
+    /// Applies a config change via the REST Admin API PATCH /api/config.
     /// Autonomy paths are not hot-reloadable — changes take effect on next gateway restart.
     private func applyChange(
         path: String,
-        value: String,
+        value: some Encodable & Sendable,
         update: (inout AutonomyConfig) -> Void,
         confirmation: String
     ) async {
@@ -178,35 +156,11 @@ final class AutonomyViewModel {
         defer { isSaving = false }
 
         do {
-            try await client.sendConfigApply(path: path, value: value)
+            try await client.apiSetConfigValue(path: path, value: value)
             update(&config)
             confirmationMessage = confirmation
         } catch {
             errorMessage = error.localizedDescription
         }
     }
-
-    // MARK: - Prompt constants (visible for tests)
-
-    static let loadPrompt = """
-        Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object, no extra text. \
-        The JSON must have exactly these keys: \
-        "level" (string, from autonomy.level, e.g. "low", "medium", or "high"), \
-        "max_actions_per_hour" (integer, from autonomy.max_actions_per_hour), \
-        "block_high_risk_commands" (boolean, from autonomy.block_high_risk_commands), \
-        "require_approval_for_medium_risk" (boolean, from autonomy.require_approval_for_medium_risk), \
-        "allowed_commands" (array of strings, from autonomy.allowed_commands).
-        """
-}
-
-// MARK: - Private decoding shim
-
-/// Intermediate Decodable used only by `parseConfig(from:)`.
-/// Accepts the canonical autonomy config key names from the gateway config.
-private struct AutonomyConfigRaw: Decodable {
-    var level: String?
-    var max_actions_per_hour: Int?
-    var block_high_risk_commands: Bool?
-    var require_approval_for_medium_risk: Bool?
-    var allowed_commands: [String]?
 }

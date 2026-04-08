@@ -67,15 +67,14 @@ struct ServerCardContent: View {
     private var statusInfo: (Color, Bool) {
         switch healthStatus {
         case .online:
-            return (.green, false)
+            (.green, false)
         case .offline:
-            return (.red, false)
+            (.red, false)
         case .unknown:
-            return (.orange, true)
+            (.orange, true)
         }
     }
 
-    @ViewBuilder
     private var miniStatsGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: DesignTokens.Spacing.minimal) {
             miniStatItem(icon: "bubble.left.and.bubble.right", value: "\(taskCount)", label: "Tasks", color: .blue)

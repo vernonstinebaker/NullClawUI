@@ -1,5 +1,5 @@
-import XCTest
 @testable import NullClawUI
+import XCTest
 
 // MARK: - Keychain Tests
 
@@ -195,11 +195,11 @@ final class SSEParsingTests: XCTestCase {
 // MARK: - GatewayError Tests
 
 final class GatewayErrorTests: XCTestCase {
-    func testLocalizedDescriptions() {
+    func testLocalizedDescriptions() throws {
         XCTAssertNotNil(GatewayError.invalidURL.errorDescription)
         XCTAssertNotNil(GatewayError.httpError(statusCode: 401).errorDescription)
         XCTAssertNotNil(GatewayError.unpaired.errorDescription)
-        XCTAssertTrue(GatewayError.httpError(statusCode: 404).errorDescription!.contains("404"))
+        XCTAssertTrue(try XCTUnwrap(GatewayError.httpError(statusCode: 404).errorDescription?.contains("404")))
     }
 }
 
@@ -234,7 +234,7 @@ final class DesignTokensTests: XCTestCase {
     func testCornerRadiusValues() {
         XCTAssertEqual(DesignTokens.CornerRadius.card, 16)
         XCTAssertEqual(DesignTokens.CornerRadius.medium, 12)
-        XCTAssertEqual(DesignTokens.CornerRadius.bubble, 10)
+        XCTAssertEqual(DesignTokens.CornerRadius.bubble, 16)
         XCTAssertEqual(DesignTokens.CornerRadius.small, 8)
         XCTAssertEqual(DesignTokens.CornerRadius.inner, 6)
         XCTAssertEqual(DesignTokens.CornerRadius.tiny, 2)
@@ -281,7 +281,9 @@ final class AppModelErrorHandlingTests: XCTestCase {
         XCTAssertNil(appModel.presentedErrorMessage)
 
         struct TestError: LocalizedError {
-            var errorDescription: String? { "Test error message" }
+            var errorDescription: String? {
+                "Test error message"
+            }
         }
         appModel.presentError(TestError())
         XCTAssertEqual(appModel.presentedErrorMessage, "Test error message")
@@ -364,10 +366,10 @@ final class CronJobDecodingTests: XCTestCase {
         XCTAssertTrue(job.enabled)
         XCTAssertFalse(job.oneShot)
         XCTAssertFalse(job.deleteAfterRun)
-        XCTAssertEqual(job.nextRunSecs, 1712345678)
-        XCTAssertEqual(job.lastRunSecs, 1712345600)
+        XCTAssertEqual(job.nextRunSecs, 1_712_345_678)
+        XCTAssertEqual(job.lastRunSecs, 1_712_345_600)
         XCTAssertEqual(job.lastStatus, "ok")
-        XCTAssertEqual(job.createdAtS, 1712345000)
+        XCTAssertEqual(job.createdAtS, 1_712_345_000)
         XCTAssertNil(job.prompt)
         XCTAssertNil(job.model)
     }
@@ -607,7 +609,102 @@ final class CronJobDraftRESTConversionTests: XCTestCase {
     }
 }
 
-// NOTE: CronJobViewModel REST migration tests require a running gateway or mock server.
-// Integration tests will be added once MockURLProtocol or MockGatewayServer is in place.
-// The ViewModel now calls client.listCronJobs(), client.pauseCronJob(id:), etc.
-// instead of client.sendOneShot(naturalLanguagePrompt).
+// NOTE: CronJobViewModel REST migration tests are in GatewayLiveIntegrationTests.swift.
+
+// MARK: - AgentConfigViewModel buildConfig Tests
+
+final class AgentConfigViewModelTests: XCTestCase {
+    @MainActor
+    func testBuildConfigHappyPath() {
+        let agent = AgentConfigPayload(
+            compactContext: true,
+            maxToolIterations: 40,
+            maxHistoryMessages: nil,
+            parallelTools: nil,
+            sessionIdleTimeoutSecs: nil,
+            compactionKeepRecent: nil,
+            compactionMaxSummaryChars: nil,
+            compactionMaxSourceChars: 13000,
+            messageTimeoutSecs: 300
+        )
+        let models = ApiModelsResponse(
+            defaultProvider: "openrouter",
+            defaultModel: "anthropic/claude-sonnet-4",
+            providers: []
+        )
+        let config = AgentConfigViewModel.buildConfig(from: agent, models: models)
+        XCTAssertEqual(config.primaryModel, "anthropic/claude-sonnet-4")
+        XCTAssertEqual(config.provider, "openrouter")
+        XCTAssertEqual(config.maxToolIterations, 40)
+        XCTAssertEqual(config.messageTimeoutSecs, 300)
+        XCTAssertTrue(config.compactContext)
+        XCTAssertEqual(config.compactionThreshold, 13000)
+    }
+
+    @MainActor
+    func testBuildConfigUsesDefaults() {
+        let agent = AgentConfigPayload(
+            compactContext: nil,
+            maxToolIterations: nil,
+            maxHistoryMessages: nil,
+            parallelTools: nil,
+            sessionIdleTimeoutSecs: nil,
+            compactionKeepRecent: nil,
+            compactionMaxSummaryChars: nil,
+            compactionMaxSourceChars: nil,
+            messageTimeoutSecs: nil
+        )
+        let models = ApiModelsResponse(
+            defaultProvider: "infini-ai",
+            defaultModel: nil,
+            providers: []
+        )
+        let config = AgentConfigViewModel.buildConfig(from: agent, models: models)
+        XCTAssertEqual(config.primaryModel, "")
+        XCTAssertEqual(config.provider, "infini-ai")
+        XCTAssertEqual(config.maxToolIterations, 25)
+        XCTAssertEqual(config.messageTimeoutSecs, 300)
+        XCTAssertFalse(config.compactContext)
+        XCTAssertEqual(config.compactionThreshold, 8000)
+    }
+}
+
+// MARK: - AutonomyViewModel buildConfig Tests
+
+final class AutonomyViewModelTests: XCTestCase {
+    @MainActor
+    func testBuildConfigHappyPath() {
+        let payload = AutonomyConfigPayload(
+            level: "high",
+            maxActionsPerHour: 200,
+            blockHighRiskCommands: false,
+            requireApprovalForMediumRisk: true,
+            allowedCommands: ["sh", "bash", "date"],
+            workspaceOnly: true
+        )
+        let config = AutonomyViewModel.buildConfig(from: payload)
+        XCTAssertEqual(config.level, "high")
+        XCTAssertEqual(config.maxActionsPerHour, 200)
+        XCTAssertFalse(config.blockHighRiskCommands)
+        XCTAssertTrue(config.requireApprovalForMediumRisk)
+        XCTAssertEqual(config.allowedCommands, ["sh", "bash", "date"])
+    }
+
+    @MainActor
+    func testBuildConfigUsesDefaults() {
+        let payload = AutonomyConfigPayload(
+            level: nil,
+            maxActionsPerHour: nil,
+            blockHighRiskCommands: nil,
+            requireApprovalForMediumRisk: nil,
+            allowedCommands: nil,
+            workspaceOnly: nil
+        )
+        let config = AutonomyViewModel.buildConfig(from: payload)
+        XCTAssertEqual(config.level, "medium")
+        XCTAssertEqual(config.maxActionsPerHour, 60)
+        XCTAssertTrue(config.blockHighRiskCommands)
+        XCTAssertFalse(config.requireApprovalForMediumRisk)
+        XCTAssertEqual(config.allowedCommands, [])
+    }
+}

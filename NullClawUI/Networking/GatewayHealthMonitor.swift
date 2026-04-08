@@ -26,7 +26,6 @@ import Observation
 @Observable
 @MainActor
 final class GatewayHealthMonitor {
-
     // MARK: - Configuration
 
     /// Interval between health-check polls (seconds). Overridable for testing.
@@ -43,8 +42,8 @@ final class GatewayHealthMonitor {
     private var clientProvider: @MainActor () -> GatewayClient
     private var onReconnect: (@MainActor () -> Void)?
 
-    private var timerTask: Task<Void, Never>? = nil
-    private var checkNowTask: Task<Void, Never>? = nil
+    private var timerTask: Task<Void, Never>?
+    private var checkNowTask: Task<Void, Never>?
     private var isRunning: Bool = false
 
     // MARK: - Init
@@ -80,10 +79,10 @@ final class GatewayHealthMonitor {
         timerTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                await self.tick()
+                await tick()
                 // Sleep for pollInterval, but wake up for cancellation every second.
-                let ticks = max(1, Int(self.pollInterval))
-                for _ in 0..<ticks {
+                let ticks = max(1, Int(pollInterval))
+                for _ in 0 ..< ticks {
                     if Task.isCancelled { return }
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                 }

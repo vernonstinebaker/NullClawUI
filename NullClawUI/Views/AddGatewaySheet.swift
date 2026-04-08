@@ -4,9 +4,9 @@ import SwiftUI
 
 /// Sheet for adding a new gateway profile.
 /// Guides the user through: name → URL → connect probe → pairing (if required).
-/// On success, calls `onComplete(name, url)` so the caller can create the profile.
+/// On success, calls `onComplete(name, url, isPaired, requiresPairing)` so the caller can create the profile.
 struct AddGatewaySheet: View {
-    let onComplete: (String, String) -> Void
+    let onComplete: (String, String, Bool, Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(GatewayStore.self) private var store
@@ -54,7 +54,9 @@ struct AddGatewaySheet: View {
             } header: {
                 Text("Connection")
             } footer: {
-                Text("Enter the base URL of your NullClaw gateway. The app will probe the connection to determine if pairing is required.")
+                Text(
+                    "Enter the base URL of your NullClaw gateway. The app will probe the connection to determine if pairing is required."
+                )
             }
 
             if let error = probeError {
@@ -88,7 +90,8 @@ struct AddGatewaySheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(isProbing || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !isValidGatewayURL(urlString))
+                .disabled(isProbing || name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty || !isValidGatewayURL(urlString))
             }
         }
     }
@@ -198,7 +201,7 @@ struct AddGatewaySheet: View {
                     .accessibilityHint("Dismisses the add gateway sheet after successful connection")
                 }
 
-            case .failed(let message):
+            case let .failed(message):
                 Section {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -245,7 +248,7 @@ struct AddGatewaySheet: View {
             showPairing = true
         case .notRequired, .success:
             showPairing = true
-        case .failed(let message):
+        case let .failed(message):
             probeError = message
         }
     }
@@ -253,7 +256,30 @@ struct AddGatewaySheet: View {
     private func completeAdd() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        onComplete(trimmedName, trimmedURL)
+        let step = pairingModel?.step
+
+        // Determine if the gateway is paired and whether it requires pairing:
+        // - .success after pairing code entry → isPaired: true, requiresPairing: true
+        // - .notRequired (gateway returned 403 on /pair) → isPaired: true, requiresPairing: false
+        // - .requiresPairing (user hasn't entered code yet, just probing) → isPaired: false, requiresPairing: true
+        let isPaired: Bool
+        let requiresPairing: Bool
+        switch step {
+        case .success:
+            isPaired = true
+            requiresPairing = true
+        case .notRequired:
+            isPaired = true
+            requiresPairing = false
+        case .requiresPairing:
+            isPaired = false
+            requiresPairing = true
+        default:
+            isPaired = false
+            requiresPairing = true
+        }
+
+        onComplete(trimmedName, trimmedURL, isPaired, requiresPairing)
         dismiss()
     }
 
@@ -264,7 +290,7 @@ struct AddGatewaySheet: View {
     /// `setProfilePaired`, but the real profile isn't created until `onComplete`.
     /// We use the URL as a unique identifier for this temporary profile.
     private var placeholderProfile: GatewayProfile {
-        let url = URL(string: urlString) ?? URL(string: "http://localhost:5111")!
+        _ = URL(string: urlString) ?? URL(string: "http://localhost:5111")!
         return GatewayProfile(
             name: name,
             url: urlString,

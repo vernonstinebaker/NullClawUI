@@ -45,7 +45,6 @@ struct GatewayPairSheet: View {
         }
     }
 
-    @ViewBuilder
     private func pairForm(pm: AddGatewayPairingModel) -> some View {
         Form {
             Section {
@@ -147,7 +146,7 @@ struct GatewayPairSheet: View {
                         .accessibilityHint("Dismisses the pairing sheet after successful pairing")
                 }
 
-            case .failed(let message):
+            case let .failed(message):
                 Section {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -177,10 +176,11 @@ struct GatewayPairSheet: View {
 /// Returns true if the string is a well-formed http/https URL with a non-empty host.
 func isValidGatewayURL(_ string: String) -> Bool {
     let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let url = URL(string: trimmed),
-          let scheme = url.scheme,
-          scheme == "http" || scheme == "https",
-          let host = url.host,
-          !host.isEmpty else { return false }
+    guard
+        let url = URL(string: trimmed),
+        let scheme = url.scheme,
+        scheme == "http" || scheme == "https",
+        let host = url.host,
+        !host.isEmpty else { return false }
     return true
 }

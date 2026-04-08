@@ -4,9 +4,9 @@ import Observation
 // MARK: - Profile Health State
 
 /// The health state for a single gateway profile, used by the Status tab.
-struct ProfileHealthState: Sendable {
+struct ProfileHealthState {
     var status: ConnectionStatus = .unknown
-    var lastChecked: Date? = nil
+    var lastChecked: Date?
     var isChecking: Bool = false
 }
 
@@ -18,7 +18,6 @@ struct ProfileHealthState: Sendable {
 @Observable
 @MainActor
 final class GatewayStatusViewModel {
-
     // MARK: Published state
 
     /// Health state keyed by profile ID.  Ordered to match GatewayStore.profiles.
@@ -106,7 +105,7 @@ final class GatewayStatusViewModel {
         let url = base.appendingPathComponent("health")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 8   // fast timeout for a health check
+        request.timeoutInterval = 8 // fast timeout for a health check
 
         let session: URLSession
         if let cfg = sessionConfig {
@@ -120,8 +119,10 @@ final class GatewayStatusViewModel {
         defer { session.invalidateAndCancel() }
         do {
             let (_, response) = try await session.data(for: request)
-            if let http = response as? HTTPURLResponse,
-               (200..<300).contains(http.statusCode) {
+            if
+                let http = response as? HTTPURLResponse,
+                (200 ..< 300).contains(http.statusCode)
+            {
                 return .online
             }
             return .offline

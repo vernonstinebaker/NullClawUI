@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - JSON-RPC 2.0 Envelope
 
-struct JSONRPCRequest<P: Encodable & Sendable>: Encodable, Sendable {
+struct JSONRPCRequest<P: Encodable & Sendable>: Encodable {
     let jsonrpc: String = "2.0"
     let id: String
     let method: String
@@ -24,9 +24,9 @@ struct JSONRPCError: Decodable {
 
 /// Carries the raw base64-encoded bytes for an inline image or file part.
 /// Wire format: `{ "inlineData": { "mimeType": "image/jpeg", "data": "<base64>" } }`
-struct InlineData: Codable, Sendable {
+struct InlineData: Codable {
     let mimeType: String
-    let data: String    // base64-encoded bytes
+    let data: String // base64-encoded bytes
 
     enum CodingKeys: String, CodingKey {
         case mimeType
@@ -34,9 +34,9 @@ struct InlineData: Codable, Sendable {
     }
 }
 
-struct MessagePart: Codable, Sendable {
+struct MessagePart: Codable {
     let text: String?
-    let kind: String?       // "text" | "file" etc — present in server responses
+    let kind: String? // "text" | "file" etc — present in server responses
     let inlineData: InlineData? // non-nil for image / file parts
 
     init(text: String? = nil, kind: String? = nil, inlineData: InlineData? = nil) {
@@ -52,16 +52,16 @@ struct MessagePart: Codable, Sendable {
     }
 }
 
-struct A2AMessage: Codable, Sendable {
-    let role: String          // "user" | "assistant"
+struct A2AMessage: Codable {
+    let role: String // "user" | "assistant"
     var parts: [MessagePart]
-    var contextId: String? = nil    // Optional: ties messages to the same conversation session
+    var contextId: String? = nil // Optional: ties messages to the same conversation session
     var messageId: String? = UUID().uuidString // Required by gateway A2A spec v0.3.0+
 
-    // Explicit CodingKeys to prevent JSONEncoder's .convertToSnakeCase strategy
-    // from turning "contextId" into "context_id". The gateway looks for "contextId"
-    // (camelCase) in a2a.zig:extractMessageContextId — snake_case silently breaks
-    // context continuity, causing a fresh agent session on every message.
+    /// Explicit CodingKeys to prevent JSONEncoder's .convertToSnakeCase strategy
+    /// from turning "contextId" into "context_id". The gateway looks for "contextId"
+    /// (camelCase) in a2a.zig:extractMessageContextId — snake_case silently breaks
+    /// context continuity, causing a fresh agent session on every message.
     enum CodingKeys: String, CodingKey {
         case role
         case parts
@@ -70,24 +70,24 @@ struct A2AMessage: Codable, Sendable {
     }
 }
 
-struct MessageSendParams: Encodable, Sendable {
+struct MessageSendParams: Encodable {
     let message: A2AMessage
 }
 
 // MARK: - Task
 
-struct TaskArtifact: Codable, Sendable {
+struct TaskArtifact: Codable {
     let artifactId: String?
     let parts: [MessagePart]
 
     var text: String {
-        parts.compactMap { $0.text }.joined()
+        parts.compactMap(\.text).joined()
     }
 }
 
-struct NullClawTask: Codable, Sendable, Identifiable {
+struct NullClawTask: Codable, Identifiable {
     let id: String
-    let contextId: String?      // conversation session ID; pass on subsequent messages
+    let contextId: String? // conversation session ID; pass on subsequent messages
     let status: TaskStatus
     let messages: [A2AMessage]?
     let artifacts: [TaskArtifact]?
@@ -101,38 +101,40 @@ struct NullClawTask: Codable, Sendable, Identifiable {
         return status.message?.parts.compactMap(\.text).joined() ?? ""
     }
 
-    struct TaskStatus: Codable, Sendable {
-        let state: String    // "working" | "completed" | "cancelled" | "failed"
+    struct TaskStatus: Codable {
+        let state: String // "working" | "completed" | "cancelled" | "failed"
         let message: A2AMessage?
     }
 }
 
 /// Lightweight summary used for the task list (Phase 5).
 /// The server returns the full task shape; we extract id + status.state.
-struct TaskSummary: Codable, Sendable, Identifiable {
+struct TaskSummary: Codable, Identifiable {
     let id: String
     let status: TaskSummaryStatus
 
-    struct TaskSummaryStatus: Codable, Sendable {
+    struct TaskSummaryStatus: Codable {
         let state: String
     }
 
     /// Display string for the status row.
-    var statusLabel: String { status.state }
+    var statusLabel: String {
+        status.state
+    }
 }
 
 // MARK: - JSON-RPC params for task management (Phase 5)
 
 /// Params for tasks/list (no required fields; server defaults to pageSize 50).
-struct TaskListParams: Encodable, Sendable {}
+struct TaskListParams: Encodable {}
 
 /// Params for tasks/get and tasks/cancel.
-struct TaskIDParams: Encodable, Sendable {
+struct TaskIDParams: Encodable {
     let id: String
 }
 
 /// Result shape for the tasks/list JSON-RPC response.
-struct TaskListResult: Decodable, Sendable {
+struct TaskListResult: Decodable {
     let tasks: [TaskSummary]
     let totalSize: Int?
     let nextPageToken: String?
@@ -142,23 +144,23 @@ struct TaskListResult: Decodable, Sendable {
 
 /// Wraps a streaming JSON-RPC result from method "message/stream".
 /// Each SSE line is: data: {"jsonrpc":"2.0","id":"...","result": <StreamEvent>}
-struct SSEEnvelope: Decodable, Sendable {
+struct SSEEnvelope: Decodable {
     let id: String?
     let result: StreamEvent?
 }
 
-struct StreamEvent: Decodable, Sendable {
-    let kind: String            // "task" | "artifact-update" | "status-update"
+struct StreamEvent: Decodable {
+    let kind: String // "task" | "artifact-update" | "status-update"
     let taskId: String?
-    let contextId: String?      // returned on every event; use to continue the conversation
+    let contextId: String? // returned on every event; use to continue the conversation
     let artifact: TaskArtifact? // present when kind == "artifact-update"
-    let append: Bool?           // true = delta, false = replace
+    let append: Bool? // true = delta, false = replace
     let lastChunk: Bool?
     let status: NullClawTask.TaskStatus? // present when kind == "status-update"
-    let final: Bool?            // true on the terminal event
+    let final: Bool? // true on the terminal event
 
-    // kind == "task": initial task snapshot
-    let id: String?             // task id when kind == "task"
+    /// kind == "task": initial task snapshot
+    let id: String? // task id when kind == "task"
 }
 
 /// Alias kept for compatibility — callers use StreamEvent directly now.

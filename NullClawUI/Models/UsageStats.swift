@@ -5,9 +5,9 @@ import Foundation
 /// Token usage and cost data retrieved from the NullClaw gateway.
 /// Values reflect the current session and historical rollups from
 /// `~/.nullclaw/state/costs.jsonl`.
-struct UsageStats: Sendable, Equatable {
-
+struct UsageStats: Equatable {
     // MARK: Cost (USD)
+
     /// Cost incurred in the current gateway session.
     var sessionCostUSD: Double = 0.0
     /// Cost incurred today (calendar day in the gateway's local timezone).
@@ -16,12 +16,14 @@ struct UsageStats: Sendable, Equatable {
     var monthlyCostUSD: Double = 0.0
 
     // MARK: Tokens
+
     /// Total tokens consumed this session (input + output).
     var totalTokens: Int = 0
     /// Number of LLM API calls made this session.
     var requestCount: Int = 0
 
     // MARK: Limits & Settings (from cost config block)
+
     /// Whether cost tracking is enabled on the gateway.
     var costEnabled: Bool = false
     /// Daily spend cap in USD. 0 means no limit.

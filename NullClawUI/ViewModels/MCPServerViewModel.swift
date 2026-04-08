@@ -2,16 +2,16 @@ import Foundation
 
 // MARK: - MCPServerParseError
 
-enum MCPServerParseError: Error, LocalizedError, Sendable {
+enum MCPServerParseError: Error, LocalizedError {
     case noConfigFound
     case decodingFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .noConfigFound:
-            return "No MCP server configuration found in the agent reply."
-        case .decodingFailed(let detail):
-            return "Failed to parse MCP server configuration: \(detail)"
+            "No MCP server configuration found in the agent reply."
+        case let .decodingFailed(detail):
+            "Failed to parse MCP server configuration: \(detail)"
         }
     }
 }
@@ -31,14 +31,13 @@ enum MCPServerParseError: Error, LocalizedError, Sendable {
 @Observable
 @MainActor
 final class MCPServerViewModel {
-
     // MARK: Published state
 
     var servers: [MCPServer] = []
     private(set) var isLoading: Bool = false
-    private(set) var removingName: String? = nil
-    var errorMessage: String? = nil
-    var confirmationMessage: String? = nil
+    private(set) var removingName: String?
+    var errorMessage: String?
+    var confirmationMessage: String?
 
     // MARK: Dependencies
 
@@ -104,7 +103,7 @@ final class MCPServerViewModel {
 
     // MARK: - Check Status
 
-    private(set) var checkingStatusName: String? = nil
+    private(set) var checkingStatusName: String?
 
     func checkStatus(for serverName: String) async {
         guard checkingStatusName == nil else { return }
@@ -168,22 +167,28 @@ final class MCPServerViewModel {
     /// then tries to unwrap `{ "mcp_servers": […] }`.
     func parseMCPServers(from text: String) throws -> [MCPServer] {
         // Strategy 1: bare JSON array [...].
-        if let arrayStart = text.firstIndex(of: "["),
-           let arrayEnd   = text.lastIndex(of: "]") {
-            let jsonString = String(text[arrayStart...arrayEnd])
-            if let data = jsonString.data(using: .utf8),
-               let servers = try? JSONDecoder().decode([MCPServerRaw].self, from: data) {
+        if
+            let arrayStart = text.firstIndex(of: "["),
+            let arrayEnd = text.lastIndex(of: "]")
+        {
+            let jsonString = String(text[arrayStart ... arrayEnd])
+            if
+                let data = jsonString.data(using: .utf8),
+                let servers = try? JSONDecoder().decode([MCPServerRaw].self, from: data)
+            {
                 return servers.map(\.toMCPServer)
             }
         }
 
         // Strategy 2: JSON object with mcp_servers key { ... }.
-        guard let objStart = text.firstIndex(of: "{"),
-              let objEnd   = text.lastIndex(of: "}") else {
+        guard
+            let objStart = text.firstIndex(of: "{"),
+            let objEnd = text.lastIndex(of: "}") else
+        {
             throw MCPServerParseError.noConfigFound
         }
 
-        let jsonString = String(text[objStart...objEnd])
+        let jsonString = String(text[objStart ... objEnd])
         guard let data = jsonString.data(using: .utf8) else {
             throw MCPServerParseError.decodingFailed("UTF-8 encoding failed")
         }
@@ -210,13 +215,13 @@ final class MCPServerViewModel {
     /// runtime connectivity and asking it to do so is slow and inaccurate. Connection status
     /// is surfaced via an on-demand "Check Status" action in the detail view instead.
     static let loadPrompt = """
-        Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object, no extra text. \
-        The JSON must have exactly one key: \
-        "mcp_servers" (array of objects). Each object in the array must have these keys: \
-        "name" (string), "transport" (string, either "stdio" or "http"), \
-        "command" (string or null), "args" (array of strings or null), \
-        "url" (string or null), "timeout_ms" (integer or null).
-        """
+    Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object, no extra text. \
+    The JSON must have exactly one key: \
+    "mcp_servers" (array of objects). Each object in the array must have these keys: \
+    "name" (string), "transport" (string, either "stdio" or "http"), \
+    "command" (string or null), "args" (array of strings or null), \
+    "url" (string or null), "timeout_ms" (integer or null).
+    """
 
     /// Returns the prompt used to verify that a specific MCP server is configured.
     ///
@@ -239,9 +244,11 @@ final class MCPServerViewModel {
     /// Parses the `connected` boolean from a `{"connected": true|false}` reply.
     /// Returns `false` if the reply cannot be parsed.
     func parseCheckStatus(from text: String) -> Bool {
-        guard let start = text.firstIndex(of: "{"),
-              let end   = text.lastIndex(of: "}"),
-              let data  = String(text[start...end]).data(using: .utf8) else {
+        guard
+            let start = text.firstIndex(of: "{"),
+            let end = text.lastIndex(of: "}"),
+            let data = String(text[start ... end]).data(using: .utf8) else
+        {
             return false
         }
         struct ConnectedWrapper: Decodable { let connected: Bool }
@@ -252,13 +259,13 @@ final class MCPServerViewModel {
 // MARK: - MCPServerDraft
 
 /// Value type used by AddMCPServerSheet to collect user input before submission.
-struct MCPServerDraft: Sendable {
+struct MCPServerDraft {
     var name: String = ""
-    var transport: String = "stdio"   // "stdio" | "http"
-    var command: String = ""          // stdio only
-    var args: String = ""             // stdio only — space-separated
-    var url: String = ""              // http only
-    var timeoutMs: String = ""        // optional, parsed as Int
+    var transport: String = "stdio" // "stdio" | "http"
+    var command: String = "" // stdio only
+    var args: String = "" // stdio only — space-separated
+    var url: String = "" // http only
+    var timeoutMs: String = "" // optional, parsed as Int
 
     /// Composes the natural-language prompt sent to the agent to add this server.
     func toPrompt() -> String {

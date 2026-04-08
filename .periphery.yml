@@ -1,0 +1,27 @@
+# Periphery Configuration for NullClawUI
+# https://github.com/peripheryapp/periphery
+
+# This is an Xcode project
+# Periphery will use 'xcodebuild' to compile
+
+# Retain public declarations (our libraries have public APIs)
+retain_public: true
+
+# Retain properties on Codable types (used for JSON encoding/decoding)
+retain_codable_properties: true
+
+# Exclude test targets from unused code detection
+exclude_targets:
+  - NullClawUITests
+  - NullClawUIUITests
+
+# Project configuration
+project: NullClawUI.xcodeproj
+schemes:
+  - NullClawUI
+
+# Exclude patterns
+report_exclude:
+  - "**/*.xcodeproj"
+  - "**/DerivedData/**"
+  - "**/.build/**"

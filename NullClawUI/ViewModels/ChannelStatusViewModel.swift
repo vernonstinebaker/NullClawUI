@@ -2,14 +2,14 @@ import Foundation
 
 // MARK: - ViewModel
 
-@Observable @MainActor
+@Observable
+@MainActor
 final class ChannelStatusViewModel {
-
     // MARK: Published state
 
     private(set) var channels: [ChannelInfo] = []
     private(set) var isLoading: Bool = false
-    var errorMessage: String? = nil
+    var errorMessage: String?
 
     // MARK: Dependencies
 

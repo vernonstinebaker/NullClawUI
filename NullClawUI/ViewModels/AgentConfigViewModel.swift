@@ -4,53 +4,53 @@ import Foundation
 
 /// Live-editable agent configuration fields surfaced by the gateway's config_mutator.
 /// Field names mirror the real config schema in ~/.nullclaw/config.json.
-struct AgentConfig: Sendable, Equatable {
+struct AgentConfig: Equatable {
     // Model
     var primaryModel: String = ""
     var provider: String = ""
 
-    // Sampling
-    var temperature: Double = 1.0          // config: default_temperature (top-level)
+    /// Sampling
+    var temperature: Double = 1.0 // config: default_temperature (top-level)
 
     // Limits
-    var maxToolIterations: Int = 25        // config: agent.max_tool_iterations
-    var messageTimeoutSecs: Int = 300      // config: agent.message_timeout_secs
+    var maxToolIterations: Int = 25 // config: agent.max_tool_iterations
+    var messageTimeoutSecs: Int = 300 // config: agent.message_timeout_secs
     // NOTE: agent.parallel_tools is a dead stub in the gateway (no runtime effect) — omitted.
 
     // Memory / Compaction
-    var compactContext: Bool = false       // config: agent.compact_context
-    var compactionThreshold: Int = 8000   // config: agent.compaction_max_source_chars (proxy)
+    var compactContext: Bool = false // config: agent.compact_context
+    var compactionThreshold: Int = 8000 // config: agent.compaction_max_source_chars (proxy)
 }
 
-// MARK: - Parse error
+// MARK: - REST payload structs
 
-enum AgentConfigParseError: Error, LocalizedError, Sendable {
-    case noConfigFound
-    case decodingFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .noConfigFound:
-            return "No configuration data found in the agent reply."
-        case .decodingFailed(let detail):
-            return "Failed to parse agent configuration: \(detail)"
-        }
-    }
+/// Decoded from GET /api/config?path=agent → data.value
+/// Keys use camelCase to match the GatewayClient decoder's convertFromSnakeCase strategy.
+struct AgentConfigPayload: Decodable {
+    var compactContext: Bool?
+    var maxToolIterations: Int?
+    var maxHistoryMessages: Int?
+    var parallelTools: Bool?
+    var sessionIdleTimeoutSecs: Int?
+    var compactionKeepRecent: Int?
+    var compactionMaxSummaryChars: Int?
+    var compactionMaxSourceChars: Int?
+    var messageTimeoutSecs: Int?
 }
 
 // MARK: - ViewModel
 
-@Observable @MainActor
+@Observable
+@MainActor
 final class AgentConfigViewModel {
-
     // MARK: Published state
 
-    private(set) var config: AgentConfig = AgentConfig()
+    private(set) var config: AgentConfig = .init()
     private(set) var isLoading: Bool = false
     private(set) var isSaving: Bool = false
     private(set) var isLoaded: Bool = false
-    var errorMessage: String? = nil
-    var confirmationMessage: String? = nil
+    var errorMessage: String?
+    var confirmationMessage: String?
 
     // MARK: Dependencies
 
@@ -71,7 +71,7 @@ final class AgentConfigViewModel {
 
     // MARK: - Load
 
-    /// Asks the agent for the current configuration and parses the reply.
+    /// Fetches agent configuration via REST (GET /api/config?path=agent and GET /api/models).
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -80,8 +80,11 @@ final class AgentConfigViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
-            config = try parseConfig(from: reply)
+            async let agentPayload = client.apiConfigObjectValue(path: "agent", as: AgentConfigPayload.self)
+            async let modelsPayload = client.apiModels()
+
+            let (agent, models) = try await (agentPayload, modelsPayload)
+            config = Self.buildConfig(from: agent, models: models)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -89,6 +92,7 @@ final class AgentConfigViewModel {
     }
 
     // MARK: - Setters
+
     //
     // Hot-reloadable paths (gateway applies changes to the running process without restart):
     //   agents.defaults.model.primary, default_temperature,
@@ -158,46 +162,28 @@ final class AgentConfigViewModel {
         )
     }
 
-    // MARK: - Parse (internal — visible for tests)
+    // MARK: - Build config (internal — visible for tests)
 
-    /// Parses an `AgentConfig` from an agent reply that contains a JSON object.
-    /// The parser is lenient: it extracts the first `{…}` block found in `text`.
-    func parseConfig(from text: String) throws -> AgentConfig {
-        guard
-            let start = text.firstIndex(of: "{"),
-            let end = text.lastIndex(of: "}")
-        else {
-            throw AgentConfigParseError.noConfigFound
-        }
-
-        let jsonString = String(text[start...end])
-        guard let data = jsonString.data(using: .utf8) else {
-            throw AgentConfigParseError.decodingFailed("UTF-8 encoding failed")
-        }
-
-        do {
-            let raw = try JSONDecoder().decode(AgentConfigRaw.self, from: data)
-            var c = AgentConfig()
-            c.primaryModel = raw.primary_model ?? ""
-            c.provider = raw.provider ?? ""
-            c.temperature = raw.temperature ?? 1.0
-            c.maxToolIterations = raw.max_tool_iterations ?? 25
-            c.messageTimeoutSecs = raw.message_timeout_secs ?? raw.message_timeout_seconds ?? 300
-            c.compactContext = raw.compact_context ?? raw.compaction_enabled ?? false
-            c.compactionThreshold = raw.compaction_max_source_chars ?? raw.compaction_threshold ?? 8000
-            return c
-        } catch {
-            throw AgentConfigParseError.decodingFailed(error.localizedDescription)
-        }
+    /// Combines a decoded AgentConfigPayload and ApiModelsResponse into an AgentConfig.
+    static func buildConfig(from agent: AgentConfigPayload, models: ApiModelsResponse) -> AgentConfig {
+        var c = AgentConfig()
+        c.primaryModel = models.defaultModel ?? ""
+        c.provider = models.defaultProvider
+        c.temperature = 1.0 // default_temperature is a top-level scalar; fetched separately if needed
+        c.maxToolIterations = agent.maxToolIterations ?? 25
+        c.messageTimeoutSecs = agent.messageTimeoutSecs ?? 300
+        c.compactContext = agent.compactContext ?? false
+        c.compactionThreshold = agent.compactionMaxSourceChars ?? 8000
+        return c
     }
 
     // MARK: - Private helpers
 
     /// Applies a config change via the REST Admin API PATCH /api/config, optionally
     /// followed by POST /api/config/reload for hot-reloadable fields.
-    private func applyChange<T: Encodable & Sendable>(
+    private func applyChange(
         path: String,
-        value: T,
+        value: some Encodable & Sendable,
         hotReload: Bool,
         update: @MainActor (inout AgentConfig) -> Void,
         confirmation: String
@@ -211,7 +197,7 @@ final class AgentConfigViewModel {
             let c = client
             try await c.apiSetConfigValue(path: path, value: value)
             if hotReload {
-                try await c.apiReloadConfig()
+                _ = try await c.apiReloadConfig()
             }
             update(&config)
             confirmationMessage = confirmation
@@ -219,42 +205,4 @@ final class AgentConfigViewModel {
             errorMessage = error.localizedDescription
         }
     }
-
-    // MARK: - Prompt constants (visible for tests)
-
-    static let loadPrompt = """
-        Read ~/.nullclaw/config.json and respond with ONLY a valid JSON object, no extra text. \
-        The JSON must have exactly these keys: \
-        "primary_model" (string, from agents.defaults.model.primary), \
-        "provider" (string, infer from primary_model prefix or models.providers), \
-        "temperature" (number, from default_temperature), \
-        "max_tool_iterations" (integer, from agent.max_tool_iterations), \
-        "message_timeout_secs" (integer, from agent.message_timeout_secs), \
-        "compact_context" (boolean, from agent.compact_context), \
-        "compaction_max_source_chars" (integer, from agent.compaction_max_source_chars).
-        """
-}
-
-// MARK: - Private decoding shim
-
-/// Intermediate Decodable used only by `parseConfig(from:)`.
-/// Accepts both the canonical config key names and legacy/alternate names
-/// the agent may emit when constructing the reply from its own reasoning.
-private struct AgentConfigRaw: Decodable {
-    // Model
-    var primary_model: String?
-    var provider: String?
-    // Sampling
-    var temperature: Double?
-    // Limits — canonical
-    var max_tool_iterations: Int?
-    var message_timeout_secs: Int?
-    // Limits — legacy names the agent sometimes emits
-    var message_timeout_seconds: Int?
-    // Compaction — canonical
-    var compact_context: Bool?
-    var compaction_max_source_chars: Int?
-    // Compaction — legacy
-    var compaction_enabled: Bool?
-    var compaction_threshold: Int?
 }

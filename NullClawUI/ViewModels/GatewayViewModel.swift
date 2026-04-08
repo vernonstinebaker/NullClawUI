@@ -12,7 +12,7 @@ final class GatewayViewModel {
     init(appModel: AppModel) {
         self.appModel = appModel
         let url = URL(string: appModel.gatewayURL) ?? URL(string: "http://localhost:5111")!
-        self.client = GatewayClient(baseURL: url)
+        client = GatewayClient(baseURL: url)
     }
 
     // MARK: - Connect to active gateway
@@ -55,9 +55,11 @@ final class GatewayViewModel {
         await oldClient.invalidate()
 
         // Restore token if the profile is already paired with a token.
-        if profile.isPaired,
-           let tok = (try? KeychainService.retrieveToken(for: profile.url)) ?? nil,
-           !tok.isEmpty {
+        if
+            profile.isPaired,
+            let tok = try? KeychainService.retrieveToken(for: profile.url),
+            !tok.isEmpty
+        {
             await client.setToken(tok)
         } else {
             await client.setToken(nil)
@@ -80,9 +82,9 @@ final class GatewayViewModel {
     func unpairGateway(_ profile: GatewayProfile) async {
         // Capture plain values before any SwiftData mutation to avoid accessing
         // the @Model instance after its backing context is mutated/reset.
-        let profileID  = profile.id
+        let profileID = profile.id
         let profileURL = profile.url
-        let isActive   = profileID == appModel.store.activeProfileID
+        let isActive = profileID == appModel.store.activeProfileID
 
         KeychainService.deleteToken(for: profileURL)
         appModel.store.setProfilePaired(profileID, isPaired: false)

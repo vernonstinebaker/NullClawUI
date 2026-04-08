@@ -83,5 +83,9 @@ secrets.json
 AGENTS.local.md
 *.local.xcconfig
 
+# ── SwiftLint / SwiftFormat ──────────────────────────────────
+.swiftlintcache
+.swiftformatcache
+
 # ── Misc ─────────────────────────────────────────────────────
 *.log

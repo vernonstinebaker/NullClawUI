@@ -1,13 +1,17 @@
 import SwiftUI
 
-/// Reusable Liquid Glass card container.
-/// Uses the iOS 26 `.glassEffect` modifier for authentic Liquid Glass appearance.
+/// Reusable card container with regular material background.
+/// Adopts the LLMServerControl pattern (regularMaterial, 16pt radius, 16pt padding).
 struct GlassCard<Content: View>: View {
+    var padding: CGFloat = DesignTokens.Spacing.standard
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         content()
-            .padding(18)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(padding)
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.card, style: .continuous)
+            )
     }
 }

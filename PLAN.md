@@ -12,14 +12,14 @@ Transform NullClawUI from a "settings-first" app into a **server-management-firs
 
 ### Key Changes
 
-| Current | New |
+| Current (2026-04-07) | New (Target) |
 |---|---|
 | Tab 1: **Chat** | Tab 1: **Servers** (card-based dashboard) |
-| Tab 2: **History** (all gateways, standalone) | Tab 2: **Chat** (with per-gateway history sidebar) |
-| Tab 3: **Settings** (gateway list) | Tab 3: **Search** |
-| History is global, gateway-agnostic | History is scoped to the active gateway |
-| Gateway detail is a `List` inside Settings | Gateway detail is a tappable **Server Card** → detail view |
-| `PairedSettingsView` is a flat list | `ServersView` is a card grid with status, health, quick actions |
+| Tab 2: **Agents** (Servers card grid) | Tab 2: **Chat** (with per-gateway history sidebar) |
+| No dedicated History tab (integrated into Chat) | Tab 3: **Search** |
+| History is per-gateway (via drawer in Chat) ✓ | History is scoped to the active gateway ✓ |
+| Gateway detail is a tappable **Server Card** → detail view ✓ | Gateway detail is a tappable **Server Card** → detail view ✓ |
+| `ServersView` is a card grid with status, health, quick actions ✓ | `ServersView` is a card grid with status, health, quick actions ✓ |
 
 ### Design Language
 

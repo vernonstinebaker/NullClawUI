@@ -87,8 +87,8 @@ struct SettingsView: View {
                         )
                 }
                 Image(systemName: appModel.connectionStatus == .online
-                      ? "brain.head.profile.fill"
-                      : "brain.head.profile")
+                    ? "brain.head.profile.fill"
+                    : "brain.head.profile")
                     .font(.system(size: 38, weight: .light))
                     .foregroundStyle(
                         appModel.connectionStatus == .online ? Color.accentColor : .secondary
@@ -151,9 +151,10 @@ struct SettingsView: View {
                         }
                         .onChange(of: editableURL) { _, newURL in
                             // Persist the edit to the active profile in the store.
-                            if var profile = store.activeProfile {
-                                profile.url = newURL
-                                store.updateProfile(profile)
+                            if let profile = store.activeProfile {
+                                var updatedProfile = profile
+                                updatedProfile.url = newURL
+                                store.updateProfile(updatedProfile)
                             }
                         }
                 }
@@ -287,7 +288,7 @@ struct AgentCardView: View {
                 HStack(spacing: 6) {
                     if caps.streaming == true { CapBadge("Streaming", icon: "waveform") }
                     if caps.multiModal == true { CapBadge("Multi-modal", icon: "photo") }
-                    if caps.history == true    { CapBadge("History", icon: "clock") }
+                    if caps.history == true { CapBadge("History", icon: "clock") }
                 }
             }
         }
@@ -301,7 +302,10 @@ struct AgentCardView: View {
 struct CapBadge: View {
     let label: String
     let icon: String
-    init(_ label: String, icon: String = "") { self.label = label; self.icon = icon }
+    init(_ label: String, icon: String = "") {
+        self.label = label
+        self.icon = icon
+    }
 
     var body: some View {
         HStack(spacing: 3) {
@@ -340,7 +344,7 @@ struct ConnectionBadge: View {
 
     private var statusColor: Color {
         switch status {
-        case .online:  .green
+        case .online: .green
         case .offline: .red
         case .unknown: .orange
         }
@@ -348,7 +352,7 @@ struct ConnectionBadge: View {
 
     private var statusLabel: String {
         switch status {
-        case .online:  "Online"
+        case .online: "Online"
         case .offline: "Offline"
         case .unknown: "Unknown"
         }

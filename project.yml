@@ -9,15 +9,12 @@ options:
     - pattern: NullClawUI
       order: [App, Views, ViewModels, Networking, Security, Models, Resources]
 
-packages:
-  swift-markdown-ui:
-    url: https://github.com/gonzalezreal/swift-markdown-ui
-    from: 2.4.0
+packages: {}
 
 settings:
   SWIFT_VERSION: "6.0"
   SWIFT_STRICT_CONCURRENCY: complete
-  ENABLE_USER_SCRIPT_SANDBOXING: YES
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
 
 targets:
   NullClawUI:
@@ -39,9 +36,54 @@ targets:
         UILaunchScreen: {}
     entitlements:
       path: NullClawUI/Resources/NullClawUI.entitlements
-    dependencies:
-      - package: swift-markdown-ui
-        product: MarkdownUI
+    preBuildScripts:
+      - name: SwiftLint
+        script: |
+          set -e
+          # Skip SwiftLint when Periphery is running to avoid sandbox permission issues
+          if [[ -n "${RUN_PERIPHERY}" ]]; then
+            echo "Skipping SwiftLint (Periphery build)"
+            exit 0
+          fi
+          if which swiftlint >/dev/null; then
+            cd "${PROJECT_DIR}"
+            swiftlint --strict --config "${PROJECT_DIR}/.swiftlint.yml"
+          else
+            echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
+          fi
+        basedOnDependencyAnalysis: false
+        sandbox: false
+      - name: SwiftFormat
+        script: |
+          set -e
+          # Skip SwiftFormat when Periphery is running to avoid sandbox permission issues
+          if [[ -n "${RUN_PERIPHERY}" ]]; then
+            echo "Skipping SwiftFormat (Periphery build)"
+            exit 0
+          fi
+          if which swiftformat >/dev/null; then
+            cd "${PROJECT_DIR}"
+            swiftformat --lint --config "${PROJECT_DIR}/.swiftformat" .
+          else
+            echo "warning: SwiftFormat not installed, download from https://github.com/nicklockwood/SwiftFormat"
+          fi
+        basedOnDependencyAnalysis: false
+        sandbox: false
+    postBuildScripts:
+      - name: Periphery (Conditional)
+        script: |
+          set -e
+          if [[ -n "${RUN_PERIPHERY}" ]]; then
+            if which periphery >/dev/null; then
+              periphery scan --config .periphery.yml
+            else
+              echo "warning: Periphery not installed, download from https://github.com/peripheryapp/periphery"
+            fi
+          else
+            echo "Periphery scan skipped (set RUN_PERIPHERY=1 to enable)"
+          fi
+        basedOnDependencyAnalysis: false
+        sandbox: false
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: plus.agillity.nullclawui
       SWIFT_VERSION: "6.0"

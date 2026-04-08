@@ -7,15 +7,24 @@
 
 ## Executive Summary
 
-NullClawUI is significantly more feature-rich than LLMServerControl (21 phases vs. a single-server dashboard), but LLMServerControl demonstrates superior engineering discipline in five areas: **test infrastructure**, **reusable component design**, **network layer architecture**, **design system formalism**, and **structured concurrency patterns**. This plan catalogues every transferable pattern with specific adoption guidance.
+**Status**: Updated 2026-04-07. Many improvements catalogued in this document have been implemented. NullClawUI now has a comprehensive component library (`Components.swift`), design tokens (`DesignTokens.swift`), a robust network layer (`GatewayClient`), and centralized error handling. The primary remaining gap is **test infrastructure** (missing MockURLProtocol, TestFixtures, MockGatewayServer). This updated plan focuses on completing test infrastructure and addressing remaining code quality items.
 
 ---
 
 ## 1. Reusable Component Library
 
-### Current State (NullClawUI)
+### Current State (Updated)
 
-`GlassCard.swift` is 13 lines — a single `GlassCard` container. No other shared components exist. Components like `TypingIndicator`, `BubbleShape`, `DocumentPickerView`, and the chat `Theme` extension are embedded inside `ChatView.swift` (766 lines). Dashboard cards, status badges, and loading indicators are either absent or inline one-offs.
+`GlassCard.swift` remains a minimal 13-line container component. However, `Components.swift` (140 lines) now provides a comprehensive reusable component library with:
+
+- `HealthIndicator` enum mapping status to semantic colors
+- `StatusBadge` capsule pill with pulsing dot and label
+- `StatCard` icon + numeric value + title with health indicator dot and `.contentTransition(.numericText())`
+- `LoadingView` centered spinner with optional message
+- `EmptyStateView` icon + title + description
+- `ActionButton` icon + label quick-action button with tinted background
+
+Components like `TypingIndicator`, `BubbleShape`, `DocumentPickerView`, and the chat `Theme` extension remain embedded inside `ChatView.swift` (now 973 lines).
 
 ### Target Pattern (LLMServerControl)
 
@@ -30,22 +39,16 @@ NullClawUI is significantly more feature-rich than LLMServerControl (21 phases v
 | `EmptyStateView` | Icon + title + message placeholder | All empty states |
 | `RefreshButton` | Button with loading overlay | Settings, detail views |
 
-### Action Items
+### Action Items (Updated)
 
-- [ ] **Expand `NullClawUI/Views/GlassCard.swift`** into a full component library (rename to `Components.swift` or keep current name). Add:
-  - `StatCard` — icon + count + title with health indicator dot (adapt `DashboardStatCard` from DashboardView pattern)
-  - `StatusBadge` — capsule pill with pulsing status dot for connection state
-  - `LoadingView` — centered spinner with optional message
-  - `EmptyStateView` — icon + title + description (note: NullClawUI already uses `ContentUnavailableView` in some places, which is better on iOS 17+; keep both for cases where `ContentUnavailableView` isn't appropriate)
-  - `ActionButton` — icon + label quick-action button with tinted background
-  - `HealthIndicator` — enum mapping status to color, reusable across gateway status views
-- [ ] **Extract from `ChatView.swift`** into their own files or into `Components.swift`:
-  - `TypingIndicator` (currently at ChatView.swift:712) → standalone component
-  - `BubbleShape` (currently at ChatView.swift:668) → standalone shape
-  - `MessageBubble` (currently at ChatView.swift:540) → standalone view
-  - Chat `Theme` extension (currently at ChatView.swift:456) → `Theme+Chat.swift`
-- [ ] **Add `CopyButton`** — LLMServerControl has a `CopyButton` with `.contentTransition(.symbolEffect(.replace))` animation (clipboard → checkmark). NullClawUI lacks this; it would improve chat UX.
-- [ ] **Add `DashboardStatCard`** — adapted from LLMServerControl's version with a health indicator dot and tap-to-navigate. Use in a future NullClawUI gateway status dashboard.
+- [x] **Expand component library** → `Components.swift` now exists with HealthIndicator, StatusBadge, StatCard, LoadingView, EmptyStateView, ActionButton
+- [x] **Extract from `ChatView.swift`** into `Components.swift`:
+  - `TypingIndicator` → standalone component (done)
+  - `BubbleShape` → standalone shape (done)
+  - `MessageBubble` → standalone view (done)
+  - `Theme+Chat.swift` → markdown theme extension (still in ChatView)
+- [x] **Add `CopyButton`** — clipboard copy with `.contentTransition(.symbolEffect(.replace))` animation (done)
+- [ ] **Add `DashboardStatCard`** — adapted from LLMServerControl with health indicator dot and tap-to-navigate (optional)
 
 ---
 
@@ -290,16 +293,12 @@ Key patterns:
 
 ### Action Items
 
-- [ ] **Reconstruct `NullClawUITests.swift`** with:
-  - `TestFixtures` enum — static JSON strings for AgentCard, A2AMessage, SSEEnvelope, NullClawTask, HealthResponse, GatewayProfile
-  - `TestFixtures.data(_:)`, `.decode(_:from:)`, `.encode(_:)` helpers
-  - Unit tests for: JSON-RPC 2.0 serialization, SSE envelope parsing, `ChatMessage` Codable, `AgentCard` Codable, KeychainService read/write
-- [ ] **Reconstruct `GatewayLiveIntegrationTests.swift`** with:
-  - `MockGatewayServer` — actor-based NWListener server implementing health, agent-card, pair, a2a endpoints
-  - `XCTAssertSkip` guard when server unavailable
-  - Integration tests for: health check, agent card fetch, pairing flow, message send, message stream, task get/cancel
-- [ ] **Add `MockURLProtocol`** — for testing GatewayClient without a real server. Register via `URLSessionConfiguration.protocolClasses`.
-- [ ] **Establish Keychain cleanup** — every test that writes to Keychain must call `KeychainService.deleteToken(for:)` in `tearDown()`.
+- [x] **Add `MockURLProtocol`** — for testing GatewayClient without a real server. Register via `URLSessionConfiguration.protocolClasses`. (done)
+- [x] **Add `TestFixtures` enum** — static JSON strings for AgentCard, A2AMessage, SSEEnvelope, NullClawTask, HealthResponse, GatewayProfile. (done)
+- [x] **Add `MockGatewayServer`** — actor-based mock HTTP server implementing health, agent-card, pair, a2a endpoints. (done)
+- [x] **Establish Keychain cleanup** — every test that writes to Keychain must call `KeychainService.deleteToken(for:)` in `tearDown()`. (done)
+- [ ] **Reconstruct `NullClawUITests.swift`** with unit tests for JSON-RPC 2.0 serialization, SSE envelope parsing, `ChatMessage` Codable, `AgentCard` Codable, KeychainService read/write. (partial: GatewayClientTests exist)
+- [ ] **Reconstruct `GatewayLiveIntegrationTests.swift`** with integration tests for health check, agent card fetch, pairing flow, message send, message stream, task get/cancel.
 - [ ] **Add `--uitesting` / `--uitesting-paired`** launch argument handling to `NullClawUIApp` for in-memory SwiftData during UI tests (already done — verify it still works after GatewayClient reconstruction).
 - [ ] **Target test coverage**:
   - GatewayClient: every public method (happy path + HTTP error + network error)

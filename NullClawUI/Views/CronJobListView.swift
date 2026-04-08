@@ -35,7 +35,7 @@ struct CronJobListView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && viewModel.jobs.isEmpty {
+            } else if viewModel.isLoading, viewModel.jobs.isEmpty {
                 Section {
                     HStack(spacing: 10) {
                         ProgressView().controlSize(.small)
@@ -45,7 +45,7 @@ struct CronJobListView: View {
                     }
                     .accessibilityLabel("Loading cron jobs")
                 }
-            } else if viewModel.jobs.isEmpty && !viewModel.isLoading {
+            } else if viewModel.jobs.isEmpty, !viewModel.isLoading {
                 Section {
                     ContentUnavailableView(
                         "No Cron Jobs",
@@ -62,43 +62,43 @@ struct CronJobListView: View {
                     }
                     .buttonStyle(.plain)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            // Delete
-                            Button(role: .destructive) {
-                                Task { await viewModel.delete(job) }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                            .tint(.red)
-                            .accessibilityLabel("Delete cron job \(job.id)")
+                        // Delete
+                        Button(role: .destructive) {
+                            Task { await viewModel.delete(job) }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
                         }
-                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            // Pause / Resume
-                            if job.paused {
-                                Button {
-                                    Task { await viewModel.resume(job) }
-                                } label: {
-                                    Label("Resume", systemImage: "play.fill")
-                                }
-                                .tint(.green)
-                                .accessibilityLabel("Resume cron job \(job.id)")
-                            } else {
-                                Button {
-                                    Task { await viewModel.pause(job) }
-                                } label: {
-                                    Label("Pause", systemImage: "pause.fill")
-                                }
-                                .tint(.orange)
-                                .accessibilityLabel("Pause cron job \(job.id)")
-                            }
-                            // Run Now
+                        .tint(.red)
+                        .accessibilityLabel("Delete cron job \(job.id)")
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        // Pause / Resume
+                        if job.paused {
                             Button {
-                                Task { await viewModel.runNow(job) }
+                                Task { await viewModel.resume(job) }
                             } label: {
-                                Label("Run Now", systemImage: "bolt.fill")
+                                Label("Resume", systemImage: "play.fill")
                             }
-                            .tint(.blue)
-                            .accessibilityLabel("Run cron job \(job.id) now")
+                            .tint(.green)
+                            .accessibilityLabel("Resume cron job \(job.id)")
+                        } else {
+                            Button {
+                                Task { await viewModel.pause(job) }
+                            } label: {
+                                Label("Pause", systemImage: "pause.fill")
+                            }
+                            .tint(.orange)
+                            .accessibilityLabel("Pause cron job \(job.id)")
                         }
+                        // Run Now
+                        Button {
+                            Task { await viewModel.runNow(job) }
+                        } label: {
+                            Label("Run Now", systemImage: "bolt.fill")
+                        }
+                        .tint(.blue)
+                        .accessibilityLabel("Run cron job \(job.id) now")
+                    }
                 }
             }
 
@@ -122,7 +122,7 @@ struct CronJobListView: View {
                 .disabled(!profile.isPaired)
                 .accessibilityLabel("Add a new cron job")
             }
-            if viewModel.isLoading && !viewModel.jobs.isEmpty {
+            if viewModel.isLoading, !viewModel.jobs.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     ProgressView().controlSize(.small)
                 }
@@ -132,7 +132,7 @@ struct CronJobListView: View {
             await viewModel.load()
         }
         .task {
-            if viewModel.jobs.isEmpty && profile.isPaired {
+            if viewModel.jobs.isEmpty, profile.isPaired {
                 await viewModel.load()
             }
         }
@@ -232,13 +232,13 @@ struct CronJobListView: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(for: job))
-                    .accessibilityHint("Tap to edit. Swipe left to delete, swipe right to pause or run")
+        .accessibilityHint("Tap to edit. Swipe left to delete, swipe right to pause or run")
     }
 
     // MARK: - Helpers
 
     private func jobIcon(for job: CronJob) -> String {
-        if job.paused  { return "pause.circle.fill" }
+        if job.paused { return "pause.circle.fill" }
         return job.jobType == "shell" ? "terminal.fill" : "brain"
     }
 
@@ -249,8 +249,8 @@ struct CronJobListView: View {
 
     private func accessibilityLabel(for job: CronJob) -> String {
         var parts = ["\(job.id), \(job.expression)"]
-        if job.paused    { parts.append("Paused") }
-        if !job.enabled  { parts.append("Disabled") }
+        if job.paused { parts.append("Paused") }
+        if !job.enabled { parts.append("Disabled") }
         if let s = job.lastStatus { parts.append("Last status: \(s)") }
         return parts.joined(separator: ", ")
     }
@@ -268,8 +268,8 @@ private struct AddCronJobSheet: View {
 
     private var isValid: Bool {
         !draft.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !draft.expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !draft.commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !draft.expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !draft.commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -302,7 +302,7 @@ private struct AddCronJobSheet: View {
                         text: $draft.commandOrPrompt,
                         axis: .vertical
                     )
-                    .lineLimit(4...8)
+                    .lineLimit(4 ... 8)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .accessibilityLabel(draft.jobType == "shell" ? "Shell command" : "Agent prompt")
@@ -389,8 +389,8 @@ private struct EditCronJobSheet: View {
 
     private var isValid: Bool {
         !draft.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !draft.expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !draft.commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !draft.expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !draft.commandOrPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -423,7 +423,7 @@ private struct EditCronJobSheet: View {
                         text: $draft.commandOrPrompt,
                         axis: .vertical
                     )
-                    .lineLimit(4...8)
+                    .lineLimit(4 ... 8)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .accessibilityLabel(draft.jobType == "shell" ? "Shell command" : "Agent prompt")

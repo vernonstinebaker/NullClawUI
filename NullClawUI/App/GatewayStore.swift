@@ -11,14 +11,13 @@ private let activeIDKey = "activeGatewayProfileID"
 @Observable
 @MainActor
 final class GatewayStore {
-
     // MARK: - Stored state
 
     /// All saved gateway profiles, sorted by creation order.
     var profiles: [GatewayProfile] = []
 
     /// The ID of the currently-active profile (the one the app is connected to).
-    var activeProfileID: UUID? = nil
+    var activeProfileID: UUID?
 
     // MARK: - Private
 
@@ -36,18 +35,22 @@ final class GatewayStore {
         return profiles.first(where: { $0.id == id }) ?? profiles.first
     }
 
-    var activeURL: String { activeProfile?.url ?? "http://localhost:5111" }
+    var activeURL: String {
+        activeProfile?.url ?? "http://localhost:5111"
+    }
 
     // MARK: - Init
 
     /// Normal init — takes the shared ModelContext from the app container.
     init(context: ModelContext) {
-        self._container = nil   // Container lifetime is managed by the caller (NullClawUIApp).
+        _container = nil // Container lifetime is managed by the caller (NullClawUIApp).
         self.context = context
         loadProfiles()
         // Restore active profile ID from UserDefaults (it's just a UUID, not sensitive data).
-        if let uuidStr = UserDefaults.standard.string(forKey: activeIDKey),
-           let uuid = UUID(uuidString: uuidStr) {
+        if
+            let uuidStr = UserDefaults.standard.string(forKey: activeIDKey),
+            let uuid = UUID(uuidString: uuidStr)
+        {
             activeProfileID = uuid
         } else {
             activeProfileID = profiles.first?.id
@@ -58,8 +61,8 @@ final class GatewayStore {
     init(testProfile: GatewayProfile) {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: GatewayProfile.self, ConversationRecord.self, configurations: config)
-        self._container = container
-        self.context = container.mainContext
+        _container = container
+        context = container.mainContext
         context.insert(testProfile)
         do { try context.save() } catch { print("[GatewayStore] Warning: failed to save test profile: \(error)") }
         profiles = [testProfile]
@@ -70,8 +73,8 @@ final class GatewayStore {
     init(inMemory: Bool = true) {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: GatewayProfile.self, ConversationRecord.self, configurations: config)
-        self._container = container
-        self.context = container.mainContext
+        _container = container
+        context = container.mainContext
         profiles = []
         activeProfileID = nil
     }
@@ -79,9 +82,15 @@ final class GatewayStore {
     // MARK: - CRUD
 
     @discardableResult
-    func addProfile(name: String, url: String) -> GatewayProfile {
+    func addProfile(name: String, url: String, isPaired: Bool = false, requiresPairing: Bool = true) -> GatewayProfile {
         let sortOrder = profiles.count
-        let profile = GatewayProfile(name: name, url: url, sortOrder: sortOrder)
+        let profile = GatewayProfile(
+            name: name,
+            url: url,
+            isPaired: isPaired,
+            requiresPairing: requiresPairing,
+            sortOrder: sortOrder
+        )
         context.insert(profile)
         save()
         loadProfiles()
@@ -105,8 +114,8 @@ final class GatewayStore {
         // Migrate the Keychain token from the old URL key to the new one when the URL changed.
         // previousURL is the URL the profile held before the caller mutated it.
         // If not provided, fall back to the currently-stored URL (safe for name-only edits).
-        let oldURL  = previousURL ?? stored.url
-        let newURL  = profile.url
+        let oldURL = previousURL ?? stored.url
+        let newURL = profile.url
         let oldNorm = KeychainService.normalizedGatewayURL(oldURL)
         let newNorm = KeychainService.normalizedGatewayURL(newURL)
         if oldNorm != newNorm {
@@ -121,7 +130,7 @@ final class GatewayStore {
 
         // Apply the caller's updated values to the stored (context-tracked) object.
         stored.name = profile.name
-        stored.url  = profile.url
+        stored.url = profile.url
 
         // For open gateways (requiresPairing == false), isPaired was set via completeOpenGateway
         // and must not be re-derived from the Keychain (no token is ever stored for them).
@@ -191,11 +200,12 @@ final class GatewayStore {
     /// Called once on first launch after Phase 9 upgrade.
     /// If a legacy "gatewayURL" key exists and the profile list is empty, import it.
     func migrateFromLegacyIfNeeded() {
-        guard profiles.isEmpty,
-              let legacyURL = UserDefaults.standard.string(forKey: "gatewayURL"),
-              !legacyURL.isEmpty else { return }
+        guard
+            profiles.isEmpty,
+            let legacyURL = UserDefaults.standard.string(forKey: "gatewayURL"),
+            !legacyURL.isEmpty else { return }
 
-        let isPaired = (try? KeychainService.retrieveToken(for: legacyURL)).flatMap { $0 } != nil
+        let isPaired = (try? KeychainService.retrieveToken(for: legacyURL)).flatMap(\.self) != nil
         let profile = GatewayProfile(name: "Default", url: legacyURL, isPaired: isPaired, sortOrder: 0)
         context.insert(profile)
         save()
@@ -225,16 +235,23 @@ final class GatewayStore {
         guard let legacyProfiles = try? JSONDecoder().decode([LegacyProfile].self, from: data) else { return }
 
         for (index, legacy) in legacyProfiles.enumerated() {
-            let profile = GatewayProfile(id: legacy.id, name: legacy.name, url: legacy.url,
-                                         isPaired: legacy.isPaired, sortOrder: index)
+            let profile = GatewayProfile(
+                id: legacy.id,
+                name: legacy.name,
+                url: legacy.url,
+                isPaired: legacy.isPaired,
+                sortOrder: index
+            )
             context.insert(profile)
         }
         save()
         loadProfiles()
 
         // Restore active profile ID.
-        if let uuidStr = UserDefaults.standard.string(forKey: activeIDKey),
-           let uuid = UUID(uuidString: uuidStr) {
+        if
+            let uuidStr = UserDefaults.standard.string(forKey: activeIDKey),
+            let uuid = UUID(uuidString: uuidStr)
+        {
             activeProfileID = uuid
         } else {
             activeProfileID = profiles.first?.id

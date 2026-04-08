@@ -1,8 +1,8 @@
-import SwiftUI
-import SwiftData
 import OSLog
+import SwiftData
+import SwiftUI
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 private let appLog = Logger(subsystem: "com.nullclaw.NullClawUI", category: "AppInit")
@@ -16,16 +16,16 @@ struct NullClawUIApp: App {
     @State private var appModel: AppModel
     @State private var gatewayVM: GatewayViewModel
     @State private var chatVM: ChatViewModel
-    // Phase 13: periodic health monitor — nil during UI testing (no real gateway).
+    /// Phase 13: periodic health monitor — nil during UI testing (no real gateway).
     @State private var healthMonitor: GatewayHealthMonitor? = nil
-    // Phase 14: gateway status dashboard view model.
+    /// Phase 14: gateway status dashboard view model.
     @State private var statusVM: GatewayStatusViewModel
     /// Tracks the in-flight setToken task spawned by the isPaired observer so we can
     /// cancel a previous one before starting a new one (avoids racing token writes).
     @State private var setTokenTask: Task<Void, Never>? = nil
     @Environment(\.scenePhase) private var scenePhase
 
-    // Shared SwiftData container — held here so it stays alive for the app lifetime.
+    /// Shared SwiftData container — held here so it stays alive for the app lifetime.
     private let container: ModelContainer
 
     init() {
@@ -33,11 +33,16 @@ struct NullClawUIApp: App {
 
         // --uitesting-paired / --uitesting: use an in-memory container so tests
         // never touch the real CloudKit store.
-        if args.contains("--uitesting-paired") || args.contains("--uitesting")
-              || args.contains("--uitesting-paired-multi") {
+        if
+            args.contains("--uitesting-paired") || args.contains("--uitesting")
+            || args.contains("--uitesting-paired-multi")
+        {
             let cfg = ModelConfiguration(isStoredInMemoryOnly: true)
-            let c = try! ModelContainer(for: GatewayProfile.self, ConversationRecord.self,
-                                        configurations: cfg)
+            let c = try! ModelContainer(
+                for: GatewayProfile.self,
+                ConversationRecord.self,
+                configurations: cfg
+            )
             container = c
 
             let isPaired = args.contains("--uitesting-paired") || args.contains("--uitesting-paired-multi")
@@ -45,13 +50,14 @@ struct NullClawUIApp: App {
                 id: UUID(),
                 name: isPaired ? "TestAgent" : "Local",
                 url: "http://127.0.0.1:19999",
-                isPaired: isPaired
+                isPaired: isPaired,
+                requiresPairing: false // Test profiles don't require real pairing
             )
             let s = GatewayStore(testProfile: fakeProfile)
 
             // --uitesting-paired-multi: add a second gateway so the picker chevron appears.
             if args.contains("--uitesting-paired-multi") {
-                _ = s.addProfile(name: "SecondAgent", url: "http://127.0.0.1:19998")
+                _ = s.addProfile(name: "SecondAgent", url: "http://127.0.0.1:19998", requiresPairing: false)
             }
 
             let cs = ConversationStore(inMemory: true)
@@ -107,7 +113,10 @@ struct NullClawUIApp: App {
         } catch {
             // Fallback to local-only if CloudKit is unavailable (e.g., simulator without
             // a signed-in iCloud account).
-            appLog.warning("ModelContainer: CloudKit init failed (\(error.localizedDescription, privacy: .public)); falling back to local SQLite.")
+            appLog
+                .warning(
+                    "ModelContainer: CloudKit init failed (\(error.localizedDescription, privacy: .public)); falling back to local SQLite."
+                )
             do {
                 // Explicit URL keeps the store in Application Support — never in-memory.
                 // Using the url: overload of ModelConfiguration pins the SQLite file path.
@@ -130,7 +139,10 @@ struct NullClawUIApp: App {
             } catch {
                 // This should never happen on a real device; only on unit-test hosts where
                 // Application Support is sandboxed away. Log prominently so we know.
-                appLog.error("ModelContainer: local SQLite init also failed (\(error.localizedDescription, privacy: .public)); using in-memory store — DATA WILL NOT PERSIST.")
+                appLog
+                    .error(
+                        "ModelContainer: local SQLite init also failed (\(error.localizedDescription, privacy: .public)); using in-memory store — DATA WILL NOT PERSIST."
+                    )
                 let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
                 c = try! ModelContainer(for: schema, configurations: memConfig)
             }
@@ -206,8 +218,10 @@ struct NullClawUIApp: App {
             setTokenTask?.cancel()
             if isPaired {
                 setTokenTask = Task {
-                    if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
-                       !tok.isEmpty {
+                    if
+                        let tok = try? KeychainService.retrieveToken(for: appModel.gatewayURL),
+                        !tok.isEmpty
+                    {
                         await gatewayVM.client.setToken(tok)
                     }
                 }
@@ -221,9 +235,9 @@ struct NullClawUIApp: App {
 
     private var memoryWarningPublisher: NotificationCenter.Publisher {
         #if canImport(UIKit)
-        return NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
+            return NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
         #else
-        return NotificationCenter.default.publisher(for: Notification.Name("_NullClaw_NoOp_MemoryWarning"))
+            return NotificationCenter.default.publisher(for: Notification.Name("_NullClaw_NoOp_MemoryWarning"))
         #endif
     }
 
@@ -236,15 +250,17 @@ struct NullClawUIApp: App {
             chatVM.setActiveProfile(profile)
         }
 
-        if let tok = (try? KeychainService.retrieveToken(for: appModel.gatewayURL)) ?? nil,
-           !tok.isEmpty {
+        if
+            let tok = try? KeychainService.retrieveToken(for: appModel.gatewayURL),
+            !tok.isEmpty
+        {
             await gatewayVM.client.setToken(tok)
             if let id = appModel.store.activeProfileID ?? appModel.store.profiles.first?.id {
                 appModel.store.setProfilePaired(id, isPaired: true)
             }
         } else {
             let probeResult = try? await gatewayVM.client.pair(code: "")
-            if probeResult == "" {
+            if probeResult?.isEmpty == true {
                 // Gateway returned 403 — open gateway, no token needed.
                 // Mark requiresPairing=false so updateProfile never re-derives isPaired
                 // from the Keychain (which would clobber it since no token is stored).

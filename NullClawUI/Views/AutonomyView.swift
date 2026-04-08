@@ -30,7 +30,7 @@ struct AutonomyView: View {
                     Label("Pair this gateway to view autonomy configuration.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && !viewModel.isLoaded {
+            } else if viewModel.isLoading, !viewModel.isLoaded {
                 Section {
                     HStack {
                         ProgressView()
@@ -112,7 +112,9 @@ struct AutonomyView: View {
                     riskBadge(for: viewModel.config.level)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Autonomy level: \(viewModel.config.level). Risk: \(riskLabel(for: viewModel.config.level))")
+                .accessibilityLabel(
+                    "Autonomy level: \(viewModel.config.level). Risk: \(riskLabel(for: viewModel.config.level))"
+                )
 
                 Picker("Autonomy Level", selection: Binding(
                     get: { viewModel.config.level },
@@ -124,7 +126,9 @@ struct AutonomyView: View {
                 }
                 .pickerStyle(.segmented)
                 .accessibilityLabel("Autonomy level selector")
-                .accessibilityHint("Low restricts agent actions; High allows broad autonomy. Change requires confirmation from the agent.")
+                .accessibilityHint(
+                    "Low restricts agent actions; High allows broad autonomy. Change requires confirmation from the agent."
+                )
             }
             .padding(.vertical, 4)
         } header: {
@@ -138,7 +142,7 @@ struct AutonomyView: View {
         Section {
             Stepper(
                 value: $maxActionsDraft,
-                in: 1...1000,
+                in: 1 ... 1000,
                 step: 10,
                 onEditingChanged: { finished in
                     if finished {
@@ -169,7 +173,9 @@ struct AutonomyView: View {
             )) {
                 Label("Block high-risk commands", systemImage: "hand.raised.fill")
             }
-            .accessibilityLabel("Block high-risk commands: \(viewModel.config.blockHighRiskCommands ? "enabled" : "disabled")")
+            .accessibilityLabel(
+                "Block high-risk commands: \(viewModel.config.blockHighRiskCommands ? "enabled" : "disabled")"
+            )
             .accessibilityHint("When enabled, the agent cannot execute commands classified as high risk")
 
             Toggle(isOn: Binding(
@@ -178,7 +184,9 @@ struct AutonomyView: View {
             )) {
                 Label("Require approval for medium-risk", systemImage: "checkmark.shield")
             }
-            .accessibilityLabel("Require approval for medium-risk: \(viewModel.config.requireApprovalForMediumRisk ? "enabled" : "disabled")")
+            .accessibilityLabel(
+                "Require approval for medium-risk: \(viewModel.config.requireApprovalForMediumRisk ? "enabled" : "disabled")"
+            )
             .accessibilityHint("When enabled, the agent requests user approval before executing medium-risk commands")
         } header: {
             Text("Safety")
@@ -236,7 +244,6 @@ struct AutonomyView: View {
         .accessibilityHint("Opens a text editor to modify the list of allowed commands")
     }
 
-    @ViewBuilder
     private func riskBadge(for level: String) -> some View {
         Text(riskLabel(for: level))
             .font(.caption.weight(.semibold))
@@ -248,28 +255,28 @@ struct AutonomyView: View {
 
     private func riskColor(for level: String) -> Color {
         switch level.lowercased() {
-        case "low":  return .green
-        case "high": return .red
-        default:     return .yellow
+        case "low": .green
+        case "high": .red
+        default: .yellow
         }
     }
 
     private func riskLabel(for level: String) -> String {
         switch level.lowercased() {
-        case "low":  return "Low Risk"
-        case "high": return "High Risk"
-        default:     return "Medium Risk"
+        case "low": "Low Risk"
+        case "high": "High Risk"
+        default: "Medium Risk"
         }
     }
 
     private func levelFooter(for level: String) -> String {
         switch level.lowercased() {
         case "low":
-            return "The agent requires explicit approval before most actions. Safest setting."
+            "The agent requires explicit approval before most actions. Safest setting."
         case "high":
-            return "The agent operates with broad autonomy. Use with care on trusted gateways."
+            "The agent operates with broad autonomy. Use with care on trusted gateways."
         default:
-            return "The agent can act independently for routine tasks. Approval required for risky operations."
+            "The agent can act independently for routine tasks. Approval required for risky operations."
         }
     }
 

@@ -10,7 +10,7 @@ final class PairingViewModel {
 
     var pairingCode: String = ""
     var isPairing: Bool = false
-    var errorMessage: String? = nil
+    var errorMessage: String?
 
     init(appModel: AppModel, client: GatewayClient) {
         self.appModel = appModel
@@ -49,7 +49,7 @@ final class PairingViewModel {
         isPairing = true
         defer { isPairing = false }
         let result = try? await client.pair(code: "")
-        if result == "" {
+        if result?.isEmpty == true {
             // Gateway returned 403 — pairing not required.
             // Must set requiresPairing=false BEFORE isPaired=true so updateProfile
             // never re-derives isPaired from Keychain (open gateways have no token).
@@ -63,7 +63,7 @@ final class PairingViewModel {
     func unpair() {
         KeychainService.deleteToken(for: appModel.gatewayURL)
         Task { await client.setToken(nil) }
-        appModel.isPaired = false   // delegates to store.setProfilePaired
+        appModel.isPaired = false // delegates to store.setProfilePaired
         pairingCode = ""
     }
 }

@@ -37,7 +37,7 @@ struct UsageStatsView: View {
                     Label("Pair this gateway to view cost and usage data.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && !viewModel.isLoaded {
+            } else if viewModel.isLoading, !viewModel.isLoaded {
                 Section {
                     HStack {
                         ProgressView()
@@ -96,9 +96,9 @@ struct UsageStatsView: View {
         // Commit limit fields when focus leaves (decimalPad has no Return key on iPhone)
         .onChange(of: focusedLimitField) { old, _ in
             switch old {
-            case .daily:   commitDailyLimit()
+            case .daily: commitDailyLimit()
             case .monthly: commitMonthlyLimit()
-            case nil:      break
+            case nil: break
             }
         }
     }
@@ -137,8 +137,11 @@ struct UsageStatsView: View {
                 if let progress = viewModel.stats.dailyProgress {
                     ProgressView(value: progress)
                         .tint(progressColor(for: progress))
-                        .accessibilityLabel(String(format: "Daily usage: %.0f%% of $%.2f limit",
-                                                   progress * 100, viewModel.stats.dailyLimitUSD))
+                        .accessibilityLabel(String(
+                            format: "Daily usage: %.0f%% of $%.2f limit",
+                            progress * 100,
+                            viewModel.stats.dailyLimitUSD
+                        ))
                 }
             }
             .accessibilityElement(children: .combine)
@@ -163,8 +166,11 @@ struct UsageStatsView: View {
                 if let progress = viewModel.stats.monthlyProgress {
                     ProgressView(value: progress)
                         .tint(progressColor(for: progress))
-                        .accessibilityLabel(String(format: "Monthly usage: %.0f%% of $%.2f limit",
-                                                   progress * 100, viewModel.stats.monthlyLimitUSD))
+                        .accessibilityLabel(String(
+                            format: "Monthly usage: %.0f%% of $%.2f limit",
+                            progress * 100,
+                            viewModel.stats.monthlyLimitUSD
+                        ))
                 }
             }
             .accessibilityElement(children: .combine)
@@ -191,7 +197,9 @@ struct UsageStatsView: View {
         } header: {
             Text("Usage Summary")
         } footer: {
-            Text("Session stats reflect the current gateway session. Daily and monthly figures are read from the gateway's cost log.")
+            Text(
+                "Session stats reflect the current gateway session. Daily and monthly figures are read from the gateway's cost log."
+            )
         }
     }
 
@@ -230,7 +238,7 @@ struct UsageStatsView: View {
             // Warn-at percent stepper
             Stepper(
                 value: $warnPercentDraft,
-                in: 1...100,
+                in: 1 ... 100,
                 step: 5,
                 onEditingChanged: { finished in
                     if finished {

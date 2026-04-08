@@ -8,6 +8,7 @@ import SwiftData
 @Model
 final class GatewayProfile {
     // MARK: - Stored properties
+
     @Attribute(.unique) var id: UUID
     var name: String
     var url: String
@@ -23,14 +24,21 @@ final class GatewayProfile {
 
     // MARK: - Init
 
-    init(id: UUID = UUID(), name: String, url: String, isPaired: Bool = false, requiresPairing: Bool = true, sortOrder: Int = 0) {
+    init(
+        id: UUID = UUID(),
+        name: String,
+        url: String,
+        isPaired: Bool = false,
+        requiresPairing: Bool = true,
+        sortOrder: Int = 0
+    ) {
         self.id = id
         self.name = name
         self.url = url
         self.isPaired = isPaired
         self.requiresPairing = requiresPairing
         self.sortOrder = sortOrder
-        self.conversationRecords = []
+        conversationRecords = []
     }
 
     // MARK: - Derived

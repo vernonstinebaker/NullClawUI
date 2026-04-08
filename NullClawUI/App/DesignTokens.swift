@@ -2,28 +2,27 @@ import SwiftUI
 
 // MARK: - Design Tokens
 
-/// Centralized design tokens for consistent spacing, corner radii, and
-/// animation timing across the NullClawUI app.
-///
-/// These values are derived from the existing UI patterns found throughout
-/// the codebase (ChatView, GlassCard, SettingsView, etc.) and formalized
-/// into a single source of truth.
+// Centralized design tokens for consistent spacing, corner radii, and
+// animation timing across the NullClawUI app.
+//
+// These values are derived from the existing UI patterns found throughout
+// the codebase (ChatView, GlassCard, SettingsView, etc.) and formalized
+// into a single source of truth.
 
 enum DesignTokens {
-
     // MARK: Corner Radii
 
     /// Standard corner radius values used throughout the app.
     enum CornerRadius {
-        /// 16 — GlassCard, main containers, server cards
+        /// 16 — GlassCard, main containers, server cards, chat bubbles
         static let card: CGFloat = 16
         /// 12 — Input fields, action buttons, secondary containers
         static let medium: CGFloat = 12
-        /// 10 — Chat bubbles, error banners, attachment thumbnails
-        static let bubble: CGFloat = 10
-        /// 8 — Status badges, small containers
+        /// 16 — Chat bubbles (matches llmservercontrol — all bubbles use 16)
+        static let bubble: CGFloat = 16
+        /// 8 — Status badges, small containers, thinking bubble inner
         static let small: CGFloat = 8
-        /// 6 — Inner content, config rows
+        /// 6 — Inner content, config rows, thinking bubble internal spacing
         static let inner: CGFloat = 6
         /// 2 — Minimal rounding for subtle shapes
         static let tiny: CGFloat = 2
@@ -39,10 +38,16 @@ enum DesignTokens {
         static let card: CGFloat = 16
         /// 16 — Internal card padding, form section spacing
         static let standard: CGFloat = 16
+        /// 14 — Bubble horizontal padding (matches llmservercontrol)
+        static let comfortable: CGFloat = 14
         /// 12 — Tight spacing within cards, between related elements
         static let tight: CGFloat = 12
+        /// 10 — Bubble vertical padding, input field internal padding
+        static let relaxed: CGFloat = 10
         /// 8 — Minimal spacing, badge padding
         static let minimal: CGFloat = 8
+        /// 6 — Thinking bubble internal spacing
+        static let compact: CGFloat = 6
         /// 4 — Very tight, dot indicators
         static let tiny: CGFloat = 4
     }
@@ -56,9 +61,9 @@ enum DesignTokens {
             .spring(duration: 0.35, bounce: 0.2)
         }
 
-        /// Quick spring for small state changes (0.25s response)
+        /// Quick spring for small state changes (0.3s response)
         static func quick() -> SwiftUI.Animation {
-            .spring(response: 0.25)
+            .spring(response: 0.3)
         }
 
         /// Standard fade transition

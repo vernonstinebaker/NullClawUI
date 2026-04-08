@@ -1,12 +1,15 @@
-import XCTest
 @testable import NullClawUI
+import XCTest
 
 // MARK: - ServerCard Unit Tests
 
 @MainActor
 final class ServerCardTests: XCTestCase {
-
-    private func makeProfile(name: String = "TestAgent", url: String = "http://localhost:5111", isPaired: Bool = true) -> GatewayProfile {
+    private func makeProfile(
+        name: String = "TestAgent",
+        url: String = "http://localhost:5111",
+        isPaired: Bool = true
+    ) -> GatewayProfile {
         GatewayProfile(name: name, url: url, isPaired: isPaired)
     }
 

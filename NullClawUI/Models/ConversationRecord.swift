@@ -8,6 +8,7 @@ import SwiftData
 @Model
 final class ConversationRecord {
     // MARK: - Identity
+
     @Attribute(.unique) var id: UUID
 
     /// Gateway task UUID — set on first send. `nil` for records that were never sent.
@@ -16,6 +17,7 @@ final class ConversationRecord {
     var contextID: String?
 
     // MARK: - Gateway snapshot
+
     // Denormalized at record creation so history survives profile edits / deletions.
     var gatewayProfileID: UUID
     var gatewayName: String
@@ -32,7 +34,7 @@ final class ConversationRecord {
 
     var startedAt: Date
     var lastMessageAt: Date
-    var messageCount: Int   // total messages (user + assistant)
+    var messageCount: Int // total messages (user + assistant)
 
     // MARK: - Relationship
 
@@ -82,14 +84,13 @@ private let maxConversationRecords = 100
 @Observable
 @MainActor
 final class ConversationStore {
-
     // MARK: - Public state
 
     /// All records, sorted newest-first. Refreshed from the ModelContext on every mutation.
     var records: [ConversationRecord] = []
 
     /// The ID of the record that is currently considered "active" (the one in the chat view).
-    var currentRecordID: UUID? = nil
+    var currentRecordID: UUID?
 
     // MARK: - Private
 
@@ -103,7 +104,7 @@ final class ConversationStore {
 
     /// Normal init — takes the shared ModelContext from the app container.
     init(context: ModelContext) {
-        self._container = nil   // Caller manages container lifetime.
+        _container = nil // Caller manages container lifetime.
         self.context = context
         loadRecords()
     }
@@ -112,8 +113,8 @@ final class ConversationStore {
     init(inMemory: Bool = false) {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: ConversationRecord.self, GatewayProfile.self, configurations: config)
-        self._container = container  // Retain so ARC does not release the container after init.
-        self.context = container.mainContext
+        _container = container // Retain so ARC does not release the container after init.
+        context = container.mainContext
         // records stays empty — no load needed for tests
     }
 
@@ -143,10 +144,12 @@ final class ConversationStore {
     @discardableResult
     func startNewRecord(gateway: GatewayProfile) -> ConversationRecord {
         // Reuse if the current record is a blank placeholder for the same gateway.
-        if let existing = current,
-           existing.gatewayProfileID == gateway.id,
-           existing.messageCount == 0,
-           existing.title == "New Conversation" {
+        if
+            let existing = current,
+            existing.gatewayProfileID == gateway.id,
+            existing.messageCount == 0,
+            existing.title == "New Conversation"
+        {
             return existing
         }
 
@@ -249,11 +252,14 @@ final class ConversationStore {
         let descriptor = FetchDescriptor<ConversationRecord>(
             sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
         )
-        guard let all = try? context.fetch(descriptor),
-              all.count > maxConversationRecords else { return }
+        guard
+            let all = try? context.fetch(descriptor),
+            all.count > maxConversationRecords else { return }
         // Keep the newest maxConversationRecords entries; delete the rest.
         let toDelete = all.dropFirst(maxConversationRecords)
-        for rec in toDelete { context.delete(rec) }
+        for rec in toDelete {
+            context.delete(rec)
+        }
     }
 }
 
@@ -278,9 +284,9 @@ extension ConversationStore {
     /// SwiftData. Safe to call on every launch — it checks for the key first.
     func migrateFromUserDefaultsIfNeeded() {
         let key = "conversationHistory"
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let legacyRecords = try? JSONDecoder().decode([LegacyConversationRecord].self, from: data)
-        else { return }
+        guard
+            let data = UserDefaults.standard.data(forKey: key),
+            let legacyRecords = try? JSONDecoder().decode([LegacyConversationRecord].self, from: data) else { return }
 
         // Don't migrate if we already have data in SwiftData (idempotent).
         if !records.isEmpty { return }

@@ -1,5 +1,5 @@
-import SwiftUI
 import Observation
+import SwiftUI
 
 /// Top-level application state shared across the entire view hierarchy.
 /// Phase 9+: gateway identity (URL, isPaired) is delegated to GatewayStore.
@@ -7,8 +7,8 @@ import Observation
 @Observable
 @MainActor
 final class AppModel {
-
     // MARK: - Gateway store (source of truth for profiles)
+
     var store: GatewayStore
 
     // MARK: - Per-connection transient state
@@ -56,7 +56,7 @@ final class AppModel {
     /// The error message currently being presented to the user via the root alert.
     /// Set this property (or call `presentError(_:)`) to show a global error alert.
     /// Clear it by setting to nil to dismiss the alert.
-    var presentedErrorMessage: String? = nil
+    var presentedErrorMessage: String?
 
     /// Presents an error message in the root alert.
     /// Extracts `LocalizedError.errorDescription` when available, otherwise uses
@@ -77,7 +77,9 @@ final class AppModel {
     // MARK: - Convenience passthroughs (keep callers compatible)
 
     /// URL of the currently-active gateway profile.
-    var gatewayURL: String { store.activeURL }
+    var gatewayURL: String {
+        store.activeURL
+    }
 
     /// Whether the active profile has a valid Keychain token.
     var isPaired: Bool {

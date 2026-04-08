@@ -33,7 +33,7 @@ struct MCPServerListView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && viewModel.servers.isEmpty {
+            } else if viewModel.isLoading, viewModel.servers.isEmpty {
                 Section {
                     HStack(spacing: 10) {
                         ProgressView().controlSize(.small)
@@ -43,7 +43,7 @@ struct MCPServerListView: View {
                     }
                     .accessibilityLabel("Loading MCP servers")
                 }
-            } else if viewModel.servers.isEmpty && !viewModel.isLoading {
+            } else if viewModel.servers.isEmpty, !viewModel.isLoading {
                 Section {
                     ContentUnavailableView(
                         "No MCP Servers",
@@ -105,14 +105,14 @@ struct MCPServerListView: View {
                 .accessibilityLabel("Add a new MCP server")
                 .accessibilityHint("Opens a form to register a new MCP server with this gateway")
             }
-            if viewModel.isLoading && !viewModel.servers.isEmpty {
+            if viewModel.isLoading, !viewModel.servers.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     ProgressView().controlSize(.small)
                 }
             }
         }
         .task {
-            if viewModel.servers.isEmpty && profile.isPaired {
+            if viewModel.servers.isEmpty, profile.isPaired {
                 await viewModel.load()
             }
         }
@@ -184,7 +184,7 @@ struct MCPServerListView: View {
     private func connectionBadge(for connected: Bool) -> some View {
         let (label, color, icon): (String, Color, String) = connected
             ? ("Connected", .green, "circle.fill")
-            : ("Failed",    .red,   "exclamationmark.circle.fill")
+            : ("Failed", .red, "exclamationmark.circle.fill")
         Label(label, systemImage: icon)
             .font(.caption2.weight(.medium))
             .foregroundStyle(color)
@@ -251,7 +251,6 @@ private struct MCPServerDetailView: View {
         }
     }
 
-    @ViewBuilder
     private func serverDetail(_ server: MCPServer) -> some View {
         List {
             Section("Identity") {

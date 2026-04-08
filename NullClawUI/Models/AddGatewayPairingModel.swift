@@ -21,7 +21,6 @@ enum PairingStep: Equatable {
 @Observable
 @MainActor
 final class AddGatewayPairingModel {
-
     // MARK: State
 
     private(set) var step: PairingStep = .connecting
@@ -60,9 +59,11 @@ final class AddGatewayPairingModel {
         } catch {
             // Check if it's an HTTP error that indicates the gateway is reachable
             // but requires a pairing code.
-            if let gwError = error as? GatewayError,
-               case .httpError(let code) = gwError,
-               code == 401 || code == 403 {
+            if
+                let gwError = error as? GatewayError,
+                case let .httpError(code) = gwError,
+                code == 401 || code == 403
+            {
                 step = .requiresPairing
             } else {
                 step = .failed(error.localizedDescription)

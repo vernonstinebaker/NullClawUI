@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01405946687559711B834382 /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF060F24BF32E8FC544665E2 /* TestFixtures.swift */; };
 		0AFA7786BAFF763E6CA8358E /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354198F01B07BCCD5083AA9A /* MCPServer.swift */; };
 		2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */; };
 		28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A879BA976476DF9DECFFA87 /* SettingsView.swift */; };
@@ -21,16 +22,15 @@
 		5D73F4DDEED905D5CF2BC932 /* ServerCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5B973FAF15D52F395667BD0 /* ServerCardTests.swift */; };
 		6179FF6E2B511CEE18FDDD85 /* AddGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B696F053AE53239E808A6C /* AddGatewaySheet.swift */; };
 		6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D18F96C48C0F9087431E70 /* MCPServerViewModel.swift */; };
+		751026EC0A9FFD433C333CD0 /* NullClawUIE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9C3098B611AC630759D283 /* NullClawUIE2EIntegrationTests.swift */; };
 		784B5FB929DBF0D2E80C5330 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DC885F054A771E27A3B26C /* UsageStats.swift */; };
 		792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4586808D41B6CE56D04176A0 /* GatewayProfile.swift */; };
-		7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */; };
 		79924E387854ED2994F2CD4D /* AgentConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 926834C39C09BF5AAA1D0A4C /* AgentConfigView.swift */; };
 		7AEEF479BF9B4A9E5E7331E9 /* EditGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */; };
 		7C9349B5DF3CCABA478FCD27 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1A87698B2B35470BAFF5D /* Components.swift */; };
 		7F9CF4D0C4006EB8388CC8FC /* ChannelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617B5F453C34591C1D492407 /* ChannelInfo.swift */; };
 		84691A62A851F7883071C557 /* CronJobViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53862F9DC7908CB505A84627 /* CronJobViewModel.swift */; };
 		856B9F183D6B6685BD65FBD8 /* ComponentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D75A443C0C31BE389A235E6 /* ComponentTests.swift */; };
-		879851702FDB296A7AA8EF8D /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 926367C0C86587FB306CDD2C /* MarkdownUI */; };
 		8B929CB13E859782D062B0AF /* AutonomyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D12F20E13FD844AF79C22916 /* AutonomyViewModel.swift */; };
 		8F596238C2098F061B50771A /* GatewayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */; };
 		919E77BC06606B0AB5A82C48 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */; };
@@ -45,14 +45,18 @@
 		A79C34E9677310603EE2CBB0 /* ChannelStatusListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A024AECFAB790964AA72196 /* ChannelStatusListView.swift */; };
 		A8B6645D086598650A813BB8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2211EF38611CF618453B2921 /* ContentView.swift */; };
 		AD3D252E3AB29E03F2448155 /* ConversationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F27D4DC37FD7A7C678D285C /* ConversationRecord.swift */; };
+		B1385651D9270DEEBB23A964 /* MockGatewayServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E99AF5B96CC9B00B4CBC178 /* MockGatewayServer.swift */; };
 		BC2D495D8A10C9D48248DA98 /* A2AMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */; };
 		BDC30F6F064666E142A7B659 /* GatewayDiscoveryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */; };
 		BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */; };
 		C02F8A78AFC103AE612E73E7 /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA0E8EAD82E62F5C960BD12 /* AgentCard.swift */; };
+		C2DB2FBA3016FB9FE2E8BC6E /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5F1680AE856C6B5FFD06B6 /* MockURLProtocol.swift */; };
 		C304C89D62CB04085DA17B05 /* UsageStatsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83CF4650EBD6DFAF9ABF6A35 /* UsageStatsViewModel.swift */; };
 		C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A727AFB0435F24F2346AE65C /* KeychainService.swift */; };
+		C9E05A0E9F816B315DDF8438 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4736E9977F2277469617689 /* SearchView.swift */; };
 		C9F21BCC5224D6A98DC17D83 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03240766199909EB8710D1B /* ChatViewModel.swift */; };
 		D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A2F5B1789710AF160D8545 /* GlassCard.swift */; };
+		D40FCB78B8E3926F10CA8BE2 /* GatewayClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6447D0D0EB03C3965517A96B /* GatewayClientTests.swift */; };
 		D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B541BEB81F62E4F0D3174FA /* CronJob.swift */; };
 		DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */; };
 		DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050EC7586B87B2D60FC214 /* GatewayClient.swift */; };
@@ -90,7 +94,7 @@
 		13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDetailView.swift; sourceTree = "<group>"; };
 		1A024AECFAB790964AA72196 /* ChannelStatusListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusListView.swift; sourceTree = "<group>"; };
 		1CAFCE3D5DD22F4C2040022C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDiscoveryModel.swift; sourceTree = "<group>"; };
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStatsView.swift; sourceTree = "<group>"; };
@@ -100,6 +104,7 @@
 		3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayViewModel.swift; sourceTree = "<group>"; };
 		3B541BEB81F62E4F0D3174FA /* CronJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJob.swift; sourceTree = "<group>"; };
 		3D75A443C0C31BE389A235E6 /* ComponentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentTests.swift; sourceTree = "<group>"; };
+		3E5F1680AE856C6B5FFD06B6 /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		43D18F96C48C0F9087431E70 /* MCPServerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerViewModel.swift; sourceTree = "<group>"; };
 		4586808D41B6CE56D04176A0 /* GatewayProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayProfile.swift; sourceTree = "<group>"; };
 		46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A2AMessage.swift; sourceTree = "<group>"; };
@@ -108,11 +113,13 @@
 		54DAFB37DE546D95AF604D82 /* ServerCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerCard.swift; sourceTree = "<group>"; };
 		550E418EF7CAB589E16FF6BA /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStatusViewModel.swift; sourceTree = "<group>"; };
+		5E99AF5B96CC9B00B4CBC178 /* MockGatewayServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGatewayServer.swift; sourceTree = "<group>"; };
 		5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		617B5F453C34591C1D492407 /* ChannelInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelInfo.swift; sourceTree = "<group>"; };
+		6447D0D0EB03C3965517A96B /* GatewayClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClientTests.swift; sourceTree = "<group>"; };
 		72DA2CB9C003C8025B742C7D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		74207CFB19C11BAB4C15394D /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
-		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		791BDD6617D04FC234EA4C30 /* AddGatewayPairingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewayPairingModel.swift; sourceTree = "<group>"; };
 		7CC1A87698B2B35470BAFF5D /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		83CF4650EBD6DFAF9ABF6A35 /* UsageStatsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStatsViewModel.swift; sourceTree = "<group>"; };
@@ -122,6 +129,7 @@
 		926834C39C09BF5AAA1D0A4C /* AgentConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentConfigView.swift; sourceTree = "<group>"; };
 		93B696F053AE53239E808A6C /* AddGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewaySheet.swift; sourceTree = "<group>"; };
 		94DC885F054A771E27A3B26C /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
+		9D9C3098B611AC630759D283 /* NullClawUIE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIE2EIntegrationTests.swift; sourceTree = "<group>"; };
 		A03240766199909EB8710D1B /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		A6CAC6F74BA19DB8816F4981 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A727AFB0435F24F2346AE65C /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
@@ -136,8 +144,9 @@
 		D12F20E13FD844AF79C22916 /* AutonomyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutonomyViewModel.swift; sourceTree = "<group>"; };
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		D7E52636F01842BCE0ADE456 /* ChannelStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusViewModel.swift; sourceTree = "<group>"; };
-		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedSettingsView.swift; sourceTree = "<group>"; };
+		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF060F24BF32E8FC544665E2 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
+		E4736E9977F2277469617689 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
 		F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerListView.swift; sourceTree = "<group>"; };
 		F344154517C845148851E370 /* GatewayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayStore.swift; sourceTree = "<group>"; };
@@ -145,17 +154,6 @@
 		F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGatewaySheet.swift; sourceTree = "<group>"; };
 		FB65EF8F15ADAB9A96D4C6AC /* Color+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		452023D9E2B19C26DE397899 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				879851702FDB296A7AA8EF8D /* MarkdownUI in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		193F1A810625A565F4FD6378 /* Models */ = {
@@ -188,6 +186,7 @@
 		61A7A1F99987AE02CB08BDC7 /* NullClawUIUITests */ = {
 			isa = PBXGroup;
 			children = (
+				9D9C3098B611AC630759D283 /* NullClawUIE2EIntegrationTests.swift */,
 				B3C9B668A10A66138C052549 /* NullClawUIUITests.swift */,
 			);
 			path = NullClawUIUITests;
@@ -250,7 +249,7 @@
 				D7A2F5B1789710AF160D8545 /* GlassCard.swift */,
 				72DA2CB9C003C8025B742C7D /* MainTabView.swift */,
 				F0D42D8C051F88A64F2D2306 /* MCPServerListView.swift */,
-				E2454A0DFCE74639FE8AEB6A /* PairedSettingsView.swift */,
+				E4736E9977F2277469617689 /* SearchView.swift */,
 				54DAFB37DE546D95AF604D82 /* ServerCard.swift */,
 				74207CFB19C11BAB4C15394D /* ServersView.swift */,
 				8A879BA976476DF9DECFFA87 /* SettingsView.swift */,
@@ -305,9 +304,13 @@
 			isa = PBXGroup;
 			children = (
 				3D75A443C0C31BE389A235E6 /* ComponentTests.swift */,
+				6447D0D0EB03C3965517A96B /* GatewayClientTests.swift */,
 				123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */,
+				5E99AF5B96CC9B00B4CBC178 /* MockGatewayServer.swift */,
+				3E5F1680AE856C6B5FFD06B6 /* MockURLProtocol.swift */,
 				389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */,
 				F5B973FAF15D52F395667BD0 /* ServerCardTests.swift */,
+				DF060F24BF32E8FC544665E2 /* TestFixtures.swift */,
 			);
 			path = NullClawUITests;
 			sourceTree = "<group>";
@@ -319,9 +322,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8372F4AE23F36BFCF625FFB8 /* Build configuration list for PBXNativeTarget "NullClawUI" */;
 			buildPhases = (
+				D9D4FAC25D1310124C836332 /* SwiftLint */,
+				93D9128ED924EC0CD3388813 /* SwiftFormat */,
 				DEF0F70F908B419D9CE26004 /* Sources */,
 				848DDC74506ACA88FB68259E /* Resources */,
-				452023D9E2B19C26DE397899 /* Frameworks */,
+				566B908EB0BBD7B244D6E814 /* Periphery (Conditional) */,
 			);
 			buildRules = (
 			);
@@ -329,7 +334,6 @@
 			);
 			name = NullClawUI;
 			packageProductDependencies = (
-				926367C0C86587FB306CDD2C /* MarkdownUI */,
 			);
 			productName = NullClawUI;
 			productReference = DC0B30D53490016D2D90C7D8 /* NullClawUI.app */;
@@ -378,7 +382,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					DF16284F23A42D01133095C4 = {
 						TestTargetID = A7B552EB26CABE8E98B0F641;
@@ -394,9 +398,6 @@
 			);
 			mainGroup = C00EBC9CB298B3B5086B8FA8;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				2E007314FAE18D996B1EED51 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 98C5F23B1BD9DA7284FC7004 /* Products */;
 			projectDirPath = "";
@@ -420,11 +421,72 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		566B908EB0BBD7B244D6E814 /* Periphery (Conditional) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Periphery (Conditional)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nif [[ -n \"${RUN_PERIPHERY}\" ]]; then\n  if which periphery >/dev/null; then\n    periphery scan --config .periphery.yml\n  else\n    echo \"warning: Periphery not installed, download from https://github.com/peripheryapp/periphery\"\n  fi\nelse\n  echo \"Periphery scan skipped (set RUN_PERIPHERY=1 to enable)\"\nfi\n";
+		};
+		93D9128ED924EC0CD3388813 /* SwiftFormat */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = SwiftFormat;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n# Skip SwiftFormat when Periphery is running to avoid sandbox permission issues\nif [[ -n \"${RUN_PERIPHERY}\" ]]; then\n  echo \"Skipping SwiftFormat (Periphery build)\"\n  exit 0\nfi\nif which swiftformat >/dev/null; then\n  cd \"${PROJECT_DIR}\"\n  swiftformat --lint --config \"${PROJECT_DIR}/.swiftformat\" .\nelse\n  echo \"warning: SwiftFormat not installed, download from https://github.com/nicklockwood/SwiftFormat\"\nfi\n";
+		};
+		D9D4FAC25D1310124C836332 /* SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = SwiftLint;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n# Skip SwiftLint when Periphery is running to avoid sandbox permission issues\nif [[ -n \"${RUN_PERIPHERY}\" ]]; then\n  echo \"Skipping SwiftLint (Periphery build)\"\n  exit 0\nfi\nif which swiftlint >/dev/null; then\n  cd \"${PROJECT_DIR}\"\n  swiftlint --strict --config \"${PROJECT_DIR}/.swiftlint.yml\"\nelse\n  echo \"warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		93274FB2A02CAB3478F94E8C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				751026EC0A9FFD433C333CD0 /* NullClawUIE2EIntegrationTests.swift in Sources */,
 				3E64ABF9FD76A909E6875619 /* NullClawUIUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -434,9 +496,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				856B9F183D6B6685BD65FBD8 /* ComponentTests.swift in Sources */,
+				D40FCB78B8E3926F10CA8BE2 /* GatewayClientTests.swift in Sources */,
 				DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */,
+				B1385651D9270DEEBB23A964 /* MockGatewayServer.swift in Sources */,
+				C2DB2FBA3016FB9FE2E8BC6E /* MockURLProtocol.swift in Sources */,
 				95B6DB68141F596399C77651 /* NullClawUITests.swift in Sources */,
 				5D73F4DDEED905D5CF2BC932 /* ServerCardTests.swift in Sources */,
+				01405946687559711B834382 /* TestFixtures.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -484,9 +550,9 @@
 				6D958026A6FFFB3A9E735604 /* MCPServerViewModel.swift in Sources */,
 				2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */,
 				BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */,
-				7930CC2CC5632078714D2554 /* PairedSettingsView.swift in Sources */,
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
 				F0E93E306CD7085B0A883696 /* RestApiModels.swift in Sources */,
+				C9E05A0E9F816B315DDF8438 /* SearchView.swift in Sources */,
 				A49516912E3F7ACE2517EF0A /* ServerCard.swift in Sources */,
 				F8A8806F434F03E966B9A87D /* ServersView.swift in Sources */,
 				28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */,
@@ -537,6 +603,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -570,7 +637,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -591,6 +658,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -622,6 +690,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -655,7 +724,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -669,6 +738,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -723,6 +793,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -745,6 +816,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -800,25 +872,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		2E007314FAE18D996B1EED51 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.4.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		926367C0C86587FB306CDD2C /* MarkdownUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 2E007314FAE18D996B1EED51 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
-			productName = MarkdownUI;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F8C4BC3211FF0222B00E1FDF /* Project object */;
 }

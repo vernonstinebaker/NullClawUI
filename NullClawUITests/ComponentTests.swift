@@ -1,5 +1,5 @@
-import XCTest
 @testable import NullClawUI
+import XCTest
 
 // MARK: - StatusBadge Tests
 
@@ -144,7 +144,7 @@ final class DesignTokenValueTests: XCTestCase {
     func testCornerRadiusValues() {
         XCTAssertEqual(DesignTokens.CornerRadius.card, 16)
         XCTAssertEqual(DesignTokens.CornerRadius.medium, 12)
-        XCTAssertEqual(DesignTokens.CornerRadius.bubble, 10)
+        XCTAssertEqual(DesignTokens.CornerRadius.bubble, 16)
         XCTAssertEqual(DesignTokens.CornerRadius.small, 8)
         XCTAssertEqual(DesignTokens.CornerRadius.inner, 6)
         XCTAssertEqual(DesignTokens.CornerRadius.tiny, 2)
@@ -203,5 +203,47 @@ final class HealthIndicatorComponentTests: XCTestCase {
     func testEquatable() {
         XCTAssertEqual(HealthIndicator.healthy, HealthIndicator.healthy)
         XCTAssertNotEqual(HealthIndicator.healthy, HealthIndicator.unhealthy)
+    }
+}
+
+// MARK: - BubbleShape Tests
+
+final class BubbleShapeTests: XCTestCase {
+    func testBubbleShapeInitialization() {
+        let shape = BubbleShape(role: "user", isLast: true)
+        XCTAssertEqual(shape.role, "user")
+        XCTAssertTrue(shape.isLast)
+    }
+}
+
+// MARK: - TypingIndicator Tests
+
+final class TypingIndicatorTests: XCTestCase {
+    func testTypingIndicatorExists() {
+        let indicator = TypingIndicator()
+        // Just ensure it can be instantiated
+        XCTAssertNotNil(indicator)
+    }
+}
+
+// MARK: - MessageBubble Tests
+
+final class MessageBubbleTests: XCTestCase {
+    func testMessageBubbleInitialization() {
+        let message = ChatMessage(role: "user", text: "Hello")
+        let bubble = MessageBubble(message: message, isLastInGroup: true)
+        XCTAssertEqual(bubble.message.role, "user")
+        XCTAssertEqual(bubble.message.text, "Hello")
+        XCTAssertTrue(bubble.isLastInGroup)
+    }
+}
+
+// MARK: - CopyButton Tests
+
+final class CopyButtonTests: XCTestCase {
+    func testCopyButtonInitialization() {
+        let button = CopyButton(text: "Test", tint: .blue)
+        XCTAssertEqual(button.text, "Test")
+        XCTAssertEqual(button.tint, .blue)
     }
 }

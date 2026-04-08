@@ -1,17 +1,19 @@
 import Foundation
 import Observation
-import UIKit
+#if canImport(UIKit)
+    import UIKit
+#endif
 
 // MARK: - ChatAttachment (local UI model)
 
 /// Represents a user-selected image or file that will be sent as an inlineData part.
-struct ChatAttachment: Identifiable, Sendable {
+struct ChatAttachment: Identifiable {
     let id: UUID
     let mimeType: String
-    let data: Data          // raw bytes; base64-encoded when building MessagePart
+    let data: Data // raw bytes; base64-encoded when building MessagePart
 
     init(mimeType: String, data: Data) {
-        self.id = UUID()
+        id = UUID()
         self.mimeType = mimeType
         self.data = data
     }
@@ -24,16 +26,16 @@ struct ChatAttachment: Identifiable, Sendable {
 
 // MARK: - ChatMessage (local UI model)
 
-struct ChatMessage: Identifiable, Sendable {
+struct ChatMessage: Identifiable {
     let id: UUID
-    let role: String   // "user" | "assistant"
+    let role: String // "user" | "assistant"
     var text: String
     var isStreaming: Bool = false
     /// Image/file attachments carried by this message (user-sent or inbound inlineData parts).
     var attachments: [ChatAttachment] = []
 
     init(role: String, text: String, isStreaming: Bool = false, attachments: [ChatAttachment] = []) {
-        self.id = UUID()
+        id = UUID()
         self.role = role
         self.text = text
         self.isStreaming = isStreaming
@@ -42,6 +44,7 @@ struct ChatMessage: Identifiable, Sendable {
 }
 
 // MARK: - GatewaySlot
+
 // Captures the full conversation state for one local history record.
 
 private struct GatewaySlot {
@@ -51,16 +54,17 @@ private struct GatewaySlot {
 }
 
 // MARK: - LRU slot cache
-// Keeps at most maxSlots full conversation transcripts in memory.
-// When the cap is reached, the least-recently-used entry is evicted.
+
+/// Keeps at most maxSlots full conversation transcripts in memory.
+/// When the cap is reached, the least-recently-used entry is evicted.
 private struct SlotCache {
     static let maxSlots = 10
     /// Ordered from most-recently-used (index 0) to least (last).
     private var order: [UUID] = []
-    private var dict:  [UUID: GatewaySlot] = [:]
+    private var dict: [UUID: GatewaySlot] = [:]
 
     subscript(id: UUID) -> GatewaySlot? {
-        get { dict[id] }
+        dict[id]
     }
 
     mutating func store(_ slot: GatewaySlot, for id: UUID) {
@@ -102,11 +106,11 @@ final class ChatViewModel {
     var pendingAttachments: [ChatAttachment] = []
     var isSending: Bool = false
     var isStreaming: Bool = false
-    var activeTaskID: String? = nil
+    var activeTaskID: String?
     /// The conversation context ID returned by the gateway on the first message.
     /// Passed on every subsequent send/stream so the gateway routes to the same session.
-    var activeContextID: String? = nil
-    var errorMessage: String? = nil
+    var activeContextID: String?
+    var errorMessage: String?
     /// Incremented on every streaming token append so the view can reliably auto-scroll.
     var scrollTick: Int = 0
     /// Incremented each time loadTask completes — observers switch to the Chat tab.
@@ -116,19 +120,26 @@ final class ChatViewModel {
     /// True while a history record is being fetched from the server (openRecord → loadTask).
     var isLoadingHistory: Bool = false
     /// The record ID that is currently loaded in the chat — used to highlight the active row.
-    var activeRecordID: UUID? = nil
+    var activeRecordID: UUID?
+
+    /// Conversation records for the currently active gateway.
+    var activeGatewayRecords: [ConversationRecord] {
+        guard let activeProfileID else { return [] }
+        return conversationStore.records.filter { $0.gatewayProfileID == activeProfileID }
+    }
 
     // MARK: - Per-record conversation slots
+
     // Keyed by ConversationRecord.id so reopening history restores the correct session.
     // Bounded to SlotCache.maxSlots (10) most-recently-used entries to cap memory use.
-    private var recordSlots: SlotCache = SlotCache()
+    private var recordSlots: SlotCache = .init()
     private var activeRecordIDByGateway: [UUID: UUID] = [:]
 
-    // Currently active profile ID — needed to save the slot on switch.
-    private var activeProfileID: UUID? = nil
+    /// Currently active profile ID — needed to save the slot on switch.
+    var activeProfileID: UUID?
 
-    // Handle to the in-flight stream Task so we can cancel it before switching gateways.
-    private var streamTask: Task<Void, Never>? = nil
+    /// Handle to the in-flight stream Task so we can cancel it before switching gateways.
+    private var streamTask: Task<Void, Never>?
 
     init(appModel: AppModel, client: GatewayClient, conversationStore: ConversationStore) {
         self.appModel = appModel
@@ -157,7 +168,7 @@ final class ChatViewModel {
     private func ensureRecordForSend(gateway: GatewayProfile) {
         if let current = conversationStore.current, current.gatewayProfileID == gateway.id {
             activeRecordIDByGateway[gateway.id] = current.id
-            return  // existing record for this gateway — reuse it
+            return // existing record for this gateway — reuse it
         }
         let record = conversationStore.startNewRecord(gateway: gateway)
         activeRecordIDByGateway[gateway.id] = record.id
@@ -168,7 +179,7 @@ final class ChatViewModel {
     func send() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = pendingAttachments
-        guard (!text.isEmpty || !attachments.isEmpty), !isSending else { return }
+        guard !text.isEmpty || !attachments.isEmpty, !isSending else { return }
         inputText = ""
         pendingAttachments = []
         isSending = true
@@ -188,9 +199,11 @@ final class ChatViewModel {
         if !text.isEmpty { parts.append(MessagePart(text: text, kind: "text")) }
         parts.append(contentsOf: attachments.map(\.messagePart))
 
-        let userMessage = A2AMessage(role: "user",
-                                     parts: parts,
-                                     contextId: activeContextID)
+        let userMessage = A2AMessage(
+            role: "user",
+            parts: parts,
+            contextId: activeContextID
+        )
         do {
             let task = try await client.sendMessage(userMessage)
             activeTaskID = task.id
@@ -198,10 +211,12 @@ final class ChatViewModel {
             conversationStore.updateCurrent(serverTaskID: task.id, contextID: task.contextId)
             let replyText = task.replyText
             messages.append(ChatMessage(role: "assistant", text: replyText))
-            conversationStore.updateCurrent(incrementMessages: true,
-                                            lastMessagePreview: String(replyText.prefix(120)))
+            conversationStore.updateCurrent(
+                incrementMessages: true,
+                lastMessagePreview: String(replyText.prefix(120))
+            )
             // After first assistant reply, upgrade title to a summary derived from the reply.
-            if messages.filter({ $0.role == "assistant" }).count == 1 {
+            if messages.count(where: { $0.role == "assistant" }) == 1 {
                 if let derived = derivedTitle(from: replyText) {
                     conversationStore.setCurrentTitle(derived)
                 }
@@ -227,7 +242,7 @@ final class ChatViewModel {
     func stream() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = pendingAttachments
-        guard (!text.isEmpty || !attachments.isEmpty), !isStreaming else { return }
+        guard !text.isEmpty || !attachments.isEmpty, !isStreaming else { return }
         inputText = ""
         pendingAttachments = []
         isStreaming = true
@@ -252,9 +267,11 @@ final class ChatViewModel {
         if !text.isEmpty { parts.append(MessagePart(text: text, kind: "text")) }
         parts.append(contentsOf: attachments.map(\.messagePart))
 
-        let userMessage = A2AMessage(role: "user",
-                                     parts: parts,
-                                     contextId: activeContextID)
+        let userMessage = A2AMessage(
+            role: "user",
+            parts: parts,
+            contextId: activeContextID
+        )
 
         while retries <= maxRetries {
             // Check for cancellation (e.g. gateway switch mid-stream).
@@ -294,7 +311,7 @@ final class ChatViewModel {
                         switch result.kind {
                         case "artifact-update":
                             if let parts = result.artifact?.parts {
-                                let chunk = parts.compactMap { $0.text }.joined()
+                                let chunk = parts.compactMap(\.text).joined()
                                 if result.append == true {
                                     messages[idx].text += chunk
                                 } else {
@@ -335,13 +352,17 @@ final class ChatViewModel {
                     messages[idx].isStreaming = false
                 }
                 let preview = assistantIndex.flatMap { $0 < messages.count ? messages[$0].text : nil }
-                conversationStore.updateCurrent(incrementMessages: true,
-                                                lastMessagePreview: preview.map { String($0.prefix(120)) })
+                conversationStore.updateCurrent(
+                    incrementMessages: true,
+                    lastMessagePreview: preview.map { String($0.prefix(120)) }
+                )
                 // After first assistant reply, upgrade title to a summary derived from the reply.
-                if messages.filter({ $0.role == "assistant" }).count == 1,
-                   let idx = assistantIndex,
-                   idx < messages.count,
-                   let derived = derivedTitle(from: messages[idx].text) {
+                if
+                    messages.count(where: { $0.role == "assistant" }) == 1,
+                    let idx = assistantIndex,
+                    idx < messages.count,
+                    let derived = derivedTitle(from: messages[idx].text)
+                {
                     conversationStore.setCurrentTitle(derived)
                 }
                 saveCurrentSlot()
@@ -351,7 +372,7 @@ final class ChatViewModel {
             } catch {
                 if Task.isCancelled { break }
                 // 401 is a permanent auth failure — retrying won't help.
-                if case GatewayError.httpError(let code) = error, code == 401 {
+                if case let GatewayError.httpError(code) = error, code == 401 {
                     errorMessage = "Authentication failed (401). Please re-pair the device in Settings."
                     appModel.isPaired = false
                     if let idx = assistantIndex, idx < messages.count {
@@ -364,7 +385,7 @@ final class ChatViewModel {
                 // Retrying won't help; prompt the user to try a smaller image or a
                 // different model. (The gateway body limit is now 20 MB so a 413 from
                 // the gateway itself would only occur for very large files.)
-                if case GatewayError.httpError(let code) = error, code == 413 {
+                if case let GatewayError.httpError(code) = error, code == 413 {
                     errorMessage = "The model rejected this message (HTTP 413). "
                         + "Try a smaller image, or use a model that supports image attachments."
                     if let idx = assistantIndex, idx < messages.count {
@@ -432,7 +453,10 @@ final class ChatViewModel {
 
         // 4. Restore the destination gateway's conversation slot (if any).
         activeProfileID = gateway.id
-        if let recordID = activeRecordIDByGateway[gateway.id] ?? conversationStore.mostRecentRecord(for: gateway.id)?.id {
+        if
+            let recordID = activeRecordIDByGateway[gateway.id] ?? conversationStore.mostRecentRecord(for: gateway.id)?
+                .id
+        {
             activeRecordIDByGateway[gateway.id] = recordID
             activeRecordID = recordID
             conversationStore.activate(id: recordID)
@@ -450,8 +474,10 @@ final class ChatViewModel {
     func openRecord(_ record: ConversationRecord, gatewayViewModel: GatewayViewModel) async {
         saveCurrentSlot()
 
-        if let profile = appModel.store.profiles.first(where: { $0.id == record.gatewayProfileID }),
-           profile.id != appModel.store.activeProfile?.id {
+        if
+            let profile = appModel.store.profiles.first(where: { $0.id == record.gatewayProfileID }),
+            profile.id != appModel.store.activeProfile?.id
+        {
             let newClient = await gatewayViewModel.switchGateway(to: profile)
             resetForNewGateway(client: newClient, gateway: profile)
         }
@@ -489,8 +515,10 @@ final class ChatViewModel {
     func setActiveProfile(_ profile: GatewayProfile) {
         guard activeProfileID == nil else { return }
         activeProfileID = profile.id
-        if let recordID = conversationStore.current?.id,
-           conversationStore.current?.gatewayProfileID == profile.id {
+        if
+            let recordID = conversationStore.current?.id,
+            conversationStore.current?.gatewayProfileID == profile.id
+        {
             activeRecordIDByGateway[profile.id] = recordID
         }
     }
@@ -567,10 +595,11 @@ final class ChatViewModel {
             let allMessages = (task.history ?? task.messages ?? [])
             messages = allMessages.map { msg in
                 let role = msg.role == "agent" ? "assistant" : msg.role
-                let text = msg.parts.compactMap { $0.text }.joined()
+                let text = msg.parts.compactMap(\.text).joined()
                 let attachments: [ChatAttachment] = msg.parts.compactMap { part in
-                    guard let inline = part.inlineData,
-                          let bytes = Data(base64Encoded: inline.data) else { return nil }
+                    guard
+                        let inline = part.inlineData,
+                        let bytes = Data(base64Encoded: inline.data) else { return nil }
                     return ChatAttachment(mimeType: inline.mimeType, data: bytes)
                 }
                 return ChatMessage(role: role, text: text, attachments: attachments)

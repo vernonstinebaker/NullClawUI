@@ -53,8 +53,13 @@ struct ServersView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddGatewaySheet { name, url in
-                let profile = store.addProfile(name: name, url: url)
+            AddGatewaySheet { name, url, isPaired, requiresPairing in
+                let profile = store.addProfile(
+                    name: name,
+                    url: url,
+                    isPaired: isPaired,
+                    requiresPairing: requiresPairing
+                )
                 Task {
                     let newClient = await gatewayVM.switchGateway(to: profile)
                     chatVM.resetForNewGateway(client: newClient, gateway: profile)
@@ -62,7 +67,7 @@ struct ServersView: View {
             }
         }
         .alert("Cannot Delete Last Gateway", isPresented: $showingDeleteLastAlert) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {}
         } message: {
             Text("At least one gateway must remain. Add another gateway before deleting this one.")
         }
@@ -70,7 +75,6 @@ struct ServersView: View {
 
     // MARK: - Subviews
 
-    @ViewBuilder
     private var emptyState: some View {
         ContentUnavailableView {
             Label("No Servers", systemImage: "server.rack")

@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Gateway Errors
 
-enum GatewayError: Error, LocalizedError, Sendable {
+enum GatewayError: Error, LocalizedError {
     case invalidURL
     case httpError(statusCode: Int)
     case decodingError(underlying: Error)
@@ -13,13 +13,17 @@ enum GatewayError: Error, LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL:            return "Invalid gateway URL."
-        case .httpError(let code):   return "HTTP error \(code)."
-        case .decodingError:         return "Failed to decode server response."
-        case .networkError(let e):   return e.localizedDescription
-        case .jsonRPCError(_, let m):return "RPC error: \(m)"
-        case .unpaired:              return "Not paired with gateway."
-        case .apiError(let code, let message): return "API error [\(code)]: \(message)"
+        case .invalidURL: return "Invalid gateway URL."
+        case let .httpError(code): return "HTTP error \(code)."
+        case .decodingError: return "Failed to decode server response."
+        case let .networkError(e): return e.localizedDescription
+        case let .jsonRPCError(_, m): return "RPC error: \(m)"
+        case .unpaired: return "Not paired with gateway."
+        case let .apiError(code, message):
+            if code == "ADMIN_API_DISABLED" {
+                return "Admin API is disabled on this gateway. Add \"admin_api\": true to the gateway section of config.json and restart."
+            }
+            return "API error [\(code)]: \(message)"
         }
     }
 }
@@ -28,7 +32,7 @@ enum GatewayError: Error, LocalizedError, Sendable {
 
 /// Whether the gateway requires a bearer token.
 /// Set to .notRequired when the gateway responds 403 to /pair (require_pairing: false).
-enum PairingMode: Sendable, Equatable {
+enum PairingMode: Equatable {
     case required
     case notRequired
 }
@@ -38,8 +42,8 @@ enum PairingMode: Sendable, Equatable {
 /// Thread-safe, async/await client for the NullClaw Gateway.
 /// All methods are safe to call from any actor; UI updates must be dispatched to @MainActor by callers.
 actor GatewayClient {
-
     // MARK: State
+
     private(set) var baseURL: URL
     private var bearerToken: String?
     /// Reflects whether the gateway requires a bearer token.
@@ -71,31 +75,41 @@ actor GatewayClient {
 
     // MARK: Init
 
-    init(baseURL: URL, token: String? = nil, requiresPairing: Bool = true, mockSessionConfig: URLSessionConfiguration? = nil) {
+    init(
+        baseURL: URL,
+        token: String? = nil,
+        requiresPairing: Bool = true,
+        mockSessionConfig: URLSessionConfiguration? = nil
+    ) {
         self.baseURL = baseURL
-        self.bearerToken = token.flatMap { $0.isEmpty ? nil : $0 }
+        bearerToken = token.flatMap { $0.isEmpty ? nil : $0 }
         // Open gateways (requiresPairing: false) never issue tokens. Setting pairingMode
         // to .notRequired here allows all API calls to proceed without a bearer token.
-        self.pairingMode = requiresPairing ? .required : .notRequired
+        pairingMode = requiresPairing ? .required : .notRequired
         if let cfg = mockSessionConfig {
-            self.session = URLSession(configuration: cfg)
-            self.sseSession = URLSession(configuration: cfg)
+            session = URLSession(configuration: cfg)
+            sseSession = URLSession(configuration: cfg)
         } else {
             let defaultCfg = URLSessionConfiguration.default
             defaultCfg.timeoutIntervalForRequest = 30
             defaultCfg.timeoutIntervalForResource = 300
-            self.session = URLSession(configuration: defaultCfg)
+            session = URLSession(configuration: defaultCfg)
             let sseCfg = URLSessionConfiguration.default
-            sseCfg.timeoutIntervalForRequest = 90    // max wait for first byte / between tokens
-            sseCfg.timeoutIntervalForResource = 600  // max total stream duration
-            self.sseSession = URLSession(configuration: sseCfg)
+            sseCfg.timeoutIntervalForRequest = 90 // max wait for first byte / between tokens
+            sseCfg.timeoutIntervalForResource = 600 // max total stream duration
+            sseSession = URLSession(configuration: sseCfg)
         }
     }
 
     // MARK: Configuration
 
-    func setBaseURL(_ url: URL) { self.baseURL = url }
-    func setToken(_ token: String?) { self.bearerToken = token.flatMap { $0.isEmpty ? nil : $0 } }
+    func setBaseURL(_ url: URL) {
+        baseURL = url
+    }
+
+    func setToken(_ token: String?) {
+        bearerToken = token.flatMap { $0.isEmpty ? nil : $0 }
+    }
 
     /// Cancels all in-flight requests and invalidates both URLSessions.
     /// Call this on the old client before replacing it with a new one on gateway switch.
@@ -148,10 +162,12 @@ actor GatewayClient {
 
     func sendMessage(_ message: A2AMessage) async throws -> NullClawTask {
         guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
-        let params  = MessageSendParams(message: message)
-        let rpc     = JSONRPCRequest(id: UUID().uuidString,
-                                     method: "message/send",
-                                     params: params)
+        let params = MessageSendParams(message: message)
+        let rpc = JSONRPCRequest(
+            id: UUID().uuidString,
+            method: "message/send",
+            params: params
+        )
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try a2aEncoder.encode(rpc)
@@ -161,7 +177,10 @@ actor GatewayClient {
 
         let envelope = try decode(JSONRPCResponse<NullClawTask>.self, from: data)
         if let err = envelope.error { throw GatewayError.jsonRPCError(code: err.code, message: err.message) }
-        guard let task = envelope.result else { throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Null result"))) }
+        guard let task = envelope.result else { throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(.init(
+            codingPath: [],
+            debugDescription: "Null result"
+        ))) }
         return task
     }
 
@@ -176,9 +195,11 @@ actor GatewayClient {
     func streamMessage(_ message: A2AMessage) async throws -> AsyncThrowingStream<TaskStatusUpdateEvent, Error> {
         guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
         let params = MessageSendParams(message: message)
-        let rpc    = JSONRPCRequest(id: UUID().uuidString,
-                                    method: "message/stream",
-                                    params: params)
+        let rpc = JSONRPCRequest(
+            id: UUID().uuidString,
+            method: "message/stream",
+            params: params
+        )
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try a2aEncoder.encode(rpc)
@@ -194,7 +215,7 @@ actor GatewayClient {
                     // An index cursor advances instead of removeFirst (which is O(n)).
                     var buffer = Data()
                     buffer.reserveCapacity(4096)
-                    var cursor = 0   // index of the first unprocessed byte in `buffer`
+                    var cursor = 0 // index of the first unprocessed byte in `buffer`
 
                     for try await byte in asyncBytes {
                         buffer.append(byte)
@@ -202,12 +223,21 @@ actor GatewayClient {
                         // Guard against a runaway response with no SSE delimiter.
                         if buffer.count - cursor > Self.sseMaxBufferBytes {
                             continuation.finish(throwing: GatewayError.networkError(
-                                underlying: NSError(domain: "GatewayClient", code: -1,
-                                    userInfo: [NSLocalizedDescriptionKey: "SSE buffer exceeded 4 MB — aborting stream"])))
+                                underlying: NSError(
+                                    domain: "GatewayClient",
+                                    code: -1,
+                                    userInfo: [NSLocalizedDescriptionKey: "SSE buffer exceeded 4 MB — aborting stream"]
+                                )
+                            ))
                             return
                         }
 
-                        try Self.yieldBufferedSSEEvents(buffer: buffer, cursor: &cursor, decoder: localDecoder, continuation: continuation)
+                        try Self.yieldBufferedSSEEvents(
+                            buffer: buffer,
+                            cursor: &cursor,
+                            decoder: localDecoder,
+                            continuation: continuation
+                        )
 
                         // Compact the buffer periodically to reclaim memory consumed
                         // by already-processed bytes, without doing it on every byte.
@@ -305,48 +335,125 @@ actor GatewayClient {
         }
     }
 
+    /// Minimal envelope used by `validate()` to surface structured API errors on 4xx responses
+    /// before the full response body is decoded.
+    private struct ApiErrorEnvelope: Decodable {
+        struct ApiError: Decodable { let code: String
+            let message: String
+        }
+
+        let error: ApiError?
+    }
+
+    /// Typed wrapper used by `apiConfigObjectValue(path:as:)` to extract the `value`
+    /// field from a GET /api/config response envelope.
+    private struct ConfigValueOf<T: Decodable>: Decodable {
+        let value: T
+    }
+
     /// Decodes an /api/* response envelope, throwing `GatewayError.apiError` on failure.
     private func decodeEnvelope<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
-        let envelope = try decoder.decode(ApiEnvelope<T>.self, from: data)
-        if let err = envelope.error {
-            throw GatewayError.apiError(code: err.code, message: err.message)
+        do {
+            let envelope = try decoder.decode(ApiEnvelope<T>.self, from: data)
+            if let err = envelope.error {
+                throw GatewayError.apiError(code: err.code, message: err.message)
+            }
+            guard let result = envelope.data else {
+                throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
+                    .init(codingPath: [], debugDescription: "API envelope data is null")
+                ))
+            }
+            return result
+        } catch let e as GatewayError {
+            throw e
+        } catch {
+            throw GatewayError.decodingError(underlying: error)
         }
-        guard let result = envelope.data else {
-            throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
-                .init(codingPath: [], debugDescription: "API envelope data is null")))
-        }
-        return result
     }
 
     /// Decodes an /api/* response envelope where the data is an array.
     private func decodeArrayEnvelope<T: Decodable>(_ type: T.Type, from data: Data) throws -> [T] {
-        let envelope = try decoder.decode(ApiEnvelope<[T]>.self, from: data)
-        if let err = envelope.error {
-            throw GatewayError.apiError(code: err.code, message: err.message)
+        do {
+            let envelope = try decoder.decode(ApiEnvelope<[T]>.self, from: data)
+            if let err = envelope.error {
+                throw GatewayError.apiError(code: err.code, message: err.message)
+            }
+            return envelope.data ?? []
+        } catch let e as GatewayError {
+            throw e
+        } catch {
+            throw GatewayError.decodingError(underlying: error)
         }
-        return envelope.data ?? []
     }
 
-    // MARK: Status & Config
+    // MARK: Status, Doctor & Capabilities
 
     /// GET /api/status — System status, uptime, health components.
     func apiStatus() async throws -> ApiStatusResponse {
         let url = baseURL.appendingPathComponent("api/status")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(ApiStatusResponse.self, from: data)
     }
 
+    /// GET /api/doctor — Deep per-component health report with timestamps and restart counts.
+    func apiDoctor() async throws -> ApiDoctorResponse {
+        let url = baseURL.appendingPathComponent("api/doctor")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiDoctorResponse.self, from: data)
+    }
+
+    /// GET /api/capabilities — Runtime capability flags and channel availability matrix.
+    func apiCapabilities() async throws -> ApiCapabilitiesResponse {
+        let url = baseURL.appendingPathComponent("api/capabilities")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiCapabilitiesResponse.self, from: data)
+    }
+
+    // MARK: Config (cont.)
+
     /// GET /api/config?path=<dotted.path> — Read a single config value.
     func apiConfigValue(path: String) async throws -> ConfigValueResponse {
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/config"),
+            resolvingAgainstBaseURL: false
+        )!
         components.queryItems = [URLQueryItem(name: "path", value: path)]
         guard let url = components.url else { throw GatewayError.invalidURL }
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(ConfigValueResponse.self, from: data)
+    }
+
+    /// GET /api/config?path=<dotted.path> — Decodes the 'value' field directly into T.
+    /// Use this when the config value is a known struct (e.g. AgentConfigPayload, AutonomyConfigPayload).
+    func apiConfigObjectValue<T: Decodable>(path: String, as type: T.Type) async throws -> T {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/config"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let url = components.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        // The envelope shape is: {"success":true,"data":{"path":"...","value":{...}}}
+        // Peel off the outer ApiEnvelope then decode "value" as T.
+        // Wrap any DecodingError (e.g. null value for unknown path) into GatewayError.decodingError.
+        do {
+            let inner = try decodeEnvelope(ConfigValueOf<T>.self, from: data)
+            return inner.value
+        } catch let e as GatewayError {
+            throw e
+        } catch {
+            throw GatewayError.decodingError(underlying: error)
+        }
     }
 
     /// GET /api/models — Available providers and default model.
@@ -354,7 +461,7 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/models")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(ApiModelsResponse.self, from: data)
     }
 
@@ -365,7 +472,7 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/cron")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeArrayEnvelope(CronJob.self, from: data)
     }
 
@@ -375,7 +482,7 @@ actor GatewayClient {
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(params)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(CronJob.self, from: data)
     }
 
@@ -385,7 +492,7 @@ actor GatewayClient {
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try encoder.encode(params)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(CronJob.self, from: data)
     }
 
@@ -393,24 +500,24 @@ actor GatewayClient {
     func apiRunCronJob(id: String) async throws {
         let url = baseURL.appendingPathComponent("api/cron/\(id)/run")
         let req = try makeRequest(url: url, method: "POST", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     /// POST /api/cron/:id/pause — Pause a cron job.
     func apiPauseCronJob(id: String) async throws {
         let url = baseURL.appendingPathComponent("api/cron/\(id)/pause")
         let req = try makeRequest(url: url, method: "POST", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     /// POST /api/cron/:id/resume — Resume a cron job.
     func apiResumeCronJob(id: String) async throws {
         let url = baseURL.appendingPathComponent("api/cron/\(id)/resume")
         let req = try makeRequest(url: url, method: "POST", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     /// PATCH /api/cron/:id — Partially update a cron job.
@@ -418,16 +525,16 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/cron/\(id)")
         var req = try makeRequest(url: url, method: "PATCH", authenticated: true)
         req.httpBody = try encoder.encode(params)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     /// DELETE /api/cron/:id — Delete a cron job.
     func apiDeleteCronJob(id: String) async throws {
         let url = baseURL.appendingPathComponent("api/cron/\(id)")
         let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     // MARK: Channels
@@ -437,7 +544,7 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/channels")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeArrayEnvelope(ApiChannelInfo.self, from: data)
     }
 
@@ -446,7 +553,7 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/channels/\(name)")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(ApiChannelDetail.self, from: data)
     }
 
@@ -457,7 +564,7 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/mcp")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeArrayEnvelope(ApiMCPServerInfo.self, from: data)
     }
 
@@ -466,58 +573,250 @@ actor GatewayClient {
         let url = baseURL.appendingPathComponent("api/mcp/\(name)")
         let req = try makeRequest(url: url, method: "GET", authenticated: true)
         let (data, response) = try await session.data(for: req)
-        try validate(response)
+        try validate(response, data: data)
         return try decodeEnvelope(ApiMCPServerDetail.self, from: data)
     }
 
     // MARK: Config Mutation
 
     /// PATCH /api/config — Set a config value at a dotted path.
-    func apiSetConfigValue<T: Encodable>(path: String, value: T) async throws {
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
+    func apiSetConfigValue(path: String, value: some Encodable) async throws {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/config"),
+            resolvingAgainstBaseURL: false
+        )!
         components.queryItems = [URLQueryItem(name: "path", value: path)]
         guard let url = components.url else { throw GatewayError.invalidURL }
         var req = try makeRequest(url: url, method: "PATCH", authenticated: true)
         req.httpBody = try encoder.encode(["value": value])
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     /// DELETE /api/config — Unset a config value at a dotted path.
     func apiUnsetConfigValue(path: String) async throws {
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/config"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/config"),
+            resolvingAgainstBaseURL: false
+        )!
         components.queryItems = [URLQueryItem(name: "path", value: path)]
         guard let url = components.url else { throw GatewayError.invalidURL }
         let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
     }
 
     /// POST /api/config/reload — Hot-reload config from disk.
-    func apiReloadConfig() async throws {
+    func apiReloadConfig() async throws -> ApiConfigReloadResponse {
         let url = baseURL.appendingPathComponent("api/config/reload")
-        let req = try makeRequest(url: url, method: "POST", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode([String: String]()) // endpoint requires a body
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiConfigReloadResponse.self, from: data)
     }
 
     /// POST /api/config/validate — Validate config without applying.
-    func apiValidateConfig() async throws {
+    func apiValidateConfig() async throws -> ApiConfigReloadResponse {
         let url = baseURL.appendingPathComponent("api/config/validate")
-        let req = try makeRequest(url: url, method: "POST", authenticated: true)
-        let (_, response) = try await session.data(for: req)
-        try validate(response)
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        req.httpBody = try encoder.encode([String: String]()) // endpoint requires a body
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiConfigReloadResponse.self, from: data)
+    }
+
+    // MARK: Models (cont.)
+
+    /// GET /api/models/:name — Get detail for a specific model.
+    func apiGetModel(name: String) async throws -> ApiModelDetail {
+        let url = baseURL.appendingPathComponent("api/models/\(name)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiModelDetail.self, from: data)
+    }
+
+    // MARK: Cron (cont.)
+
+    /// GET /api/cron/:id — Get detail for a single scheduled job.
+    func apiGetCronJob(id: String) async throws -> CronJob {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(CronJob.self, from: data)
+    }
+
+    /// GET /api/cron/:id/runs — Run history for a specific scheduled job.
+    func apiCronJobRuns(id: String) async throws -> ApiCronRunsResponse {
+        let url = baseURL.appendingPathComponent("api/cron/\(id)/runs")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiCronRunsResponse.self, from: data)
+    }
+
+    // MARK: Skills
+
+    /// GET /api/skills — List installed skills and their output directory.
+    func apiListSkills() async throws -> ApiSkillsResponse {
+        let url = baseURL.appendingPathComponent("api/skills")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiSkillsResponse.self, from: data)
+    }
+
+    /// GET /api/skills/:name — Get detail for a specific skill.
+    func apiGetSkill(name: String) async throws -> ApiSkillInfo {
+        let url = baseURL.appendingPathComponent("api/skills/\(name)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiSkillInfo.self, from: data)
+    }
+
+    /// DELETE /api/skills/:name — Uninstall a skill.
+    func apiDeleteSkill(name: String) async throws {
+        let url = baseURL.appendingPathComponent("api/skills/\(name)")
+        let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    // MARK: Agent Sessions
+
+    /// GET /api/agent/sessions — List all agent conversation sessions.
+    func apiListAgentSessions() async throws -> ApiAgentSessionsResponse {
+        let url = baseURL.appendingPathComponent("api/agent/sessions")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiAgentSessionsResponse.self, from: data)
+    }
+
+    /// POST /api/agent — Send a blocking agent chat turn.
+    func apiAgentChat(message: String, sessionId: String? = nil) async throws -> ApiAgentTurnResponse {
+        let url = baseURL.appendingPathComponent("api/agent")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        var body: [String: String] = ["message": message]
+        if let sid = sessionId { body["session_id"] = sid }
+        req.httpBody = try encoder.encode(body)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiAgentTurnResponse.self, from: data)
+    }
+
+    /// DELETE /api/agent/sessions/:id — Delete an agent session and its history.
+    func apiDeleteAgentSession(id: String) async throws {
+        let url = baseURL.appendingPathComponent("api/agent/sessions/\(id)")
+        let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    // MARK: Memory
+
+    /// GET /api/memory — List memory entries with optional pagination.
+    func apiListMemory(limit: Int? = nil, offset: Int? = nil) async throws -> ApiMemoryListResponse {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/memory"),
+            resolvingAgainstBaseURL: false
+        )!
+        var items: [URLQueryItem] = []
+        if let l = limit { items.append(URLQueryItem(name: "limit", value: String(l))) }
+        if let o = offset { items.append(URLQueryItem(name: "offset", value: String(o))) }
+        if !items.isEmpty { components.queryItems = items }
+        guard let url = components.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiMemoryListResponse.self, from: data)
+    }
+
+    /// GET /api/memory/stats — Memory backend statistics (count, backend type).
+    func apiMemoryStats() async throws -> ApiMemoryStatsResponse {
+        let url = baseURL.appendingPathComponent("api/memory/stats")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiMemoryStatsResponse.self, from: data)
+    }
+
+    /// POST /api/memory/search — Semantic search over memory entries.
+    func apiSearchMemory(query: String, limit: Int? = nil) async throws -> ApiMemorySearchResponse {
+        let url = baseURL.appendingPathComponent("api/memory/search")
+        var req = try makeRequest(url: url, method: "POST", authenticated: true)
+        var body: [String: Any] = ["query": query]
+        if let l = limit { body["limit"] = l }
+        req.httpBody = try encoder.encode(body.mapValues { AnyEncodable($0) })
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiMemorySearchResponse.self, from: data)
+    }
+
+    /// GET /api/memory/:key — Get a specific memory entry by key.
+    func apiGetMemory(key: String) async throws -> ApiMemoryEntry {
+        let url = baseURL.appendingPathComponent("api/memory/\(key)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiMemoryEntry.self, from: data)
+    }
+
+    /// DELETE /api/memory/:key — Delete a specific memory entry by key.
+    func apiDeleteMemory(key: String) async throws {
+        let url = baseURL.appendingPathComponent("api/memory/\(key)")
+        let req = try makeRequest(url: url, method: "DELETE", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    // MARK: History
+
+    /// GET /api/history — List all agent conversation session summaries.
+    func apiListHistory() async throws -> ApiHistoryListResponse {
+        let url = baseURL.appendingPathComponent("api/history")
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiHistoryListResponse.self, from: data)
+    }
+
+    /// GET /api/history/:session_id — Get conversation history for a specific session.
+    func apiGetHistory(
+        sessionId: String,
+        limit: Int? = nil,
+        offset: Int? = nil
+    ) async throws -> ApiHistoryDetailResponse {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/history/\(sessionId)"),
+            resolvingAgainstBaseURL: false
+        )!
+        var items: [URLQueryItem] = []
+        if let l = limit { items.append(URLQueryItem(name: "limit", value: String(l))) }
+        if let o = offset { items.append(URLQueryItem(name: "offset", value: String(o))) }
+        if !items.isEmpty { components.queryItems = items }
+        guard let url = components.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: url, method: "GET", authenticated: true)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try decodeEnvelope(ApiHistoryDetailResponse.self, from: data)
     }
 
     // MARK: - Phase 5: Task History (JSON-RPC via POST /a2a)
+
     // Note: All task management methods are JSON-RPC, not REST.
     // Methods: tasks/list, tasks/get, tasks/cancel — all POSTed to /a2a.
 
     func listTasks() async throws -> [TaskSummary] {
         guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
-        let rpc = JSONRPCRequest(id: UUID().uuidString,
-                                 method: "tasks/list",
-                                 params: TaskListParams())
+        let rpc = JSONRPCRequest(
+            id: UUID().uuidString,
+            method: "tasks/list",
+            params: TaskListParams()
+        )
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try a2aEncoder.encode(rpc)
@@ -530,9 +829,11 @@ actor GatewayClient {
 
     func getTask(id: String) async throws -> NullClawTask {
         guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
-        let rpc = JSONRPCRequest(id: UUID().uuidString,
-                                 method: "tasks/get",
-                                 params: TaskIDParams(id: id))
+        let rpc = JSONRPCRequest(
+            id: UUID().uuidString,
+            method: "tasks/get",
+            params: TaskIDParams(id: id)
+        )
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try a2aEncoder.encode(rpc)
@@ -542,16 +843,19 @@ actor GatewayClient {
         if let err = envelope.error { throw GatewayError.jsonRPCError(code: err.code, message: err.message) }
         guard let task = envelope.result else {
             throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
-                .init(codingPath: [], debugDescription: "Null result")))
+                .init(codingPath: [], debugDescription: "Null result")
+            ))
         }
         return task
     }
 
     func cancelTask(id: String) async throws {
         guard pairingMode == .notRequired || bearerToken != nil else { throw GatewayError.unpaired }
-        let rpc = JSONRPCRequest(id: UUID().uuidString,
-                                 method: "tasks/cancel",
-                                 params: TaskIDParams(id: id))
+        let rpc = JSONRPCRequest(
+            id: UUID().uuidString,
+            method: "tasks/cancel",
+            params: TaskIDParams(id: id)
+        )
         let url = baseURL.appendingPathComponent("a2a")
         var req = try makeRequest(url: url, method: "POST", authenticated: true)
         req.httpBody = try a2aEncoder.encode(rpc)
@@ -574,9 +878,11 @@ actor GatewayClient {
         var reply = ""
         for try await event in stream {
             guard let result = event.result else { continue }
-            if result.kind == "artifact-update",
-               let parts = result.artifact?.parts {
-                let chunk = parts.compactMap { $0.text }.joined()
+            if
+                result.kind == "artifact-update",
+                let parts = result.artifact?.parts
+            {
+                let chunk = parts.compactMap(\.text).joined()
                 if result.append == true {
                     reply += chunk
                 } else {
@@ -604,7 +910,7 @@ actor GatewayClient {
         var reply = ""
         if let artifacts = task.artifacts {
             for artifact in artifacts {
-                reply += artifact.parts.compactMap { $0.text }.joined()
+                reply += artifact.parts.compactMap(\.text).joined()
             }
         }
         return reply
@@ -650,9 +956,16 @@ actor GatewayClient {
         return req
     }
 
-    private func validate(_ response: URLResponse) throws {
+    private func validate(_ response: URLResponse, data: Data? = nil) throws {
         guard let http = response as? HTTPURLResponse else { return }
-        guard (200..<300).contains(http.statusCode) else {
+        guard (200 ..< 300).contains(http.statusCode) else {
+            if
+                let body = data,
+                let envelope = try? decoder.decode(ApiErrorEnvelope.self, from: body),
+                let err = envelope.error
+            {
+                throw GatewayError.apiError(code: err.code, message: err.message)
+            }
             throw GatewayError.httpError(statusCode: http.statusCode)
         }
     }
@@ -678,7 +991,8 @@ actor GatewayClient {
     private nonisolated static func sseEventLines(from bytes: [UInt8]) throws -> [String] {
         guard let text = String(bytes: bytes, encoding: .utf8) else {
             throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
-                .init(codingPath: [], debugDescription: "Invalid UTF-8 SSE event")))
+                .init(codingPath: [], debugDescription: "Invalid UTF-8 SSE event")
+            ))
         }
         return text
             .split(whereSeparator: \.isNewline)
@@ -717,7 +1031,8 @@ actor GatewayClient {
         }
         guard let data = payload.data(using: .utf8) else {
             throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
-                .init(codingPath: [], debugDescription: "Invalid UTF-8 SSE payload")))
+                .init(codingPath: [], debugDescription: "Invalid UTF-8 SSE payload")
+            ))
         }
         do {
             let envelope = try decoder.decode(JSONRPCResponse<StreamEvent>.self, from: data)
@@ -726,7 +1041,8 @@ actor GatewayClient {
             }
             guard envelope.result != nil else {
                 throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
-                    .init(codingPath: [], debugDescription: "SSE event missing result")))
+                    .init(codingPath: [], debugDescription: "SSE event missing result")
+                ))
             }
             return TaskStatusUpdateEvent(id: envelope.id, result: envelope.result)
         } catch let error as GatewayError {
@@ -792,17 +1108,19 @@ actor GatewayClient {
     ) -> (eventEnd: Int, consumedLength: Int)? {
         let count = buffer.count
         if count - start >= 4 {
-            for index in start...(count - 4) {
-                if buffer[index] == 13,
-                   buffer[index + 1] == 10,
-                   buffer[index + 2] == 13,
-                   buffer[index + 3] == 10 {
+            for index in start ... (count - 4) {
+                if
+                    buffer[index] == 13,
+                    buffer[index + 1] == 10,
+                    buffer[index + 2] == 13,
+                    buffer[index + 3] == 10
+                {
                     return (eventEnd: index - start, consumedLength: index - start + 4)
                 }
             }
         }
         if count - start >= 2 {
-            for index in start...(count - 2) {
+            for index in start ... (count - 2) {
                 if buffer[index] == 10, buffer[index + 1] == 10 {
                     return (eventEnd: index - start, consumedLength: index - start + 2)
                 }

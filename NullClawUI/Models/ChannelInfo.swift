@@ -5,8 +5,7 @@ import Foundation
 /// Represents a single communication channel configured in the NullClaw gateway.
 /// Fields are populated from the gateway `channels` config block via agent query.
 /// Includes read-only config detail fields for the channel detail view.
-struct ChannelInfo: Identifiable, Sendable, Equatable {
-
+struct ChannelInfo: Identifiable, Equatable {
     // MARK: Identity
 
     /// Short key used to identify the channel type (e.g. "mattermost", "discord", "telegram").
@@ -27,7 +26,9 @@ struct ChannelInfo: Identifiable, Sendable, Equatable {
 
     // MARK: Identifiable
 
-    var id: String { name }
+    var id: String {
+        name
+    }
 
     // MARK: - Computed helpers
 
@@ -40,17 +41,17 @@ struct ChannelInfo: Identifiable, Sendable, Equatable {
     /// Returns the SF Symbol name appropriate for this channel type.
     var iconName: String {
         switch name.lowercased() {
-        case "mattermost":  return "bubble.left.and.bubble.right.fill"
-        case "discord":     return "gamecontroller.fill"
-        case "telegram":    return "paperplane.fill"
-        case "slack":       return "number.square.fill"
-        case "whatsapp":    return "phone.bubble.left.fill"
-        case "irc":         return "terminal.fill"
-        case "matrix":      return "grid.circle.fill"
-        case "email":       return "envelope.fill"
-        case "sms":         return "message.fill"
-        case "pushover":    return "bell.fill"
-        default:            return "antenna.radiowaves.left.and.right"
+        case "mattermost": "bubble.left.and.bubble.right.fill"
+        case "discord": "gamecontroller.fill"
+        case "telegram": "paperplane.fill"
+        case "slack": "number.square.fill"
+        case "whatsapp": "phone.bubble.left.fill"
+        case "irc": "terminal.fill"
+        case "matrix": "grid.circle.fill"
+        case "email": "envelope.fill"
+        case "sms": "message.fill"
+        case "pushover": "bell.fill"
+        default: "antenna.radiowaves.left.and.right"
         }
     }
 
@@ -58,11 +59,11 @@ struct ChannelInfo: Identifiable, Sendable, Equatable {
     /// (Used as a tint, not a status indicator.)
     var accentColorName: String {
         switch name.lowercased() {
-        case "discord":   return "purple"
-        case "telegram":  return "blue"
-        case "slack":     return "orange"
-        case "whatsapp":  return "green"
-        default:          return "secondary"
+        case "discord": "purple"
+        case "telegram": "blue"
+        case "slack": "orange"
+        case "whatsapp": "green"
+        default: "secondary"
         }
     }
 }

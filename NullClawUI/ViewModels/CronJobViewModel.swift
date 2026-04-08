@@ -18,13 +18,12 @@ import Observation
 @Observable
 @MainActor
 final class CronJobViewModel {
-
     // MARK: Published state
 
     private(set) var jobs: [CronJob] = []
     private(set) var isLoading: Bool = false
-    var errorMessage: String? = nil
-    private(set) var actionInProgress: String? = nil
+    var errorMessage: String?
+    private(set) var actionInProgress: String?
 
     // MARK: Dependencies
 
@@ -102,7 +101,7 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toRESTParams()
-            if params.expression == nil && params.delay != nil {
+            if params.expression == nil, params.delay != nil {
                 _ = try await client.apiCreateCronJobOnce(params)
             } else {
                 _ = try await client.apiCreateCronJob(params)

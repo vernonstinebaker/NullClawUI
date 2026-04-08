@@ -1,6 +1,7 @@
 import SwiftUI
 
-// NOTE: No unit test — pure layout change for the ChannelStatusListView body; covered by visual inspection in Simulator.
+// NOTE: No unit test — pure layout change for the ChannelStatusListView body; covered by visual inspection in
+// Simulator.
 
 // MARK: - ChannelStatusListView
 
@@ -37,7 +38,7 @@ struct ChannelStatusListView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && viewModel.channels.isEmpty {
+            } else if viewModel.isLoading, viewModel.channels.isEmpty {
                 Section {
                     HStack(spacing: 10) {
                         ProgressView().controlSize(.small)
@@ -47,7 +48,7 @@ struct ChannelStatusListView: View {
                     }
                     .accessibilityLabel("Loading channel status")
                 }
-            } else if viewModel.channels.isEmpty && !viewModel.isLoading {
+            } else if viewModel.channels.isEmpty, !viewModel.isLoading {
                 Section {
                     ContentUnavailableView(
                         "No Channels Configured",
@@ -73,14 +74,14 @@ struct ChannelStatusListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await viewModel.load() }
         .toolbar {
-            if viewModel.isLoading && !viewModel.channels.isEmpty {
+            if viewModel.isLoading, !viewModel.channels.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     ProgressView().controlSize(.small)
                 }
             }
         }
         .task {
-            if viewModel.channels.isEmpty && profile.isPaired {
+            if viewModel.channels.isEmpty, profile.isPaired {
                 await viewModel.load()
             }
         }
@@ -124,7 +125,6 @@ struct ChannelStatusListView: View {
 
     // MARK: - Row
 
-    @ViewBuilder
     private func channelRow(_ channel: ChannelInfo) -> some View {
         HStack(spacing: 12) {
             // Channel type icon
@@ -179,22 +179,22 @@ struct ChannelStatusListView: View {
 
     private func channelColor(for name: String) -> Color {
         switch name.lowercased() {
-        case "discord":   return .purple
-        case "telegram":  return .blue
-        case "slack":     return .orange
-        case "whatsapp":  return .green
-        case "irc":       return .indigo
-        case "matrix":    return .teal
-        case "email":     return .gray
-        default:          return Color(.systemGray2)
+        case "discord": .purple
+        case "telegram": .blue
+        case "slack": .orange
+        case "whatsapp": .green
+        case "irc": .indigo
+        case "matrix": .teal
+        case "email": .gray
+        default: Color(.systemGray2)
         }
     }
 
     private func connectionInfo(for connected: Bool?) -> (String, Color, String) {
         switch connected {
-        case true:  return ("Connected",  .green,  "circle.fill")
-        case false: return ("Offline",    .red,    "exclamationmark.circle.fill")
-        case nil:   return ("Unknown",    Color(.systemGray), "circle.dotted")
+        case true: ("Connected", .green, "circle.fill")
+        case false: ("Offline", .red, "exclamationmark.circle.fill")
+        case nil: ("Unknown", Color(.systemGray), "circle.dotted")
         }
     }
 

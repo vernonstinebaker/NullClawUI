@@ -32,7 +32,7 @@ struct AgentConfigView: View {
                     Label("Pair this gateway to view agent configuration.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
-            } else if viewModel.isLoading && !viewModel.isLoaded {
+            } else if viewModel.isLoading, !viewModel.isLoaded {
                 Section {
                     HStack {
                         ProgressView()
@@ -125,7 +125,9 @@ struct AgentConfigView: View {
                     .labelStyle(.titleAndIcon)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Provider: \(viewModel.config.provider.isEmpty ? "unknown" : viewModel.config.provider). Requires gateway restart to change.")
+            .accessibilityLabel(
+                "Provider: \(viewModel.config.provider.isEmpty ? "unknown" : viewModel.config.provider). Requires gateway restart to change."
+            )
         } header: {
             Text("Model")
         }
@@ -141,7 +143,7 @@ struct AgentConfigView: View {
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
-                Slider(value: $tempDraft, in: 0.0...2.0, step: 0.05) {
+                Slider(value: $tempDraft, in: 0.0 ... 2.0, step: 0.05) {
                     Text("Temperature")
                 } minimumValueLabel: {
                     Text("0")
@@ -156,7 +158,9 @@ struct AgentConfigView: View {
                 }
                 .accessibilityLabel("Temperature slider")
                 .accessibilityValue(String(format: "%.2f", tempDraft))
-                .accessibilityHint("Adjust between 0 (deterministic) and 2 (creative). Double-tap then swipe to change.")
+                .accessibilityHint(
+                    "Adjust between 0 (deterministic) and 2 (creative). Double-tap then swipe to change."
+                )
 
                 Button("Apply") {
                     Task { await viewModel.setTemperature(tempDraft) }
@@ -175,7 +179,7 @@ struct AgentConfigView: View {
             // Max tool iterations
             Stepper(
                 value: $iterDraft,
-                in: 1...100,
+                in: 1 ... 100,
                 step: 1,
                 onEditingChanged: { finished in
                     if finished {
@@ -197,7 +201,7 @@ struct AgentConfigView: View {
             // Message timeout
             Stepper(
                 value: $timeoutDraft,
-                in: 30...3600,
+                in: 30 ... 3600,
                 step: 30,
                 onEditingChanged: { finished in
                     if finished {
@@ -231,7 +235,9 @@ struct AgentConfigView: View {
             )) {
                 Label("Auto-compact conversation", systemImage: "arrow.down.left.and.arrow.up.right")
             }
-            .accessibilityLabel("Auto-compact conversation: \(viewModel.config.compactContext ? "enabled" : "disabled")")
+            .accessibilityLabel(
+                "Auto-compact conversation: \(viewModel.config.compactContext ? "enabled" : "disabled")"
+            )
             .accessibilityHint("When enabled, long conversations are automatically summarised to save context")
 
             // Compaction threshold stepper
@@ -240,7 +246,7 @@ struct AgentConfigView: View {
                     get: { viewModel.config.compactionThreshold },
                     set: { newVal in Task { await viewModel.setCompactionThreshold(newVal) } }
                 ),
-                in: 1000...128_000,
+                in: 1000 ... 128_000,
                 step: 1000
             ) {
                 HStack {

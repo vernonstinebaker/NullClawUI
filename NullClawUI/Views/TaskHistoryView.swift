@@ -54,7 +54,9 @@ struct TaskHistoryView: View {
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                 .listRowBackground(isActive ? Color.accentColor.opacity(0.08) : Color.clear)
                 .accessibilityLabel("Conversation with \(record.gatewayName): \(record.title)")
-                .accessibilityHint(record.serverTaskID != nil ? "Tap to reload this conversation in Chat" : "Tap to start a new conversation")
+                .accessibilityHint(record
+                    .serverTaskID != nil ? "Tap to reload this conversation in Chat" :
+                    "Tap to start a new conversation")
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
                         // Use ChatViewModel.deleteRecord so the in-memory slot is

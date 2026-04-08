@@ -1,0 +1,27 @@
+# SwiftFormat Configuration for NullClawUI
+# https://github.com/nicklockwood/SwiftFormat
+
+--swiftversion 6.0
+--indent 4
+--maxwidth 120
+--wraparguments beforefirst
+--wrapparameters beforefirst
+--wrapcollections beforefirst
+--wrapreturntype preserve
+--wrapconditions beforefirst
+--wraptypealiases beforefirst
+--elseposition same-line
+--guardelse same-line
+--semicolons never
+--ranges spaced
+--commas inline
+--self remove
+--importgrouping alpha
+--stripunusedargs closure-only
+--voidtype void
+--trimwhitespace always
+--emptybraces no-space
+--allman false
+--ifdef indent
+--lineaftermarks true
+--exclude Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace

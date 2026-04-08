@@ -4,16 +4,18 @@ import Foundation
 
 /// Represents a single cron job entry from the NullClaw gateway's cron.json.
 /// Fields mirror the gateway schema exactly so the JSON round-trips cleanly.
-struct CronJob: Codable, Identifiable, Sendable, Equatable {
-
+struct CronJob: Codable, Identifiable, Equatable {
     // MARK: Identity
+
     let id: String
 
     // MARK: Schedule
+
     /// Standard cron expression, e.g. "0 */2 * * *".
     var expression: String
 
     // MARK: Execution
+
     var command: String?
     var prompt: String?
     var model: String?
@@ -21,6 +23,7 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
     var sessionTarget: String?
 
     // MARK: Delivery
+
     var deliveryMode: String?
     var deliveryChannel: String?
     var deliveryAccountId: String?
@@ -31,12 +34,14 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
     var deliveryBestEffort: Bool?
 
     // MARK: State flags
+
     var paused: Bool
     var enabled: Bool
     var oneShot: Bool
     var deleteAfterRun: Bool
 
     // MARK: Runtime
+
     var lastRunSecs: Double?
     var lastStatus: String?
     var nextRunSecs: Double?
@@ -52,7 +57,7 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
     /// The most descriptive single-line label for the job.
     var displayTitle: String {
         if let cmd = command, !cmd.isEmpty { return cmd }
-        if let p   = prompt,  !p.isEmpty  {
+        if let p = prompt, !p.isEmpty {
             let trimmed = p.trimmingCharacters(in: .whitespacesAndNewlines)
             let first = trimmed.components(separatedBy: "\n").first ?? trimmed
             return first.count > 80 ? String(first.prefix(77)) + "…" : first
@@ -83,12 +88,12 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
         guard let date = nextRunDate else { return "—" }
         let diff = date.timeIntervalSinceNow
         if diff <= 0 { return "now" }
-        let mins  = Int(diff / 60)
+        let mins = Int(diff / 60)
         let hours = mins / 60
-        let days  = hours / 24
-        if days  > 0 { return "in \(days)d \(hours % 24)h" }
+        let days = hours / 24
+        if days > 0 { return "in \(days)d \(hours % 24)h" }
         if hours > 0 { return "in \(hours)h \(mins % 60)m" }
-        if mins  > 0 { return "in \(mins)m" }
+        if mins > 0 { return "in \(mins)m" }
         return "in <1m"
     }
 }
@@ -96,7 +101,7 @@ struct CronJob: Codable, Identifiable, Sendable, Equatable {
 // MARK: - Cron REST API Request Types
 
 /// Request body for POST /cron/add.
-struct CronJobAddParams: Encodable, Sendable {
+struct CronJobAddParams: Encodable {
     var expression: String?
     var delay: String?
     var command: String?
@@ -114,12 +119,12 @@ struct CronJobAddParams: Encodable, Sendable {
 }
 
 /// Request body for POST /cron/remove, /cron/pause, /cron/resume.
-struct CronJobIDParams: Encodable, Sendable {
+struct CronJobIDParams: Encodable {
     let id: String
 }
 
 /// Request body for POST /cron/update.
-struct CronJobUpdateParams: Encodable, Sendable {
+struct CronJobUpdateParams: Encodable {
     let id: String
     var expression: String?
     var command: String?
@@ -133,7 +138,7 @@ struct CronJobUpdateParams: Encodable, Sendable {
 // MARK: - CronJobDraft
 
 /// Value type used by AddCronJobSheet to collect user input before submission.
-struct CronJobDraft: Sendable {
+struct CronJobDraft {
     var id: String = ""
     var expression: String = ""
     var jobType: String = "agent"

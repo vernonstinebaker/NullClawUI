@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+    import UIKit
+#endif
 
 // MARK: - HealthIndicator
 
@@ -11,10 +14,10 @@ enum HealthIndicator: Equatable {
 
     var color: Color {
         switch self {
-        case .healthy:   return .green
-        case .degraded:  return .yellow
-        case .unhealthy: return .red
-        case .unknown:   return .orange
+        case .healthy: .green
+        case .degraded: .yellow
+        case .unhealthy: .red
+        case .unknown: .orange
         }
     }
 }
@@ -53,7 +56,7 @@ struct StatCard: View {
     let title: String
     let color: Color
     var health: HealthIndicator = .unknown
-    var onTap: (() -> Void)? = nil
+    var onTap: (() -> Void)?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -83,7 +86,10 @@ struct StatCard: View {
                     .shadow(color: health.color.opacity(0.4), radius: 3)
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.card, style: .continuous))
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.card, style: .continuous)
+        )
         .onTapGesture { onTap?() }
     }
 }
@@ -92,7 +98,7 @@ struct StatCard: View {
 
 /// Centered loading indicator with optional message.
 struct LoadingView: View {
-    var message: String? = nil
+    var message: String?
 
     var body: some View {
         VStack(spacing: 12) {
@@ -133,5 +139,61 @@ struct ActionButton: View {
         .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .foregroundStyle(color)
         .accessibilityLabel(title)
+    }
+}
+
+// MARK: - CopyButton
+
+struct CopyButton: View {
+    let text: String
+    var tint: Color = .secondary
+    @State private var copied = false
+
+    var body: some View {
+        Button(action: copy) {
+            Image(systemName: copied ? "checkmark.circle.fill" : "doc.on.doc")
+                .font(.caption2)
+                .foregroundStyle(copied ? .green : tint)
+                .frame(width: 24, height: 24)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(copied)
+    }
+
+    private func copy() {
+        #if canImport(UIKit)
+            UIPasteboard.general.string = text
+        #endif
+        copied = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            copied = false
+        }
+    }
+}
+
+// MARK: - MarkdownText
+
+struct MarkdownText: View {
+    let content: String
+    private let attributedString: AttributedString
+
+    init(_ content: String) {
+        self.content = content
+        if
+            let parsed = try? AttributedString(
+                markdown: content,
+                options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )
+        {
+            attributedString = parsed
+        } else {
+            attributedString = AttributedString(content)
+        }
+    }
+
+    var body: some View {
+        Text(attributedString)
     }
 }

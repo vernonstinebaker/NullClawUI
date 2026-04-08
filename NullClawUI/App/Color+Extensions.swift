@@ -1,11 +1,11 @@
 import SwiftUI
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 extension Color {
     init?(hex: String?) {
-        guard let hex = hex else { return nil }
+        guard let hex else { return nil }
         let hexString = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
         guard Scanner(string: hexString).scanHexInt64(&int) else { return nil }
@@ -36,15 +36,15 @@ extension Color {
     /// Falls back to 0.5 (unknown → use dark text) if the color cannot be resolved.
     var relativeLuminance: Double {
         #if canImport(UIKit)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a) else { return 0.5 }
-        func linearize(_ c: CGFloat) -> Double {
-            let s = Double(c)
-            return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
-        }
-        return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a) else { return 0.5 }
+            func linearize(_ c: CGFloat) -> Double {
+                let s = Double(c)
+                return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
+            }
+            return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)
         #else
-        return 0.5
+            return 0.5
         #endif
     }
 
