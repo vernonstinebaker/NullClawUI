@@ -533,14 +533,12 @@ struct MessageBubble: View {
                 attachmentGrid
             }
             // Text content (may be empty if the message is attachment-only)
-            if !message.text.isEmpty || message.isStreaming {
+            if !message.text.isEmpty {
                 Group {
                     if isUser {
                         Text(message.text)
                             .textSelection(.enabled)
                             .foregroundStyle(accentColor.contrastingForeground)
-                    } else if message.text.isEmpty, message.isStreaming {
-                        Text(" ")
                     } else {
                         MarkdownText(message.text)
                             .textSelection(.enabled)

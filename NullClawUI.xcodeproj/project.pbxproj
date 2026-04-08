@@ -146,7 +146,7 @@
 		D12F20E13FD844AF79C22916 /* AutonomyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutonomyViewModel.swift; sourceTree = "<group>"; };
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		D7E52636F01842BCE0ADE456 /* ChannelStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusViewModel.swift; sourceTree = "<group>"; };
-		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC0B30D53490016D2D90C7D8 /* NullClawUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NullClawUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF060F24BF32E8FC544665E2 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		E4736E9977F2277469617689 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		EB97A87EAE309CF7956ACD26 /* NullClawUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NullClawUIApp.swift; sourceTree = "<group>"; };
@@ -793,6 +793,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -815,6 +816,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NullClawUI/Resources/NullClawUI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = NullClawUI/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
