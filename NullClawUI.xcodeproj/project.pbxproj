@@ -63,6 +63,7 @@
 		C9E05A0E9F816B315DDF8438 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4736E9977F2277469617689 /* SearchView.swift */; };
 		C9F21BCC5224D6A98DC17D83 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03240766199909EB8710D1B /* ChatViewModel.swift */; };
 		D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A2F5B1789710AF160D8545 /* GlassCard.swift */; };
+		D23C482B93FE42E5E3DAE15C /* HubLiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDD987662F57D872D9394DB /* HubLiveIntegrationTests.swift */; };
 		D71447C606F71C5DF82673EA /* GatewayNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3676F3ED76C5DC7065C17E9 /* GatewayNetworking.swift */; };
 		D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B541BEB81F62E4F0D3174FA /* CronJob.swift */; };
 		DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */; };
@@ -103,6 +104,7 @@
 		1CAFCE3D5DD22F4C2040022C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1CBCCF753A35118FA04B34D6 /* ConversationHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationHistoryView.swift; sourceTree = "<group>"; };
 		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DDD987662F57D872D9394DB /* HubLiveIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubLiveIntegrationTests.swift; sourceTree = "<group>"; };
 		20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDiscoveryModel.swift; sourceTree = "<group>"; };
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2572F306BB7A638DC44C3B38 /* PairingStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStep.swift; sourceTree = "<group>"; };
@@ -325,6 +327,7 @@
 				123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */,
 				C07123A861DCC536C98ED37C /* GatewayProfileMigrationTests.swift */,
 				B4032AFE76A27F5FD468B17B /* HubGatewayClientTests.swift */,
+				1DDD987662F57D872D9394DB /* HubLiveIntegrationTests.swift */,
 				CFF3E04A7E84BDAB4802A25C /* InstanceGatewayClientTests.swift */,
 				5E99AF5B96CC9B00B4CBC178 /* MockGatewayServer.swift */,
 				3E5F1680AE856C6B5FFD06B6 /* MockURLProtocol.swift */,
@@ -523,6 +526,7 @@
 				DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */,
 				1735412C7AC04A7AC84FCD89 /* GatewayProfileMigrationTests.swift in Sources */,
 				F501A6EC1FB3CAAD9CB3827D /* HubGatewayClientTests.swift in Sources */,
+				D23C482B93FE42E5E3DAE15C /* HubLiveIntegrationTests.swift in Sources */,
 				9F8D181DB8550960405D40FB /* InstanceGatewayClientTests.swift in Sources */,
 				B1385651D9270DEEBB23A964 /* MockGatewayServer.swift in Sources */,
 				C2DB2FBA3016FB9FE2E8BC6E /* MockURLProtocol.swift in Sources */,
