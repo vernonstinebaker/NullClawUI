@@ -53,12 +53,13 @@ struct ServersView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddGatewaySheet { name, url, isPaired, requiresPairing in
+            AddGatewaySheet { name, url, isPaired, requiresPairing, hubURL in
                 let profile = store.addProfile(
                     name: name,
                     url: url,
                     isPaired: isPaired,
-                    requiresPairing: requiresPairing
+                    requiresPairing: requiresPairing,
+                    hubURL: hubURL
                 )
                 Task {
                     let newClient = await gatewayVM.switchGateway(to: profile)

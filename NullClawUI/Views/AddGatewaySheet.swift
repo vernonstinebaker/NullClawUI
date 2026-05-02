@@ -1,15 +1,23 @@
 import SwiftUI
 
-/// Sheet for adding a new gateway profile.
-/// Guides the user through: name → URL → connect probe → pairing (if required).
+/// Sheet for adding a new server — either a NullHub (management plane)
+/// or a direct NullClaw instance (data plane).
+enum ConnectionType: String, CaseIterable {
+    case hub = "NullHub"
+    case instance = "Instance"
+}
+
 struct AddGatewaySheet: View {
-    let onComplete: (String, String, Bool, Bool) -> Void
+    let onComplete: (String, String, Bool, Bool, String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(GatewayStore.self) private var store
 
     @State private var name: String = ""
-    @State private var urlString: String = ""
+    @State private var connectionType: ConnectionType = .hub
+    @State private var hubURLString: String = ""
+    @State private var hubToken: String = ""
+    @State private var instanceURLString: String = ""
     @State private var isProbing: Bool = false
     @State private var probeError: String? = nil
     @State private var step: PairingStep = .connecting
@@ -27,7 +35,7 @@ struct AddGatewaySheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .navigationTitle("Add Gateway")
+        .navigationTitle("Add Server")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -41,22 +49,46 @@ struct AddGatewaySheet: View {
     private var formView: some View {
         Form {
             Section {
-                TextField("Gateway Name", text: $name)
+                TextField("Server Name", text: $name)
                     .textInputAutocapitalization(.words)
-                    .accessibilityLabel("Gateway name")
-                    .accessibilityHint("A friendly name for this gateway")
+                    .accessibilityLabel("Server name")
 
-                TextField("http://hostname:5111", text: $urlString)
-                    .keyboardType(.URL)
-                    .autocorrectionDisabled()
-                    .accessibilityLabel("Gateway URL")
-                    .accessibilityHint("The base URL of the NullClaw gateway")
+                Picker("Connection Type", selection: $connectionType) {
+                    ForEach(ConnectionType.allCases, id: \.self) { t in
+                        Text(t.rawValue).tag(t)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if connectionType == .hub {
+                    TextField("http://hostname:19800", text: $hubURLString)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .accessibilityLabel("NullHub URL")
+                        .accessibilityHint("The base URL of your NullHub instance")
+
+                    SecureField("Admin token (optional)", text: $hubToken)
+                        .accessibilityLabel("Hub admin token")
+                        .accessibilityHint("The --auth-token value if NullHub is running with authentication")
+                } else {
+                    TextField("http://hostname:5111", text: $instanceURLString)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .accessibilityLabel("Instance URL")
+                        .accessibilityHint("The base URL of the NullClaw instance")
+                }
             } header: {
                 Text("Connection")
             } footer: {
-                Text(
-                    "Enter the base URL of your NullClaw gateway. The app will probe the connection to determine if pairing is required."
-                )
+                if connectionType == .hub {
+                    Text(
+                        "NullHub manages one or more NullClaw instances. Enter its URL to auto-discover configured instances."
+                    )
+                } else {
+                    Text(
+                        "Connect directly to a NullClaw instance for chat and streaming. Admin features require NullHub."
+                    )
+                }
             }
 
             if let error = probeError {
@@ -90,20 +122,27 @@ struct AddGatewaySheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(isProbing || name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .isEmpty || !isValidGatewayURL(urlString))
+                .disabled(isProbing || !isFormValid)
             }
         }
     }
 
-    // MARK: - Pairing View
+    private var isFormValid: Bool {
+        let nameOk = !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if connectionType == .hub {
+            return nameOk && isValidGatewayURL(hubURLString)
+        }
+        return nameOk && isValidGatewayURL(instanceURLString)
+    }
+
+    // MARK: - Pairing View (instance mode only)
 
     private var pairingView: some View {
         Form {
             Section {
                 LabeledContent("Name", value: name)
                 LabeledContent("URL") {
-                    Text(urlString)
+                    Text(instanceURLString)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.trailing)
@@ -115,26 +154,21 @@ struct AddGatewaySheet: View {
                 Section {
                     HStack(spacing: 10) {
                         ProgressView().controlSize(.small)
-                        Text("Connecting to gateway…")
+                        Text("Connecting to instance…")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.vertical, 4)
                 }
 
             case .requiresPairing:
                 Section {
                     HStack(spacing: 10) {
-                        Image(systemName: "number")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20)
+                        Image(systemName: "number").foregroundStyle(.secondary).frame(width: 20)
                         TextField("000000", text: $pairingCode)
                             .keyboardType(.numberPad)
                             .font(.title3.monospacedDigit())
                             .accessibilityLabel("Pairing code")
-                            .accessibilityHint("6-digit code from the NullClaw admin interface")
                     }
-                    .padding(.vertical, 4)
 
                     Button {
                         Task { await submitPairingCode() }
@@ -152,74 +186,42 @@ struct AddGatewaySheet: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .disabled(isPairing || pairingCode.count != 6)
-                } header: {
-                    Text("Pair Device")
-                } footer: {
-                    Text("Enter the 6-digit code shown in the NullClaw admin interface.")
-                }
+                } header: { Text("Pair Device") }
+                    footer: { Text("Enter the 6-digit code shown in the NullClaw admin interface.") }
 
             case .notRequired:
                 Section {
                     HStack(spacing: 10) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Gateway is open — no pairing code required.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                        Text("Open instance — no pairing code required.")
                     }
-                    .padding(.vertical, 4)
-
-                    Button("Complete") {
-                        completeAdd()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel("Complete gateway addition")
-                    .accessibilityHint("Finalises connection to this open gateway without a pairing code")
+                    Button("Complete") { completeAdd() }
+                        .buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
                 }
 
             case .success:
                 Section {
                     HStack(spacing: 10) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(.green)
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
                         Text("Connected successfully.")
-                            .font(.subheadline)
                     }
-                    .padding(.vertical, 4)
                 }
                 Section {
-                    Button("Done") {
-                        completeAdd()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel("Done")
-                    .accessibilityHint("Dismisses the add gateway sheet after successful connection")
+                    Button("Done") { completeAdd() }
+                        .buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
                 }
 
             case let .failed(message):
                 Section {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Could not connect")
-                                .font(.subheadline.weight(.semibold))
-                            Text(message)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text("Could not connect").font(.subheadline.weight(.semibold))
+                            Text(message).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 4)
-                    Button("Retry") {
-                        Task { await probeConnection() }
-                    }
-                } header: {
-                    Text("Connection Error")
-                }
+                    Button("Retry") { Task { await probeConnection() } }
+                } header: { Text("Connection Error") }
             }
         }
     }
@@ -231,7 +233,32 @@ struct AddGatewaySheet: View {
         probeError = nil
         defer { isProbing = false }
 
-        guard let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+        if connectionType == .hub {
+            await probeHub()
+        } else {
+            await probeInstance()
+        }
+    }
+
+    private func probeHub() async {
+        guard let url = URL(string: hubURLString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            probeError = "Invalid URL format."
+            return
+        }
+        let token = hubToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let client = HubGatewayClient(baseURL: url, bearerToken: token.isEmpty ? nil : token)
+
+        do {
+            _ = try await client.fetchHubStatus()
+            // Hub is reachable — auto-complete
+            completeAdd()
+        } catch {
+            probeError = error.localizedDescription
+        }
+    }
+
+    private func probeInstance() async {
+        guard let url = URL(string: instanceURLString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             probeError = "Invalid URL format."
             return
         }
@@ -251,8 +278,7 @@ struct AddGatewaySheet: View {
         } catch {
             if
                 let gwError = error as? GatewayError,
-                case let .httpError(code) = gwError,
-                code == 401 || code == 403
+                case let .httpError(code) = gwError, code == 401 || code == 403
             {
                 step = .requiresPairing
             } else {
@@ -267,7 +293,7 @@ struct AddGatewaySheet: View {
         isPairing = true
         defer { isPairing = false }
 
-        let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedURL = instanceURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let token = try await c.pair(code: pairingCode.trimmingCharacters(in: .whitespacesAndNewlines))
             try KeychainService.storeToken(token, for: trimmedURL)
@@ -279,26 +305,33 @@ struct AddGatewaySheet: View {
 
     private func completeAdd() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedInstanceURL = instanceURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHubURL = hubURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedToken = hubToken.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let effectiveHubURL: String? = connectionType == .hub && !trimmedHubURL.isEmpty ? trimmedHubURL : nil
+        let effectiveInstanceURL: String = connectionType == .instance && !trimmedInstanceURL.isEmpty
+            ? trimmedInstanceURL : trimmedHubURL
 
         let isPaired: Bool
         let requiresPairing: Bool
-        switch step {
-        case .success:
-            isPaired = true
-            requiresPairing = true
-        case .notRequired:
-            isPaired = true
-            requiresPairing = false
-        case .requiresPairing:
-            isPaired = false
-            requiresPairing = true
-        default:
-            isPaired = false
-            requiresPairing = true
+        if connectionType == .hub {
+            isPaired = !trimmedToken.isEmpty
+            requiresPairing = !trimmedToken.isEmpty
+        } else {
+            switch step {
+            case .success: (isPaired, requiresPairing) = (true, true)
+            case .notRequired: (isPaired, requiresPairing) = (true, false)
+            default: (isPaired, requiresPairing) = (false, true)
+            }
         }
 
-        onComplete(trimmedName, trimmedURL, isPaired, requiresPairing)
+        // Store hub token if provided
+        if !trimmedToken.isEmpty, let hubURL = effectiveHubURL {
+            try? KeychainService.storeToken(trimmedToken, for: hubURL)
+        }
+
+        onComplete(trimmedName, effectiveInstanceURL, isPaired, requiresPairing, effectiveHubURL)
         dismiss()
     }
 }

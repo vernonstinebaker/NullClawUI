@@ -15,8 +15,18 @@ struct ServerCardContent: View {
             HStack {
                 statusDot
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.name)
-                        .font(.title3.weight(.semibold))
+                    HStack(spacing: 6) {
+                        Text(profile.name)
+                            .font(.title3.weight(.semibold))
+                        if profile.hubURL != nil {
+                            Text("HUB")
+                                .font(.caption2.weight(.bold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.tint.opacity(0.15), in: Capsule())
+                                .foregroundStyle(.tint)
+                        }
+                    }
                     Text(profile.displayHost)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)

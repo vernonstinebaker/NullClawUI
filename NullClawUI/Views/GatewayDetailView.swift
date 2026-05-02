@@ -51,6 +51,14 @@ struct GatewayDetailView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.trailing)
                 }
+                if let hub = profile.hubURL {
+                    LabeledContent("Hub") {
+                        Text(hub)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
                 LabeledContent("Status") {
                     ConnectionBadge(status: healthStatus)
                 }

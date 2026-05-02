@@ -82,11 +82,18 @@ final class GatewayStore {
     // MARK: - CRUD
 
     @discardableResult
-    func addProfile(name: String, url: String, isPaired: Bool = false, requiresPairing: Bool = true) -> GatewayProfile {
+    func addProfile(
+        name: String,
+        url: String,
+        isPaired: Bool = false,
+        requiresPairing: Bool = true,
+        hubURL: String? = nil
+    ) -> GatewayProfile {
         let sortOrder = profiles.count
         let profile = GatewayProfile(
             name: name,
             url: url,
+            hubURL: hubURL,
             isPaired: isPaired,
             requiresPairing: requiresPairing,
             sortOrder: sortOrder
