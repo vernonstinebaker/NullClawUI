@@ -5,17 +5,21 @@ struct ContentView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(GatewayViewModel.self) private var gatewayVM: GatewayViewModel
     @Environment(ChatViewModel.self) private var chatVM: ChatViewModel
+    @Environment(GatewayStore.self) private var store
 
     var body: some View {
         if appModel.isCheckingGateway {
-            // Show a neutral loading screen while the launch probe runs.
-            // This prevents the pairing UI from flashing on open gateways.
             GatewayCheckingView()
-        } else if appModel.isPaired {
+        } else if appModel.isPaired || hasHubProfile {
             MainTabView(gatewayViewModel: gatewayVM, chatViewModel: chatVM)
         } else {
             SettingsView()
         }
+    }
+
+    /// Hub profiles don't need instance pairing — show the main interface immediately.
+    private var hasHubProfile: Bool {
+        store.profiles.contains { $0.hubURL != nil }
     }
 }
 
