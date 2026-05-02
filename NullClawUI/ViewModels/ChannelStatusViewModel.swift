@@ -40,19 +40,27 @@ final class ChannelStatusViewModel {
         defer { isLoading = false }
 
         do {
-            let dict = try await client.listChannels(instance: instance, component: component)
-            channels = Self.parseChannels(from: dict)
+            let data = try await client.listChannels(instance: instance, component: component)
+            channels = Self.parseChannels(from: data)
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    /// Parses a `[String: String]` from Hub's listChannels into `[ChannelInfo]`.
-    static func parseChannels(from dict: [String: String]) -> [ChannelInfo] {
-        dict.map { type, status in
+    private struct HubChannelEntry: Decodable {
+        let type: String
+        let status: String?
+        let configured: Bool?
+    }
+
+    private static func parseChannels(from data: Data) -> [ChannelInfo] {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let entries = try? decoder.decode([HubChannelEntry].self, from: data) else { return [] }
+        return entries.map { entry in
             ChannelInfo(
-                name: type,
-                connected: status == "ok" || status == "1",
+                name: entry.type,
+                connected: entry.status == "ok" || entry.status == "connected",
                 serverURL: nil,
                 botName: nil
             )

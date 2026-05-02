@@ -136,21 +136,26 @@ final class GatewayStatusViewModel {
         let client = HubGatewayClient(baseURL: base, bearerToken: token)
         defer { Task { await client.invalidate() } }
 
-        async let cronJobs: [String: String]? = {
-            do { return try await client.listCronJobs(instance: "default", component: "nullclaw") } catch { return nil }
-        }()
-
-        async let mcpServers: [String: String]? = {
-            do { return try await client.listMCPServers(instance: "default", component: "nullclaw") } catch {
+        async let cronJobs: Int? = {
+            do { return try await client.listCronJobs(instance: "default", component: "nullclaw").count } catch {
                 return nil
             }
         }()
 
-        async let channels: [String: String]? = {
-            do { return try await client.listChannels(instance: "default", component: "nullclaw") } catch { return nil }
+        async let mcpServers: Int? = {
+            do { return try await client.listMCPServers(instance: "default", component: "nullclaw").count } catch {
+                return nil
+            }
+        }()
+
+        async let channels: Int? = {
+            do {
+                let data = try await client.listChannels(instance: "default", component: "nullclaw")
+                return data.count
+            } catch { return nil }
         }()
 
         let (c, m, ch) = await (cronJobs, mcpServers, channels)
-        return (c?.count, m?.count, ch?.count)
+        return (c, m, ch)
     }
 }

@@ -615,18 +615,17 @@ final class CronJobDraftRESTConversionTests: XCTestCase {
 
 final class AgentConfigViewModelTests: XCTestCase {
     @MainActor
-    func testBuildConfigHappyPath() {
-        let agent: [String: String] = [
-            "compact_context": "1",
-            "max_tool_iterations": "40",
-            "message_timeout_secs": "300",
-            "compaction_max_source_chars": "13000"
-        ]
-        let models: [String: String] = [
-            "default_provider": "openrouter",
-            "default_model": "anthropic/claude-sonnet-4"
-        ]
-        let config = AgentConfigViewModel.buildConfig(from: agent, modelsDict: models)
+    func testBuildConfigHappyPath() throws {
+        let configJSON = """
+        {"path":"agent","value":{"compact_context":true,"max_tool_iterations":40,"message_timeout_secs":300,"compaction_max_source_chars":13000}}
+        """
+        let agentData = try XCTUnwrap(configJSON.data(using: .utf8))
+        let models = ApiModelsResponse(
+            defaultProvider: "openrouter",
+            defaultModel: "anthropic/claude-sonnet-4",
+            providers: []
+        )
+        let config = AgentConfigViewModel.buildConfig(from: agentData, models: models)
         XCTAssertEqual(config.primaryModel, "anthropic/claude-sonnet-4")
         XCTAssertEqual(config.provider, "openrouter")
         XCTAssertEqual(config.maxToolIterations, 40)
@@ -636,12 +635,17 @@ final class AgentConfigViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testBuildConfigUsesDefaults() {
-        let agent: [String: String] = [:]
-        let models = [
-            "default_provider": "infini-ai"
-        ]
-        let config = AgentConfigViewModel.buildConfig(from: agent, modelsDict: models)
+    func testBuildConfigUsesDefaults() throws {
+        let configJSON = """
+        {"path":"agent","value":{}}
+        """
+        let agentData = try XCTUnwrap(configJSON.data(using: .utf8))
+        let models = ApiModelsResponse(
+            defaultProvider: "infini-ai",
+            defaultModel: nil,
+            providers: []
+        )
+        let config = AgentConfigViewModel.buildConfig(from: agentData, models: models)
         XCTAssertEqual(config.primaryModel, "")
         XCTAssertEqual(config.provider, "infini-ai")
         XCTAssertEqual(config.maxToolIterations, 25)
@@ -655,15 +659,12 @@ final class AgentConfigViewModelTests: XCTestCase {
 
 final class AutonomyViewModelTests: XCTestCase {
     @MainActor
-    func testBuildConfigHappyPath() {
-        let dict: [String: String] = [
-            "level": "high",
-            "max_actions_per_hour": "200",
-            "block_high_risk_commands": "0",
-            "require_approval_for_medium_risk": "1",
-            "allowed_commands": #"["sh","bash","date"]"#
-        ]
-        let config = AutonomyViewModel.buildConfig(from: dict)
+    func testBuildConfigHappyPath() throws {
+        let configJSON = """
+        {"path":"autonomy","value":{"level":"high","max_actions_per_hour":200,"block_high_risk_commands":false,"require_approval_for_medium_risk":true,"allowed_commands":["sh","bash","date"]}}
+        """
+        let data = try XCTUnwrap(configJSON.data(using: .utf8))
+        let config = AutonomyViewModel.buildConfig(from: data)
         XCTAssertEqual(config.level, "high")
         XCTAssertEqual(config.maxActionsPerHour, 200)
         XCTAssertFalse(config.blockHighRiskCommands)
@@ -672,9 +673,12 @@ final class AutonomyViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testBuildConfigUsesDefaults() {
-        let dict: [String: String] = [:]
-        let config = AutonomyViewModel.buildConfig(from: dict)
+    func testBuildConfigUsesDefaults() throws {
+        let configJSON = """
+        {"path":"autonomy","value":{}}
+        """
+        let data = try XCTUnwrap(configJSON.data(using: .utf8))
+        let config = AutonomyViewModel.buildConfig(from: data)
         XCTAssertEqual(config.level, "medium")
         XCTAssertEqual(config.maxActionsPerHour, 60)
         XCTAssertTrue(config.blockHighRiskCommands)

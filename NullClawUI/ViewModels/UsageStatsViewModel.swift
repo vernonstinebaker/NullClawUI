@@ -62,10 +62,10 @@ final class UsageStatsViewModel {
         defer { isLoading = false }
 
         do {
-            async let costDict = client.getConfig(instance: instance, component: component, path: "cost")
-            async let usageDict = client.getInstanceUsage(instance: instance, component: component)
+            async let costData = client.getConfig(instance: instance, component: component, path: "cost")
+            async let usageData = client.getInstanceUsage(instance: instance, component: component)
 
-            let (cost, usage) = try await (costDict, usageDict)
+            let (cost, usage) = try await (costData, usageData)
             stats = Self.buildStats(from: cost, usage: usage)
             isLoaded = true
         } catch {
@@ -116,17 +116,23 @@ final class UsageStatsViewModel {
     // MARK: - Build stats (internal — visible for tests)
 
     /// Builds a UsageStats from a cost config dict and a usage response dict.
-    static func buildStats(from costDict: [String: String], usage: [String: String]) -> UsageStats {
+    static func buildStats(from costData: Data, usage: Data) -> UsageStats {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let costDict = (try? JSONSerialization.jsonObject(with: costData) as? [String: Any])?.compactMapValues
+            { $0 as? String } ?? [:]
+        let usageDict = (try? JSONSerialization.jsonObject(with: usage) as? [String: Any])?.compactMapValues
+            { $0 as? String } ?? [:]
         var s = UsageStats()
         s.costEnabled = costDict["enabled"] == "true" || costDict["enabled"] == "1"
         s.dailyLimitUSD = costDict["daily_limit_usd"].flatMap(Double.init) ?? 0.0
         s.monthlyLimitUSD = costDict["monthly_limit_usd"].flatMap(Double.init) ?? 0.0
         s.warnAtPercent = costDict["warn_at_percent"].flatMap(Int.init) ?? 80
-        s.sessionCostUSD = usage["session_cost_usd"].flatMap(Double.init) ?? 0.0
-        s.dailyCostUSD = usage["daily_cost_usd"].flatMap(Double.init) ?? 0.0
-        s.monthlyCostUSD = usage["monthly_cost_usd"].flatMap(Double.init) ?? 0.0
-        s.totalTokens = usage["total_tokens"].flatMap(Int.init) ?? 0
-        s.requestCount = usage["request_count"].flatMap(Int.init) ?? 0
+        s.sessionCostUSD = usageDict["session_cost_usd"].flatMap(Double.init) ?? 0.0
+        s.dailyCostUSD = usageDict["daily_cost_usd"].flatMap(Double.init) ?? 0.0
+        s.monthlyCostUSD = usageDict["monthly_cost_usd"].flatMap(Double.init) ?? 0.0
+        s.totalTokens = usageDict["total_tokens"].flatMap(Int.init) ?? 0
+        s.requestCount = usageDict["request_count"].flatMap(Int.init) ?? 0
         return s
     }
 

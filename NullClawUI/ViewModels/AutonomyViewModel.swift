@@ -72,8 +72,8 @@ final class AutonomyViewModel {
         defer { isLoading = false }
 
         do {
-            let dict = try await client.getConfig(instance: instance, component: component, path: "autonomy")
-            config = Self.buildConfig(from: dict)
+            let data = try await client.getConfig(instance: instance, component: component, path: "autonomy")
+            config = Self.buildConfig(from: data)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -143,37 +143,22 @@ final class AutonomyViewModel {
 
     // MARK: - Build config (internal — visible for tests)
 
-    /// Converts a decoded autonomy config dict into an AutonomyConfig.
-    static func buildConfig(from dict: [String: String]) -> AutonomyConfig {
+    /// Converts decoded autonomy config data into an AutonomyConfig.
+    static func buildConfig(from configData: Data) -> AutonomyConfig {
         var c = AutonomyConfig()
-        c.level = dict["level"] ?? "medium"
-        c.maxActionsPerHour = dict["max_actions_per_hour"].flatMap(Int.init) ?? 60
-        c.blockHighRiskCommands = dict["block_high_risk_commands"]
-            .map { $0 == "true" || $0 == "1" } ?? true
-        c
-            .requireApprovalForMediumRisk = dict["require_approval_for_medium_risk"]
-            .map { $0 == "true" || $0 == "1" } ?? false
-        c.allowedCommands = dict["allowed_commands"].flatMap(Self.parseJSONStringArray) ?? []
-        return c
-    }
 
-    /// Attempts to decode a JSON string array from a string that may be a
-    /// `String(describing:)` debug output of NSArray or a proper JSON array.
-    private static func parseJSONStringArray(_ raw: String) -> [String]? {
-        // Try proper JSON first.
-        if
-            let data = raw.data(using: .utf8),
-            let arr = try? JSONDecoder().decode([String].self, from: data)
-        {
-            return arr
-        }
-        // Fallback: try to extract quoted strings from debug output like (    cmd1,    cmd2 )
-        let cleaned = raw.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "()\n "))
-        if cleaned.isEmpty { return [] }
-        let parts = cleaned.components(separatedBy: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: "\""))) }
-        return parts.isEmpty ? nil : parts
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard
+            let envelope = try? decoder.decode(ConfigValueResponse.self, from: configData),
+            let raw = envelope.value?.value as? [String: Any] else { return c }
+
+        c.level = raw["level"] as? String ?? "medium"
+        c.maxActionsPerHour = raw["max_actions_per_hour"] as? Int ?? 60
+        c.blockHighRiskCommands = raw["block_high_risk_commands"] as? Bool ?? true
+        c.requireApprovalForMediumRisk = raw["require_approval_for_medium_risk"] as? Bool ?? false
+        c.allowedCommands = raw["allowed_commands"] as? [String] ?? []
+        return c
     }
 
     // MARK: - Private helpers

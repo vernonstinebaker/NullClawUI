@@ -84,11 +84,11 @@ final class AgentConfigViewModel {
         defer { isLoading = false }
 
         do {
-            async let agentDict = client.getConfig(instance: instance, component: component, path: "agent")
-            async let modelsDict = client.listModels(instance: instance, component: component)
+            async let agentData = client.getConfig(instance: instance, component: component, path: "agent")
+            async let models = client.listModels(instance: instance, component: component)
 
-            let (agent, models) = try await (agentDict, modelsDict)
-            config = Self.buildConfig(from: agent, modelsDict: models)
+            let (agent, modelsResp) = try await (agentData, models)
+            config = Self.buildConfig(from: agent, models: modelsResp)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -168,16 +168,25 @@ final class AgentConfigViewModel {
 
     // MARK: - Build config (internal — visible for tests)
 
-    /// Combines a decoded agent config dict and models dict into an AgentConfig.
-    static func buildConfig(from agentDict: [String: String], modelsDict: [String: String]) -> AgentConfig {
+    /// Combines decoded agent config data and typed models response into an AgentConfig.
+    static func buildConfig(from configData: Data, models: ApiModelsResponse) -> AgentConfig {
         var c = AgentConfig()
-        c.primaryModel = modelsDict["default_model"] ?? ""
-        c.provider = modelsDict["default_provider"] ?? ""
-        c.temperature = 1.0 // default_temperature is a top-level scalar; fetched separately if needed
-        c.maxToolIterations = agentDict["max_tool_iterations"].flatMap(Int.init) ?? 25
-        c.messageTimeoutSecs = agentDict["message_timeout_secs"].flatMap(Int.init) ?? 300
-        c.compactContext = agentDict["compact_context"] == "true" || agentDict["compact_context"] == "1"
-        c.compactionThreshold = agentDict["compaction_max_source_chars"].flatMap(Int.init) ?? 8000
+        c.primaryModel = models.defaultModel ?? ""
+        c.provider = models.defaultProvider
+        c.temperature = 1.0
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard
+            let envelope = try? decoder.decode(ConfigValueResponse.self, from: configData),
+            let raw = envelope.value?.value as? [String: Any] else { return c }
+
+        c.maxToolIterations = raw["max_tool_iterations"] as? Int ?? 25
+        c.messageTimeoutSecs = raw["message_timeout_secs"] as? Int ?? 300
+        if let compact = raw["compact_context"] {
+            c.compactContext = (compact as? Bool) ?? false
+        }
+        c.compactionThreshold = raw["compaction_max_source_chars"] as? Int ?? 8000
         return c
     }
 

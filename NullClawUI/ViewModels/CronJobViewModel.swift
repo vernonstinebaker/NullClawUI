@@ -53,8 +53,7 @@ final class CronJobViewModel {
         defer { isLoading = false }
 
         do {
-            let dict = try await client.listCronJobs(instance: instance, component: component)
-            jobs = Self.parseJobs(from: dict)
+            jobs = try await client.listCronJobs(instance: instance, component: component)
         } catch {
             errorMessage = "Failed to load cron jobs: \(error.localizedDescription)"
         }
@@ -112,10 +111,11 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toRESTParams()
-            let body = try Self.snakeCaseEncoder().encode(params)
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            let body = try encoder.encode(params)
             _ = try await client.createCronJob(instance: instance, component: component, body: body)
-            let dict = try await client.listCronJobs(instance: instance, component: component)
-            jobs = Self.parseJobs(from: dict)
+            jobs = try await client.listCronJobs(instance: instance, component: component)
         } catch {
             errorMessage = "Failed to add cron job: \(error.localizedDescription)"
         }
@@ -130,10 +130,11 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toUpdateRESTParams(existingID: job.id)
-            let body = try Self.snakeCaseEncoder().encode(params)
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            let body = try encoder.encode(params)
             _ = try await client.createCronJob(instance: instance, component: component, body: body)
-            let dict = try await client.listCronJobs(instance: instance, component: component)
-            jobs = Self.parseJobs(from: dict)
+            jobs = try await client.listCronJobs(instance: instance, component: component)
         } catch {
             errorMessage = "Failed to update cron job: \(error.localizedDescription)"
         }
@@ -154,31 +155,9 @@ final class CronJobViewModel {
 
         do {
             try await action()
-            let dict = try await client.listCronJobs(instance: instance, component: component)
-            jobs = Self.parseJobs(from: dict)
+            jobs = try await client.listCronJobs(instance: instance, component: component)
         } catch {
             errorMessage = "\(errorPrefix): \(error.localizedDescription)"
         }
-    }
-
-    /// Attempts to parse a `[String: String]` dict from Hub's listCronJobs
-    /// into an array of `CronJob` by JSON-decoding each value.
-    static func parseJobs(from dict: [String: String]) -> [CronJob] {
-        dict.values.compactMap { value in
-            guard let data = value.data(using: .utf8) else { return nil }
-            return try? snakeCaseDecoder().decode(CronJob.self, from: data)
-        }
-    }
-
-    private static func snakeCaseEncoder() -> JSONEncoder {
-        let e = JSONEncoder()
-        e.keyEncodingStrategy = .convertToSnakeCase
-        return e
-    }
-
-    private static func snakeCaseDecoder() -> JSONDecoder {
-        let d = JSONDecoder()
-        d.keyDecodingStrategy = .convertFromSnakeCase
-        return d
     }
 }

@@ -330,9 +330,15 @@ final class HubGatewayClientTests: XCTestCase {
             return (data, response, nil)
         }
 
-        let result = try await client.getConfig(instance: instance, component: component, path: configPath)
-        XCTAssertEqual(result["path"], "agent.name")
-        XCTAssertEqual(result["value"], "TestBot")
+        let data = try await client.getConfig(instance: instance, component: component, path: configPath)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        struct ConfigEntry: Decodable { let path: String
+            let value: String
+        }
+        let entry = try decoder.decode(ConfigEntry.self, from: data)
+        XCTAssertEqual(entry.path, "agent.name")
+        XCTAssertEqual(entry.value, "TestBot")
     }
 
     func testSetConfigValue() async throws {
@@ -386,8 +392,9 @@ final class HubGatewayClientTests: XCTestCase {
             return (data, response, nil)
         }
 
-        let result = try await client.reloadConfig(instance: "default", component: "nullclaw")
-        XCTAssertEqual(result["valid"], "1")
+        let data = try await client.reloadConfig(instance: "default", component: "nullclaw")
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["valid"] as? Bool, true)
     }
 
     func testValidateConfig() async throws {
@@ -406,8 +413,9 @@ final class HubGatewayClientTests: XCTestCase {
             return (data, response, nil)
         }
 
-        let result = try await client.validateConfig(instance: "default", component: "nullclaw")
-        XCTAssertEqual(result["valid"], "1")
+        let data = try await client.validateConfig(instance: "default", component: "nullclaw")
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["valid"] as? Bool, true)
     }
 
     // MARK: - Cron
@@ -420,7 +428,7 @@ final class HubGatewayClientTests: XCTestCase {
             return (data, response, nil)
         }
         let result = try await client.listCronJobs(instance: "default", component: "nullclaw")
-        XCTAssertNotNil(result["jobs"])
+        XCTAssertTrue(result.isEmpty)
     }
 
     func testRunCronJob() async throws {
@@ -448,45 +456,34 @@ final class HubGatewayClientTests: XCTestCase {
     func testListChannels() async throws {
         let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
         MockURLProtocol.handle(path: "/api/instances/nullclaw/default/channels") { req in
-            let data = Data(#"{"channels":[]}"#.utf8)
+            let data = Data(#"[]"#.utf8)
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
             return (data, response, nil)
         }
         let result = try await client.listChannels(instance: "default", component: "nullclaw")
-        XCTAssertNotNil(result["channels"])
+        XCTAssertFalse(result.isEmpty)
     }
 
     func testListMCPServers() async throws {
         let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
         MockURLProtocol.handle(path: "/api/instances/nullclaw/default/mcp") { req in
-            let data = Data(#"{"servers":[]}"#.utf8)
+            let data = Data(#"[]"#.utf8)
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
             return (data, response, nil)
         }
         let result = try await client.listMCPServers(instance: "default", component: "nullclaw")
-        XCTAssertNotNil(result["servers"])
+        XCTAssertTrue(result.isEmpty)
     }
 
     func testListSkills() async throws {
         let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
         MockURLProtocol.handle(path: "/api/instances/nullclaw/default/skills") { req in
-            let data = Data(#"{"skills":[]}"#.utf8)
+            let data = Data(#"[]"#.utf8)
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
             return (data, response, nil)
         }
         let result = try await client.listSkills(instance: "default", component: "nullclaw")
-        XCTAssertNotNil(result["skills"])
-    }
-
-    func testListMemory() async throws {
-        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
-        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/memory") { req in
-            let data = Data(#"{"entries":[]}"#.utf8)
-            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
-            return (data, response, nil)
-        }
-        let result = try await client.listMemory(instance: "default", component: "nullclaw")
-        XCTAssertNotNil(result["entries"])
+        XCTAssertTrue(result.isEmpty)
     }
 
     func testListHistory() async throws {
@@ -497,7 +494,7 @@ final class HubGatewayClientTests: XCTestCase {
             return (data, response, nil)
         }
         let result = try await client.listHistory(instance: "default", component: "nullclaw")
-        XCTAssertNotNil(result["sessions"])
+        XCTAssertFalse(result.isEmpty)
     }
 
     // MARK: - Doctor, Capabilities, Provider-Health
@@ -509,8 +506,9 @@ final class HubGatewayClientTests: XCTestCase {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
             return (data, response, nil)
         }
-        let result = try await client.getDoctor(instance: "default", component: "nullclaw")
-        XCTAssertEqual(result["ready"], "1")
+        let data = try await client.getDoctor(instance: "default", component: "nullclaw")
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["ready"] as? Bool, true)
     }
 
     func testGetCapabilities() async throws {
@@ -520,7 +518,8 @@ final class HubGatewayClientTests: XCTestCase {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
             return (data, response, nil)
         }
-        let result = try await client.getCapabilities(instance: "default", component: "nullclaw")
-        XCTAssertEqual(result["version"], "1.0")
+        let data = try await client.getCapabilities(instance: "default", component: "nullclaw")
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(dict?["version"] as? String, "1.0")
     }
 }

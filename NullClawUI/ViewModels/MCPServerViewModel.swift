@@ -67,8 +67,7 @@ final class MCPServerViewModel {
 
     private func loadInternal() async {
         do {
-            let dict = try await client.listMCPServers(instance: instance, component: component)
-            servers = Self.parseServers(from: dict)
+            servers = try await client.listMCPServers(instance: instance, component: component)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -105,8 +104,8 @@ final class MCPServerViewModel {
         defer { checkingStatusName = nil }
 
         do {
-            let dict = try await client.listMCPServers(instance: instance, component: component)
-            let found = Self.parseServers(from: dict).contains { $0.name == serverName }
+            let all = try await client.listMCPServers(instance: instance, component: component)
+            let found = all.contains { $0.name == serverName }
             if let idx = servers.firstIndex(where: { $0.name == serverName }) {
                 servers[idx].connected = found
             }
@@ -125,8 +124,8 @@ final class MCPServerViewModel {
     func checkAllStatuses() async {
         let names = servers.map(\.name)
         do {
-            let dict = try await client.listMCPServers(instance: instance, component: component)
-            let configuredNames = Set(Self.parseServerNames(from: dict))
+            let all = try await client.listMCPServers(instance: instance, component: component)
+            let configuredNames = Set(all.map(\.name))
             for name in names {
                 if let idx = servers.firstIndex(where: { $0.name == name }) {
                     servers[idx].connected = configuredNames.contains(name)
@@ -260,23 +259,10 @@ final class MCPServerViewModel {
     // MARK: - Hub helpers (internal — visible for tests)
 
     /// Sends a prompt via Hub's invokeAgent and returns the raw response dict.
-    private func invokeAgent(prompt: String) async throws -> [String: String] {
+    private func invokeAgent(prompt: String) async throws -> Data {
         let body: [String: String] = ["message": prompt]
         let data = try JSONEncoder().encode(body)
         return try await client.invokeAgent(instance: instance, component: component, body: data)
-    }
-
-    /// Parses a `[String: String]` dict from Hub's listMCPServers into `[MCPServer]`.
-    static func parseServers(from dict: [String: String]) -> [MCPServer] {
-        dict.values.compactMap { value in
-            guard let data = value.data(using: .utf8) else { return nil }
-            return (try? JSONDecoder().decode(MCPServerRaw.self, from: data))?.toMCPServer
-        }
-    }
-
-    /// Extracts server names from a Hub listMCPServers response dict.
-    static func parseServerNames(from dict: [String: String]) -> [String] {
-        parseServers(from: dict).map(\.name)
     }
 }
 
