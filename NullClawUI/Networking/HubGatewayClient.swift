@@ -51,6 +51,35 @@ actor HubGatewayClient {
         return try decode(NullHubStatusResponse.self, from: data)
     }
 
+    // MARK: Instance Discovery
+
+    func listInstances() async throws -> [String: [String: NullHubInstanceSummary]] {
+        let url = baseURL.appendingPathComponent("api/instances")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        let envelope = try decode(NullHubInstancesResponse.self, from: data)
+        return envelope.instances
+    }
+
+    func listComponents() async throws -> [NullHubComponentInfo] {
+        let url = baseURL.appendingPathComponent("api/components")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        let envelope = try decode(NullHubComponentsResponse.self, from: data)
+        return envelope.components
+    }
+
+    func getComponentManifest(name: String) async throws -> Data {
+        let path = "api/components/\(name)/manifest"
+        let url = baseURL.appendingPathComponent(path)
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return data
+    }
+
     // MARK: - Helpers
 
     private func makeRequest(url: URL, method: String, authenticated: Bool = false) throws -> URLRequest {

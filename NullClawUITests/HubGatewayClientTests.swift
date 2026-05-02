@@ -173,4 +173,139 @@ final class HubGatewayClientTests: XCTestCase {
         let req = try XCTUnwrap(capturedRequest, "Mock handler was not called — request not intercepted")
         XCTAssertEqual(req.value(forHTTPHeaderField: "Authorization"), "Bearer test-hub-token")
     }
+
+    // MARK: - Instance Discovery
+
+    func testListInstancesEmpty() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances") { req in
+            let json = """
+            {"instances":{}}
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let result = try await client.listInstances()
+        XCTAssertTrue(result.isEmpty)
+    }
+
+    func testListInstancesPopulated() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances") { req in
+            let json = """
+            {
+              "instances": {
+                "nullclaw": {
+                  "default": {
+                    "version": "standalone",
+                    "auto_start": false,
+                    "launch_mode": "gateway",
+                    "verbose": false,
+                    "status": "stopped"
+                  }
+                }
+              }
+            }
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let result = try await client.listInstances()
+        XCTAssertEqual(result.count, 1)
+        let nullclawInstances = try XCTUnwrap(result["nullclaw"])
+        XCTAssertEqual(nullclawInstances.count, 1)
+        let defaultInstance = try XCTUnwrap(nullclawInstances["default"])
+        XCTAssertEqual(defaultInstance.version, "standalone")
+        XCTAssertEqual(defaultInstance.status, "stopped")
+    }
+
+    func testListComponents() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/components") { req in
+            let json = """
+            {
+              "components": [
+                {
+                  "name": "nullclaw",
+                  "display_name": "NullClaw",
+                  "description": "AI agent runtime.",
+                  "repo": "nullclaw/nullclaw",
+                  "alpha": false,
+                  "installed": true,
+                  "standalone": false,
+                  "instance_count": 1
+                }
+              ]
+            }
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let components = try await client.listComponents()
+        XCTAssertEqual(components.count, 1)
+        XCTAssertEqual(components[0].name, "nullclaw")
+        XCTAssertEqual(components[0].displayName, "NullClaw")
+        XCTAssertTrue(components[0].installed)
+    }
+
+    func testGetComponentManifest() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        let manifestJSON = """
+        {"name":"nullclaw","display_name":"NullClaw","description":"Test"}
+        """
+        MockURLProtocol.handle(path: "/api/components/nullclaw/manifest") { req in
+            let data = Data(manifestJSON.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let manifest = try await client.getComponentManifest(name: "nullclaw")
+        XCTAssertFalse(manifest.isEmpty)
+    }
+
+    func testListInstancesError() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances") { req in
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 500,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            return (nil, response, nil)
+        }
+
+        do {
+            _ = try await client.listInstances()
+            XCTFail("Expected error not thrown")
+        } catch {
+            XCTAssertTrue(error is GatewayError)
+        }
+    }
 }
