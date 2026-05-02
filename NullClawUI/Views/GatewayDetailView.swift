@@ -17,6 +17,17 @@ struct GatewayDetailView: View {
     @State private var cardError: String? = nil
     @State private var healthStatus: ConnectionStatus = .unknown
 
+    /// If this is an instance profile, find the hub that manages it.
+    private var managingHub: GatewayProfile? {
+        if profile.hubURL != nil { return profile }
+        return store.profiles.first { $0.hubURL != nil }
+    }
+
+    /// The profile to use for management operations — always prefers the hub.
+    private var managementProfile: GatewayProfile {
+        managingHub ?? profile
+    }
+
     var body: some View {
         List {
             // Agent info card
@@ -73,6 +84,7 @@ struct GatewayDetailView: View {
             if URL(string: profile.url) != nil {
                 Section {
                     let state = statusVM.healthState(for: profile)
+                    let mp = managementProfile
 
                     managementLink(
                         icon: "clock.badge.checkmark",
@@ -80,7 +92,7 @@ struct GatewayDetailView: View {
                         hint: "View, add, pause, and delete scheduled cron jobs",
                         badge: state.cronJobCount.map { "\($0)" }
                     ) {
-                        CronJobListView(profile: profile)
+                        CronJobListView(profile: mp)
                     }
                     managementLink(
                         icon: "puzzlepiece.extension.fill",
@@ -88,7 +100,7 @@ struct GatewayDetailView: View {
                         hint: "View, add, and remove MCP server integrations",
                         badge: state.mcpServerCount.map { "\($0)" }
                     ) {
-                        MCPServerListView(profile: profile)
+                        MCPServerListView(profile: mp)
                     }
                     managementLink(
                         icon: "antenna.radiowaves.left.and.right",
@@ -96,7 +108,7 @@ struct GatewayDetailView: View {
                         hint: "View connection status of communication channels",
                         badge: state.channelCount.map { "\($0)" }
                     ) {
-                        ChannelStatusListView(profile: profile)
+                        ChannelStatusListView(profile: mp)
                     }
                     managementLink(
                         icon: "slider.horizontal.3",
@@ -104,7 +116,7 @@ struct GatewayDetailView: View {
                         hint: "Adjust model, temperature, and limits",
                         badge: nil
                     ) {
-                        AgentConfigView(profile: profile)
+                        AgentConfigView(profile: mp)
                     }
                     managementLink(
                         icon: "shield.lefthalf.filled",
@@ -112,7 +124,7 @@ struct GatewayDetailView: View {
                         hint: "Adjust autonomy level and safety controls",
                         badge: nil
                     ) {
-                        AutonomyView(profile: profile)
+                        AutonomyView(profile: mp)
                     }
 
                     // NOTE: Cost & Usage temporarily hidden — UsageStatsViewModel uses
