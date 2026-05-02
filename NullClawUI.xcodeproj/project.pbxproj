@@ -66,7 +66,6 @@
 		D23C482B93FE42E5E3DAE15C /* HubLiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDD987662F57D872D9394DB /* HubLiveIntegrationTests.swift */; };
 		D71447C606F71C5DF82673EA /* GatewayNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3676F3ED76C5DC7065C17E9 /* GatewayNetworking.swift */; };
 		D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B541BEB81F62E4F0D3174FA /* CronJob.swift */; };
-		DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */; };
 		E34903E6B75DA6257B1B744B /* AgentConfigViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E4594106CAF9DA79BA54D9 /* AgentConfigViewModel.swift */; };
 		E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */; };
 		E72EE619A9FEA20B89F5C6F7 /* UsageStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */; };
@@ -98,7 +97,6 @@
 /* Begin PBXFileReference section */
 		089D59695295ADA15F58B920 /* RestApiModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestApiModels.swift; sourceTree = "<group>"; };
 		0F27D4DC37FD7A7C678D285C /* ConversationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRecord.swift; sourceTree = "<group>"; };
-		123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayLiveIntegrationTests.swift; sourceTree = "<group>"; };
 		13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDetailView.swift; sourceTree = "<group>"; };
 		1A024AECFAB790964AA72196 /* ChannelStatusListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusListView.swift; sourceTree = "<group>"; };
 		1CAFCE3D5DD22F4C2040022C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -324,7 +322,6 @@
 			isa = PBXGroup;
 			children = (
 				3D75A443C0C31BE389A235E6 /* ComponentTests.swift */,
-				123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */,
 				C07123A861DCC536C98ED37C /* GatewayProfileMigrationTests.swift */,
 				B4032AFE76A27F5FD468B17B /* HubGatewayClientTests.swift */,
 				1DDD987662F57D872D9394DB /* HubLiveIntegrationTests.swift */,
@@ -523,7 +520,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				856B9F183D6B6685BD65FBD8 /* ComponentTests.swift in Sources */,
-				DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */,
 				1735412C7AC04A7AC84FCD89 /* GatewayProfileMigrationTests.swift in Sources */,
 				F501A6EC1FB3CAAD9CB3827D /* HubGatewayClientTests.swift in Sources */,
 				D23C482B93FE42E5E3DAE15C /* HubLiveIntegrationTests.swift in Sources */,

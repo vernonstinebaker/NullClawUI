@@ -617,19 +617,14 @@ final class AgentConfigViewModelTests: XCTestCase {
     @MainActor
     func testBuildConfigHappyPath() {
         let agent: [String: String] = [
-            "compactContext": "1",
-            "maxToolIterations": "40",
-            "maxHistoryMessages": "100",
-            "parallelTools": "1",
-            "sessionIdleTimeoutSecs": "600",
-            "compactionKeepRecent": "20",
-            "compactionMaxSummaryChars": "2000",
-            "compactionMaxSourceChars": "13000",
-            "messageTimeoutSecs": "300"
+            "compact_context": "1",
+            "max_tool_iterations": "40",
+            "message_timeout_secs": "300",
+            "compaction_max_source_chars": "13000"
         ]
         let models: [String: String] = [
-            "defaultProvider": "openrouter",
-            "defaultModel": "anthropic/claude-sonnet-4"
+            "default_provider": "openrouter",
+            "default_model": "anthropic/claude-sonnet-4"
         ]
         let config = AgentConfigViewModel.buildConfig(from: agent, modelsDict: models)
         XCTAssertEqual(config.primaryModel, "anthropic/claude-sonnet-4")
@@ -644,7 +639,7 @@ final class AgentConfigViewModelTests: XCTestCase {
     func testBuildConfigUsesDefaults() {
         let agent: [String: String] = [:]
         let models = [
-            "defaultProvider": "infini-ai"
+            "default_provider": "infini-ai"
         ]
         let config = AgentConfigViewModel.buildConfig(from: agent, modelsDict: models)
         XCTAssertEqual(config.primaryModel, "")
@@ -663,11 +658,10 @@ final class AutonomyViewModelTests: XCTestCase {
     func testBuildConfigHappyPath() {
         let dict: [String: String] = [
             "level": "high",
-            "maxActionsPerHour": "200",
-            "blockHighRiskCommands": "0",
-            "requireApprovalForMediumRisk": "1",
-            "allowedCommands": #"["sh","bash","date"]"#,
-            "workspaceOnly": "1"
+            "max_actions_per_hour": "200",
+            "block_high_risk_commands": "0",
+            "require_approval_for_medium_risk": "1",
+            "allowed_commands": #"["sh","bash","date"]"#
         ]
         let config = AutonomyViewModel.buildConfig(from: dict)
         XCTAssertEqual(config.level, "high")

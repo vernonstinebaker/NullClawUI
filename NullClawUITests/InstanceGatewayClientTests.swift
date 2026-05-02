@@ -4,18 +4,22 @@ import XCTest
 /// Unit tests for `InstanceGatewayClient` using `MockURLProtocol`.
 final class InstanceGatewayClientTests: XCTestCase {
     private var client: InstanceGatewayClient!
+    private var mockConfig: URLSessionConfiguration!
 
     override func setUp() async throws {
         try await super.setUp()
         MockURLProtocol.setup()
+        mockConfig = URLSessionConfiguration.ephemeral
+        mockConfig.protocolClasses = [MockURLProtocol.self]
 
         let url = try XCTUnwrap(URL(string: "http://localhost:5111"))
-        client = InstanceGatewayClient(baseURL: url, requiresPairing: false)
+        client = InstanceGatewayClient(baseURL: url, requiresPairing: false, mockSessionConfig: mockConfig)
     }
 
     override func tearDown() async throws {
         MockURLProtocol.tearDown()
         client = nil
+        mockConfig = nil
         try await super.tearDown()
     }
 

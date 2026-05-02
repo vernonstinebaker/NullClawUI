@@ -148,10 +148,11 @@ final class AutonomyViewModel {
         var c = AutonomyConfig()
         c.level = dict["level"] ?? "medium"
         c.maxActionsPerHour = dict["max_actions_per_hour"].flatMap(Int.init) ?? 60
-        c.blockHighRiskCommands = dict["block_high_risk_commands"] == "true" || dict["block_high_risk_commands"] == "1"
+        c.blockHighRiskCommands = dict["block_high_risk_commands"]
+            .map { $0 == "true" || $0 == "1" } ?? true
         c
-            .requireApprovalForMediumRisk = dict["require_approval_for_medium_risk"] == "true" ||
-            dict["require_approval_for_medium_risk"] == "1"
+            .requireApprovalForMediumRisk = dict["require_approval_for_medium_risk"]
+            .map { $0 == "true" || $0 == "1" } ?? false
         c.allowedCommands = dict["allowed_commands"].flatMap(Self.parseJSONStringArray) ?? []
         return c
     }
