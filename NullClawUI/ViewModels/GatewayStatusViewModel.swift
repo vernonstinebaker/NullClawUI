@@ -133,19 +133,21 @@ final class GatewayStatusViewModel {
     ) async -> (Int?, Int?, Int?) {
         guard let base = URL(string: urlString) else { return (nil, nil, nil) }
         let token = KeychainService.retrieveTokenIfAvailable(for: urlString)
-        let client = InstanceGatewayClient(baseURL: base, token: token, requiresPairing: false)
+        let client = HubGatewayClient(baseURL: base, bearerToken: token)
         defer { Task { await client.invalidate() } }
 
-        async let cronJobs: [CronJob]? = {
-            do { return try await client.apiListCronJobs() } catch { return nil }
+        async let cronJobs: [String: String]? = {
+            do { return try await client.listCronJobs(instance: "default", component: "nullclaw") } catch { return nil }
         }()
 
-        async let mcpServers: [ApiMCPServerInfo]? = {
-            do { return try await client.apiListMCPServers() } catch { return nil }
+        async let mcpServers: [String: String]? = {
+            do { return try await client.listMCPServers(instance: "default", component: "nullclaw") } catch {
+                return nil
+            }
         }()
 
-        async let channels: [ApiChannelInfo]? = {
-            do { return try await client.apiListChannels() } catch { return nil }
+        async let channels: [String: String]? = {
+            do { return try await client.listChannels(instance: "default", component: "nullclaw") } catch { return nil }
         }()
 
         let (c, m, ch) = await (cronJobs, mcpServers, channels)

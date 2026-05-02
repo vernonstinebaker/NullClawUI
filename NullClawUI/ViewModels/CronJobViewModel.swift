@@ -27,12 +27,16 @@ final class CronJobViewModel {
 
     // MARK: Dependencies
 
-    var client: InstanceGatewayClient
+    let client: HubGatewayClient
+    let instance: String
+    let component: String
 
     // MARK: Init
 
-    init(client: InstanceGatewayClient) {
+    init(client: HubGatewayClient, instance: String = "default", component: String = "nullclaw") {
         self.client = client
+        self.instance = instance
+        self.component = component
     }
 
     func invalidate() {
@@ -49,7 +53,8 @@ final class CronJobViewModel {
         defer { isLoading = false }
 
         do {
-            jobs = try await client.apiListCronJobs()
+            let dict = try await client.listCronJobs(instance: instance, component: component)
+            jobs = Self.parseJobs(from: dict)
         } catch {
             errorMessage = "Failed to load cron jobs: \(error.localizedDescription)"
         }
@@ -58,7 +63,9 @@ final class CronJobViewModel {
     /// Pauses the given job and refreshes the list.
     func pause(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.apiPauseCronJob(id: job.id) },
+            action: {
+                try await self.client.pauseCronJob(instance: self.instance, component: self.component, id: job.id)
+            },
             jobID: job.id,
             errorPrefix: "Failed to pause job"
         )
@@ -67,17 +74,19 @@ final class CronJobViewModel {
     /// Resumes (un-pauses) the given job and refreshes the list.
     func resume(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.apiResumeCronJob(id: job.id) },
+            action: {
+                try await self.client.resumeCronJob(instance: self.instance, component: self.component, id: job.id)
+            },
             jobID: job.id,
             errorPrefix: "Failed to resume job"
         )
     }
 
     /// Triggers an immediate run of the given job and refreshes the list.
-    /// Uses the REST endpoint POST /api/cron/:id/run.
     func runNow(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.apiRunCronJob(id: job.id) },
+            action: { try await self.client.runCronJob(instance: self.instance, component: self.component, id: job.id)
+            },
             jobID: job.id,
             errorPrefix: "Failed to run job"
         )
@@ -86,7 +95,9 @@ final class CronJobViewModel {
     /// Deletes the given job and refreshes the list.
     func delete(_ job: CronJob) async {
         await performMutation(
-            action: { try await self.client.apiDeleteCronJob(id: job.id) },
+            action: {
+                try await self.client.deleteCronJob(instance: self.instance, component: self.component, id: job.id)
+            },
             jobID: job.id,
             errorPrefix: "Failed to delete job"
         )
@@ -101,12 +112,10 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toRESTParams()
-            if params.expression == nil, params.delay != nil {
-                _ = try await client.apiCreateCronJobOnce(params)
-            } else {
-                _ = try await client.apiCreateCronJob(params)
-            }
-            jobs = try await client.apiListCronJobs()
+            let body = try Self.snakeCaseEncoder().encode(params)
+            _ = try await client.createCronJob(instance: instance, component: component, body: body)
+            let dict = try await client.listCronJobs(instance: instance, component: component)
+            jobs = Self.parseJobs(from: dict)
         } catch {
             errorMessage = "Failed to add cron job: \(error.localizedDescription)"
         }
@@ -121,8 +130,10 @@ final class CronJobViewModel {
 
         do {
             let params = draft.toUpdateRESTParams(existingID: job.id)
-            try await client.apiUpdateCronJob(id: job.id, params)
-            jobs = try await client.apiListCronJobs()
+            let body = try Self.snakeCaseEncoder().encode(params)
+            _ = try await client.createCronJob(instance: instance, component: component, body: body)
+            let dict = try await client.listCronJobs(instance: instance, component: component)
+            jobs = Self.parseJobs(from: dict)
         } catch {
             errorMessage = "Failed to update cron job: \(error.localizedDescription)"
         }
@@ -143,9 +154,31 @@ final class CronJobViewModel {
 
         do {
             try await action()
-            jobs = try await client.apiListCronJobs()
+            let dict = try await client.listCronJobs(instance: instance, component: component)
+            jobs = Self.parseJobs(from: dict)
         } catch {
             errorMessage = "\(errorPrefix): \(error.localizedDescription)"
         }
+    }
+
+    /// Attempts to parse a `[String: String]` dict from Hub's listCronJobs
+    /// into an array of `CronJob` by JSON-decoding each value.
+    static func parseJobs(from dict: [String: String]) -> [CronJob] {
+        dict.values.compactMap { value in
+            guard let data = value.data(using: .utf8) else { return nil }
+            return try? snakeCaseDecoder().decode(CronJob.self, from: data)
+        }
+    }
+
+    private static func snakeCaseEncoder() -> JSONEncoder {
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .convertToSnakeCase
+        return e
+    }
+
+    private static func snakeCaseDecoder() -> JSONDecoder {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
     }
 }

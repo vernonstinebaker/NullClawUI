@@ -14,6 +14,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     private static let gatewayURL = "http://localhost:5111"
     private var client: InstanceGatewayClient!
+    private var hubClient: HubGatewayClient!
 
     /// ID of any cron job created by a test, used for cleanup in tearDown.
     private var createdCronJobId: String?
@@ -24,6 +25,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
             throw XCTSkip("Invalid test gateway URL")
         }
         client = InstanceGatewayClient(baseURL: url, requiresPairing: false)
+        hubClient = HubGatewayClient(baseURL: url)
     }
 
     override func tearDown() async throws {
@@ -32,10 +34,10 @@ final class GatewayLiveIntegrationTests: XCTestCase {
             try? await client?.apiDeleteCronJob(id: id)
             createdCronJobId = nil
         }
-        if let c = client {
-            await c.invalidate()
-        }
+        if let c = client { await c.invalidate() }
+        if let h = hubClient { await h.invalidate() }
         client = nil
+        hubClient = nil
         try await super.tearDown()
     }
 
@@ -784,7 +786,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAgentConfigViewModelLoadsFromREST() async throws {
         try await requireGateway()
-        let vm = AgentConfigViewModel(client: client)
+        let vm = AgentConfigViewModel(client: hubClient)
 
         await vm.load()
 
@@ -813,7 +815,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAgentConfigViewModelLoadIsIdempotent() async throws {
         try await requireGateway()
-        let vm = AgentConfigViewModel(client: client)
+        let vm = AgentConfigViewModel(client: hubClient)
 
         // First load.
         await vm.load()
@@ -833,7 +835,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAgentConfigViewModelGuardsAgainstConcurrentLoad() async throws {
         try await requireGateway()
-        let vm = AgentConfigViewModel(client: client)
+        let vm = AgentConfigViewModel(client: hubClient)
 
         // Fire two loads concurrently; the guard `!isLoading` must prevent double-execution.
         async let a: Void = vm.load()
@@ -846,7 +848,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAgentConfigViewModelSetterSurfacesErrorGracefully() async throws {
         try await requireGateway()
-        let vm = AgentConfigViewModel(client: client)
+        let vm = AgentConfigViewModel(client: hubClient)
         await vm.load()
 
         // Attempt a setter — may succeed or fail (PATCH may not be on dev gateway).
@@ -860,7 +862,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAutonomyViewModelLoadsFromREST() async throws {
         try await requireGateway()
-        let vm = AutonomyViewModel(client: client)
+        let vm = AutonomyViewModel(client: hubClient)
 
         await vm.load()
 
@@ -880,7 +882,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAutonomyViewModelLoadIsIdempotent() async throws {
         try await requireGateway()
-        let vm = AutonomyViewModel(client: client)
+        let vm = AutonomyViewModel(client: hubClient)
 
         await vm.load()
         XCTAssertTrue(vm.isLoaded)
@@ -898,7 +900,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
 
     func testAutonomyViewModelSetterSurfacesErrorGracefully() async throws {
         try await requireGateway()
-        let vm = AutonomyViewModel(client: client)
+        let vm = AutonomyViewModel(client: hubClient)
         await vm.load()
 
         // setMaxActionsPerHour — may succeed or fail depending on PATCH availability.

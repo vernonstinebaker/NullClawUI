@@ -21,7 +21,7 @@ struct AgentConfigView: View {
         let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
         let token = (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
         _viewModel = State(wrappedValue: AgentConfigViewModel(
-            client: InstanceGatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
+            client: HubGatewayClient(baseURL: url, bearerToken: token)
         ))
     }
 

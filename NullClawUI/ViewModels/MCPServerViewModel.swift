@@ -41,12 +41,16 @@ final class MCPServerViewModel {
 
     // MARK: Dependencies
 
-    var client: InstanceGatewayClient
+    let client: HubGatewayClient
+    let instance: String
+    let component: String
 
     // MARK: Init
 
-    init(client: InstanceGatewayClient) {
+    init(client: HubGatewayClient, instance: String = "default", component: String = "nullclaw") {
         self.client = client
+        self.instance = instance
+        self.component = component
     }
 
     // MARK: - Load
@@ -58,25 +62,13 @@ final class MCPServerViewModel {
         confirmationMessage = nil
         defer { isLoading = false }
 
-        await loadInternal(client: client)
+        await loadInternal()
     }
 
-    private func loadInternal(client: InstanceGatewayClient) async {
+    private func loadInternal() async {
         do {
-            let apiServers = try await client.apiListMCPServers()
-            servers = apiServers.map { apiServer in
-                MCPServer(
-                    name: apiServer.name,
-                    transport: apiServer.transport,
-                    command: apiServer.command,
-                    args: nil,
-                    env: nil,
-                    url: nil,
-                    headers: nil,
-                    timeoutMs: nil,
-                    connected: nil
-                )
-            }
+            let dict = try await client.listMCPServers(instance: instance, component: component)
+            servers = Self.parseServers(from: dict)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -93,9 +85,9 @@ final class MCPServerViewModel {
 
         let prompt = "Remove the MCP server named \"\(server.name)\" from ~/.nullclaw/config.json."
         do {
-            _ = try await client.sendOneShot(prompt)
+            _ = try await invokeAgent(prompt: prompt)
             confirmationMessage = "MCP server \"\(server.name)\" removed."
-            await loadInternal(client: client)
+            await loadInternal()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -113,24 +105,14 @@ final class MCPServerViewModel {
         defer { checkingStatusName = nil }
 
         do {
-            let detail = try await client.apiGetMCPServer(name: serverName)
+            let dict = try await client.listMCPServers(instance: instance, component: component)
+            let found = Self.parseServers(from: dict).contains { $0.name == serverName }
             if let idx = servers.firstIndex(where: { $0.name == serverName }) {
-                servers[idx].connected = true
-                servers[idx].args = detail.args
+                servers[idx].connected = found
             }
-            confirmationMessage = "\"\(serverName)\" is configured."
-        } catch let error as GatewayError {
-            if case .apiError = error {
-                if let idx = servers.firstIndex(where: { $0.name == serverName }) {
-                    servers[idx].connected = false
-                }
-                confirmationMessage = "\"\(serverName)\" is not configured."
-            } else {
-                if let idx = servers.firstIndex(where: { $0.name == serverName }) {
-                    servers[idx].connected = false
-                }
-                errorMessage = error.localizedDescription
-            }
+            confirmationMessage = found
+                ? "\"\(serverName)\" is configured."
+                : "\"\(serverName)\" is not configured."
         } catch {
             if let idx = servers.firstIndex(where: { $0.name == serverName }) {
                 servers[idx].connected = false
@@ -139,26 +121,21 @@ final class MCPServerViewModel {
         }
     }
 
-    /// Checks status of all servers concurrently using TaskGroup.
+    /// Checks status of all servers by fetching the full list once.
     func checkAllStatuses() async {
         let names = servers.map(\.name)
-        await withTaskGroup(of: Void.self) { group in
+        do {
+            let dict = try await client.listMCPServers(instance: instance, component: component)
+            let configuredNames = Set(Self.parseServerNames(from: dict))
             for name in names {
-                group.addTask {
-                    do {
-                        _ = try await self.client.apiGetMCPServer(name: name)
-                        await MainActor.run {
-                            if let idx = self.servers.firstIndex(where: { $0.name == name }) {
-                                self.servers[idx].connected = true
-                            }
-                        }
-                    } catch {
-                        await MainActor.run {
-                            if let idx = self.servers.firstIndex(where: { $0.name == name }) {
-                                self.servers[idx].connected = false
-                            }
-                        }
-                    }
+                if let idx = servers.firstIndex(where: { $0.name == name }) {
+                    servers[idx].connected = configuredNames.contains(name)
+                }
+            }
+        } catch {
+            for name in names {
+                if let idx = servers.firstIndex(where: { $0.name == name }) {
+                    servers[idx].connected = false
                 }
             }
         }
@@ -175,9 +152,9 @@ final class MCPServerViewModel {
 
         let prompt = draft.toPrompt()
         do {
-            _ = try await client.sendOneShot(prompt)
+            _ = try await invokeAgent(prompt: prompt)
             confirmationMessage = "MCP server \"\(draft.name)\" added."
-            await loadInternal(client: client)
+            await loadInternal()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -278,6 +255,28 @@ final class MCPServerViewModel {
         }
         struct ConnectedWrapper: Decodable { let connected: Bool }
         return (try? JSONDecoder().decode(ConnectedWrapper.self, from: data))?.connected ?? false
+    }
+
+    // MARK: - Hub helpers (internal — visible for tests)
+
+    /// Sends a prompt via Hub's invokeAgent and returns the raw response dict.
+    private func invokeAgent(prompt: String) async throws -> [String: String] {
+        let body: [String: String] = ["message": prompt]
+        let data = try JSONEncoder().encode(body)
+        return try await client.invokeAgent(instance: instance, component: component, body: data)
+    }
+
+    /// Parses a `[String: String]` dict from Hub's listMCPServers into `[MCPServer]`.
+    static func parseServers(from dict: [String: String]) -> [MCPServer] {
+        dict.values.compactMap { value in
+            guard let data = value.data(using: .utf8) else { return nil }
+            return (try? JSONDecoder().decode(MCPServerRaw.self, from: data))?.toMCPServer
+        }
+    }
+
+    /// Extracts server names from a Hub listMCPServers response dict.
+    static func parseServerNames(from dict: [String: String]) -> [String] {
+        parseServers(from: dict).map(\.name)
     }
 }
 

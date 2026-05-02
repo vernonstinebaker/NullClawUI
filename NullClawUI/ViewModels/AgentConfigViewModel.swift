@@ -54,12 +54,16 @@ final class AgentConfigViewModel {
 
     // MARK: Dependencies
 
-    var client: InstanceGatewayClient
+    let client: HubGatewayClient
+    let instance: String
+    let component: String
 
     // MARK: Init
 
-    init(client: InstanceGatewayClient) {
+    init(client: HubGatewayClient, instance: String = "default", component: String = "nullclaw") {
         self.client = client
+        self.instance = instance
+        self.component = component
     }
 
     /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
@@ -71,7 +75,7 @@ final class AgentConfigViewModel {
 
     // MARK: - Load
 
-    /// Fetches agent configuration via REST (GET /api/config?path=agent and GET /api/models).
+    /// Fetches agent configuration via Hub management API.
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -80,11 +84,11 @@ final class AgentConfigViewModel {
         defer { isLoading = false }
 
         do {
-            async let agentPayload = client.apiConfigObjectValue(path: "agent", as: AgentConfigPayload.self)
-            async let modelsPayload = client.apiModels()
+            async let agentDict = client.getConfig(instance: instance, component: component, path: "agent")
+            async let modelsDict = client.listModels(instance: instance, component: component)
 
-            let (agent, models) = try await (agentPayload, modelsPayload)
-            config = Self.buildConfig(from: agent, models: models)
+            let (agent, models) = try await (agentDict, modelsDict)
+            config = Self.buildConfig(from: agent, modelsDict: models)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -164,23 +168,23 @@ final class AgentConfigViewModel {
 
     // MARK: - Build config (internal — visible for tests)
 
-    /// Combines a decoded AgentConfigPayload and ApiModelsResponse into an AgentConfig.
-    static func buildConfig(from agent: AgentConfigPayload, models: ApiModelsResponse) -> AgentConfig {
+    /// Combines a decoded agent config dict and models dict into an AgentConfig.
+    static func buildConfig(from agentDict: [String: String], modelsDict: [String: String]) -> AgentConfig {
         var c = AgentConfig()
-        c.primaryModel = models.defaultModel ?? ""
-        c.provider = models.defaultProvider
+        c.primaryModel = modelsDict["default_model"] ?? ""
+        c.provider = modelsDict["default_provider"] ?? ""
         c.temperature = 1.0 // default_temperature is a top-level scalar; fetched separately if needed
-        c.maxToolIterations = agent.maxToolIterations ?? 25
-        c.messageTimeoutSecs = agent.messageTimeoutSecs ?? 300
-        c.compactContext = agent.compactContext ?? false
-        c.compactionThreshold = agent.compactionMaxSourceChars ?? 8000
+        c.maxToolIterations = agentDict["max_tool_iterations"].flatMap(Int.init) ?? 25
+        c.messageTimeoutSecs = agentDict["message_timeout_secs"].flatMap(Int.init) ?? 300
+        c.compactContext = agentDict["compact_context"] == "true" || agentDict["compact_context"] == "1"
+        c.compactionThreshold = agentDict["compaction_max_source_chars"].flatMap(Int.init) ?? 8000
         return c
     }
 
     // MARK: - Private helpers
 
-    /// Applies a config change via the REST Admin API PATCH /api/config, optionally
-    /// followed by POST /api/config/reload for hot-reloadable fields.
+    /// Applies a config change via Hub setConfig, optionally followed by config-reload
+    /// for hot-reloadable fields.
     private func applyChange(
         path: String,
         value: some Encodable & Sendable,
@@ -195,9 +199,14 @@ final class AgentConfigViewModel {
 
         do {
             let c = client
-            try await c.apiSetConfigValue(path: path, value: value)
+            try await c.setConfig(
+                instance: instance,
+                component: component,
+                path: path,
+                value: String(describing: value)
+            )
             if hotReload {
-                _ = try await c.apiReloadConfig()
+                _ = try await c.reloadConfig(instance: instance, component: component)
             }
             update(&config)
             confirmationMessage = confirmation

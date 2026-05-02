@@ -13,16 +13,18 @@ final class ChannelStatusViewModel {
 
     // MARK: Dependencies
 
-    var client: InstanceGatewayClient
+    let client: HubGatewayClient
+    let instance: String
+    let component: String
 
     // MARK: Init
 
-    init(client: InstanceGatewayClient) {
+    init(client: HubGatewayClient, instance: String = "default", component: String = "nullclaw") {
         self.client = client
+        self.instance = instance
+        self.component = component
     }
 
-    /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
-    /// release the session and avoid orphaned network connections.
     func invalidate() {
         let c = client
         Task { await c.invalidate() }
@@ -30,7 +32,7 @@ final class ChannelStatusViewModel {
 
     // MARK: - Load
 
-    /// Fetches channel list from the REST Admin API.
+    /// Fetches channel list from the Hub management API.
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -38,17 +40,22 @@ final class ChannelStatusViewModel {
         defer { isLoading = false }
 
         do {
-            let apiChannels = try await client.apiListChannels()
-            channels = apiChannels.map { apiCh in
-                ChannelInfo(
-                    name: apiCh.type,
-                    connected: apiCh.status == "ok",
-                    serverURL: nil,
-                    botName: apiCh.accountId
-                )
-            }
+            let dict = try await client.listChannels(instance: instance, component: component)
+            channels = Self.parseChannels(from: dict)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Parses a `[String: String]` from Hub's listChannels into `[ChannelInfo]`.
+    static func parseChannels(from dict: [String: String]) -> [ChannelInfo] {
+        dict.map { type, status in
+            ChannelInfo(
+                name: type,
+                connected: status == "ok" || status == "1",
+                serverURL: nil,
+                botName: nil
+            )
         }
     }
 }

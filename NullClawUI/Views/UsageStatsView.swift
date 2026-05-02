@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - UsageStatsView
 
 /// Shows token usage and cost data for the gateway, with editable spend limits.
-/// Follows the same structure as AutonomyView: constructs its own InstanceGatewayClient,
+/// Follows the same structure as AutonomyView: constructs its own HubGatewayClient,
 /// fetches via a single sendOneShot prompt on appear, and uses refreshable for reload.
 struct UsageStatsView: View {
     let profile: GatewayProfile
@@ -26,7 +26,7 @@ struct UsageStatsView: View {
         let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
         let token = (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
         _viewModel = State(wrappedValue: UsageStatsViewModel(
-            client: InstanceGatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
+            client: HubGatewayClient(baseURL: url, bearerToken: token)
         ))
     }
 

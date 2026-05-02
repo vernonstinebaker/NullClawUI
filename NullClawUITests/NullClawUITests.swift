@@ -616,23 +616,22 @@ final class CronJobDraftRESTConversionTests: XCTestCase {
 final class AgentConfigViewModelTests: XCTestCase {
     @MainActor
     func testBuildConfigHappyPath() {
-        let agent = AgentConfigPayload(
-            compactContext: true,
-            maxToolIterations: 40,
-            maxHistoryMessages: nil,
-            parallelTools: nil,
-            sessionIdleTimeoutSecs: nil,
-            compactionKeepRecent: nil,
-            compactionMaxSummaryChars: nil,
-            compactionMaxSourceChars: 13000,
-            messageTimeoutSecs: 300
-        )
-        let models = ApiModelsResponse(
-            defaultProvider: "openrouter",
-            defaultModel: "anthropic/claude-sonnet-4",
-            providers: []
-        )
-        let config = AgentConfigViewModel.buildConfig(from: agent, models: models)
+        let agent: [String: String] = [
+            "compactContext": "1",
+            "maxToolIterations": "40",
+            "maxHistoryMessages": "100",
+            "parallelTools": "1",
+            "sessionIdleTimeoutSecs": "600",
+            "compactionKeepRecent": "20",
+            "compactionMaxSummaryChars": "2000",
+            "compactionMaxSourceChars": "13000",
+            "messageTimeoutSecs": "300"
+        ]
+        let models: [String: String] = [
+            "defaultProvider": "openrouter",
+            "defaultModel": "anthropic/claude-sonnet-4"
+        ]
+        let config = AgentConfigViewModel.buildConfig(from: agent, modelsDict: models)
         XCTAssertEqual(config.primaryModel, "anthropic/claude-sonnet-4")
         XCTAssertEqual(config.provider, "openrouter")
         XCTAssertEqual(config.maxToolIterations, 40)
@@ -643,23 +642,11 @@ final class AgentConfigViewModelTests: XCTestCase {
 
     @MainActor
     func testBuildConfigUsesDefaults() {
-        let agent = AgentConfigPayload(
-            compactContext: nil,
-            maxToolIterations: nil,
-            maxHistoryMessages: nil,
-            parallelTools: nil,
-            sessionIdleTimeoutSecs: nil,
-            compactionKeepRecent: nil,
-            compactionMaxSummaryChars: nil,
-            compactionMaxSourceChars: nil,
-            messageTimeoutSecs: nil
-        )
-        let models = ApiModelsResponse(
-            defaultProvider: "infini-ai",
-            defaultModel: nil,
-            providers: []
-        )
-        let config = AgentConfigViewModel.buildConfig(from: agent, models: models)
+        let agent: [String: String] = [:]
+        let models = [
+            "defaultProvider": "infini-ai"
+        ]
+        let config = AgentConfigViewModel.buildConfig(from: agent, modelsDict: models)
         XCTAssertEqual(config.primaryModel, "")
         XCTAssertEqual(config.provider, "infini-ai")
         XCTAssertEqual(config.maxToolIterations, 25)
@@ -674,15 +661,15 @@ final class AgentConfigViewModelTests: XCTestCase {
 final class AutonomyViewModelTests: XCTestCase {
     @MainActor
     func testBuildConfigHappyPath() {
-        let payload = AutonomyConfigPayload(
-            level: "high",
-            maxActionsPerHour: 200,
-            blockHighRiskCommands: false,
-            requireApprovalForMediumRisk: true,
-            allowedCommands: ["sh", "bash", "date"],
-            workspaceOnly: true
-        )
-        let config = AutonomyViewModel.buildConfig(from: payload)
+        let dict: [String: String] = [
+            "level": "high",
+            "maxActionsPerHour": "200",
+            "blockHighRiskCommands": "0",
+            "requireApprovalForMediumRisk": "1",
+            "allowedCommands": #"["sh","bash","date"]"#,
+            "workspaceOnly": "1"
+        ]
+        let config = AutonomyViewModel.buildConfig(from: dict)
         XCTAssertEqual(config.level, "high")
         XCTAssertEqual(config.maxActionsPerHour, 200)
         XCTAssertFalse(config.blockHighRiskCommands)
@@ -692,15 +679,8 @@ final class AutonomyViewModelTests: XCTestCase {
 
     @MainActor
     func testBuildConfigUsesDefaults() {
-        let payload = AutonomyConfigPayload(
-            level: nil,
-            maxActionsPerHour: nil,
-            blockHighRiskCommands: nil,
-            requireApprovalForMediumRisk: nil,
-            allowedCommands: nil,
-            workspaceOnly: nil
-        )
-        let config = AutonomyViewModel.buildConfig(from: payload)
+        let dict: [String: String] = [:]
+        let config = AutonomyViewModel.buildConfig(from: dict)
         XCTAssertEqual(config.level, "medium")
         XCTAssertEqual(config.maxActionsPerHour, 60)
         XCTAssertTrue(config.blockHighRiskCommands)

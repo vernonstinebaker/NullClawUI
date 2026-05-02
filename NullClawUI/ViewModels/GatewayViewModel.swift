@@ -1,13 +1,15 @@
 import Foundation
 import Observation
 
-/// Drives Phase 1: connectivity check and agent card fetch.
-/// Phase 9+: supports switching between multiple gateway profiles.
+/// Manages connectivity to both NullHub (management) and NullClaw instances (data).
+/// Creates a HubGatewayClient when the profile has a hubURL, and always maintains
+/// an InstanceGatewayClient for direct A2A/streaming/agent-card access.
 @Observable
 @MainActor
 final class GatewayViewModel {
     var appModel: AppModel
     private(set) var client: InstanceGatewayClient
+    private(set) var hubClient: HubGatewayClient?
 
     init(appModel: AppModel) {
         self.appModel = appModel
@@ -37,24 +39,18 @@ final class GatewayViewModel {
 
     // MARK: - Switch to a different gateway profile
 
-    /// Switches the active gateway profile, rebuilds the InstanceGatewayClient, and connects.
-    /// Returns the new client so ChatViewModel can be updated.
     func switchGateway(to profile: GatewayProfile) async -> InstanceGatewayClient {
-        // Activate the new profile in the store.
         appModel.store.activate(id: profile.id)
-
-        // Reset transient connection state.
         appModel.agentCard = nil
         appModel.connectionStatus = .unknown
 
-        // Build a fresh client for the new URL.
-        // Invalidate the old sessions first to cancel in-flight requests immediately.
         let oldClient = client
-        let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
-        client = InstanceGatewayClient(baseURL: url, requiresPairing: profile.requiresPairing)
+        let instanceURLStr = profile.instanceURL ?? profile.url
+        let instanceURL = URL(string: instanceURLStr) ?? URL(string: "http://localhost:5111")!
+        client = InstanceGatewayClient(baseURL: instanceURL, requiresPairing: profile.requiresPairing)
         await oldClient.invalidate()
 
-        // Restore token if the profile is already paired with a token.
+        // Restore instance token
         if
             profile.isPaired,
             let tok = try? KeychainService.retrieveToken(for: profile.url),
@@ -65,9 +61,17 @@ final class GatewayViewModel {
             await client.setToken(nil)
         }
 
-        // Connect with the new client.
-        await connect()
+        // Set up hub client if configured
+        if let hubURLStr = profile.hubURL, let hubURL = URL(string: hubURLStr) {
+            await hubClient?.invalidate()
+            let token = profile.hubToken
+            hubClient = HubGatewayClient(baseURL: hubURL, bearerToken: token)
+        } else {
+            await hubClient?.invalidate()
+            hubClient = nil
+        }
 
+        await connect()
         return client
     }
 
@@ -77,16 +81,15 @@ final class GatewayViewModel {
         appModel.isPaired = false
     }
 
-    /// Unpairs any gateway profile by deleting its Keychain token.
-    /// If it is the active gateway, also clears the in-memory token and marks the app unpaired.
     func unpairGateway(_ profile: GatewayProfile) async {
-        // Capture plain values before any SwiftData mutation to avoid accessing
-        // the @Model instance after its backing context is mutated/reset.
         let profileID = profile.id
         let profileURL = profile.url
         let isActive = profileID == appModel.store.activeProfileID
 
         KeychainService.deleteToken(for: profileURL)
+        if let hub = profile.hubURL {
+            KeychainService.deleteToken(for: hub)
+        }
         appModel.store.setProfilePaired(profileID, isPaired: false)
         if isActive {
             await client.setToken(nil)

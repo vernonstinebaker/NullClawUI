@@ -32,12 +32,16 @@ final class UsageStatsViewModel {
 
     // MARK: Dependencies
 
-    var client: InstanceGatewayClient
+    let client: HubGatewayClient
+    let instance: String
+    let component: String
 
     // MARK: Init
 
-    init(client: InstanceGatewayClient) {
+    init(client: HubGatewayClient, instance: String = "default", component: String = "nullclaw") {
         self.client = client
+        self.instance = instance
+        self.component = component
     }
 
     /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
@@ -49,8 +53,7 @@ final class UsageStatsViewModel {
 
     // MARK: - Load
 
-    /// Asks the agent for the current cost configuration and usage summary,
-    /// parses the combined JSON reply into a `UsageStats` value.
+    /// Fetches cost configuration via Hub getConfig and usage via getInstanceUsage.
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -59,8 +62,11 @@ final class UsageStatsViewModel {
         defer { isLoading = false }
 
         do {
-            let reply = try await client.sendOneShotNonStreaming(Self.loadPrompt)
-            stats = try parseStats(from: reply)
+            async let costDict = client.getConfig(instance: instance, component: component, path: "cost")
+            async let usageDict = client.getInstanceUsage(instance: instance, component: component)
+
+            let (cost, usage) = try await (costDict, usageDict)
+            stats = Self.buildStats(from: cost, usage: usage)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -70,8 +76,10 @@ final class UsageStatsViewModel {
     // MARK: - Setters
 
     func setCostEnabled(_ enabled: Bool) async {
+        let value = enabled ? "true" : "false"
         await applyChange(
-            prompt: "Update cost.enabled to \(enabled) in ~/.nullclaw/config.json.",
+            path: "cost.enabled",
+            value: value,
             update: { $0.costEnabled = enabled },
             confirmation: "Cost tracking \(enabled ? "enabled" : "disabled")."
         )
@@ -79,7 +87,8 @@ final class UsageStatsViewModel {
 
     func setDailyLimit(_ usd: Double) async {
         await applyChange(
-            prompt: "Update cost.daily_limit_usd to \(usd) in ~/.nullclaw/config.json.",
+            path: "cost.daily_limit_usd",
+            value: String(usd),
             update: { $0.dailyLimitUSD = usd },
             confirmation: String(format: "Daily limit set to $%.2f.", usd)
         )
@@ -87,7 +96,8 @@ final class UsageStatsViewModel {
 
     func setMonthlyLimit(_ usd: Double) async {
         await applyChange(
-            prompt: "Update cost.monthly_limit_usd to \(usd) in ~/.nullclaw/config.json.",
+            path: "cost.monthly_limit_usd",
+            value: String(usd),
             update: { $0.monthlyLimitUSD = usd },
             confirmation: String(format: "Monthly limit set to $%.2f.", usd)
         )
@@ -96,51 +106,35 @@ final class UsageStatsViewModel {
     func setWarnAtPercent(_ percent: Int) async {
         let clamped = max(1, min(100, percent))
         await applyChange(
-            prompt: "Update cost.warn_at_percent to \(clamped) in ~/.nullclaw/config.json.",
+            path: "cost.warn_at_percent",
+            value: String(clamped),
             update: { $0.warnAtPercent = clamped },
             confirmation: "Warning threshold set to \(clamped)%."
         )
     }
 
-    // MARK: - Parse (internal — visible for tests)
+    // MARK: - Build stats (internal — visible for tests)
 
-    /// Parses a `UsageStats` from an agent reply containing a JSON object.
-    /// Lenient: extracts the first `{…}` block found in `text`.
-    func parseStats(from text: String) throws -> UsageStats {
-        guard
-            let start = text.firstIndex(of: "{"),
-            let end = text.lastIndex(of: "}") else
-        {
-            throw UsageStatsParseError.noDataFound
-        }
-
-        let jsonString = String(text[start ... end])
-        guard let data = jsonString.data(using: .utf8) else {
-            throw UsageStatsParseError.decodingFailed("UTF-8 encoding failed")
-        }
-
-        do {
-            let raw = try JSONDecoder().decode(UsageStatsRaw.self, from: data)
-            var s = UsageStats()
-            s.sessionCostUSD = raw.session_cost_usd ?? 0.0
-            s.dailyCostUSD = raw.daily_cost_usd ?? 0.0
-            s.monthlyCostUSD = raw.monthly_cost_usd ?? 0.0
-            s.totalTokens = raw.total_tokens ?? 0
-            s.requestCount = raw.request_count ?? 0
-            s.costEnabled = raw.cost_enabled ?? false
-            s.dailyLimitUSD = raw.daily_limit_usd ?? 0.0
-            s.monthlyLimitUSD = raw.monthly_limit_usd ?? 0.0
-            s.warnAtPercent = raw.warn_at_percent ?? 80
-            return s
-        } catch {
-            throw UsageStatsParseError.decodingFailed(error.localizedDescription)
-        }
+    /// Builds a UsageStats from a cost config dict and a usage response dict.
+    static func buildStats(from costDict: [String: String], usage: [String: String]) -> UsageStats {
+        var s = UsageStats()
+        s.costEnabled = costDict["enabled"] == "true" || costDict["enabled"] == "1"
+        s.dailyLimitUSD = costDict["daily_limit_usd"].flatMap(Double.init) ?? 0.0
+        s.monthlyLimitUSD = costDict["monthly_limit_usd"].flatMap(Double.init) ?? 0.0
+        s.warnAtPercent = costDict["warn_at_percent"].flatMap(Int.init) ?? 80
+        s.sessionCostUSD = usage["session_cost_usd"].flatMap(Double.init) ?? 0.0
+        s.dailyCostUSD = usage["daily_cost_usd"].flatMap(Double.init) ?? 0.0
+        s.monthlyCostUSD = usage["monthly_cost_usd"].flatMap(Double.init) ?? 0.0
+        s.totalTokens = usage["total_tokens"].flatMap(Int.init) ?? 0
+        s.requestCount = usage["request_count"].flatMap(Int.init) ?? 0
+        return s
     }
 
     // MARK: - Private helpers
 
     private func applyChange(
-        prompt: String,
+        path: String,
+        value: String,
         update: (inout UsageStats) -> Void,
         confirmation: String
     ) async {
@@ -150,47 +144,11 @@ final class UsageStatsViewModel {
         defer { isSaving = false }
 
         do {
-            _ = try await client.sendOneShot(prompt)
+            try await client.setConfig(instance: instance, component: component, path: path, value: value)
             update(&stats)
             confirmationMessage = confirmation
         } catch {
             errorMessage = error.localizedDescription
         }
     }
-
-    // MARK: - Prompt constants (visible for tests)
-
-    /// Single prompt that fetches both config limits and live usage in one round-trip.
-    /// The agent reads `config.json` for the cost settings and `state/costs.jsonl` for
-    /// the usage summary, then returns a merged JSON object.
-    static let loadPrompt = """
-    Read ~/.nullclaw/config.json and ~/.nullclaw/state/costs.jsonl (if it exists). \
-    Respond with ONLY a valid JSON object, no extra text. \
-    The JSON must have exactly these keys: \
-    "cost_enabled" (boolean, from config.json cost.enabled), \
-    "daily_limit_usd" (number, from config.json cost.daily_limit_usd), \
-    "monthly_limit_usd" (number, from config.json cost.monthly_limit_usd), \
-    "warn_at_percent" (integer, from config.json cost.warn_at_percent), \
-    "session_cost_usd" (number, sum of cost_usd from all records in the current session in costs.jsonl; 0.0 if file absent), \
-    "daily_cost_usd" (number, sum of cost_usd for records with a timestamp on today's date in costs.jsonl; 0.0 if file absent), \
-    "monthly_cost_usd" (number, sum of cost_usd for records with a timestamp in the current calendar month in costs.jsonl; 0.0 if file absent), \
-    "total_tokens" (integer, sum of total_tokens across all records in costs.jsonl; 0 if file absent), \
-    "request_count" (integer, total number of records in costs.jsonl; 0 if file absent).
-    """
-}
-
-// MARK: - Private decoding shim
-
-/// Intermediate Decodable used only by `parseStats(from:)`.
-/// All fields are optional so a partial reply never throws.
-private struct UsageStatsRaw: Decodable {
-    var cost_enabled: Bool?
-    var daily_limit_usd: Double?
-    var monthly_limit_usd: Double?
-    var warn_at_percent: Int?
-    var session_cost_usd: Double?
-    var daily_cost_usd: Double?
-    var monthly_cost_usd: Double?
-    var total_tokens: Int?
-    var request_count: Int?
 }

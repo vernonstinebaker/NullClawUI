@@ -42,12 +42,16 @@ final class AutonomyViewModel {
 
     // MARK: Dependencies
 
-    var client: InstanceGatewayClient
+    let client: HubGatewayClient
+    let instance: String
+    let component: String
 
     // MARK: Init
 
-    init(client: InstanceGatewayClient) {
+    init(client: HubGatewayClient, instance: String = "default", component: String = "nullclaw") {
         self.client = client
+        self.instance = instance
+        self.component = component
     }
 
     /// Invalidates the underlying URLSession. Call from the view's `.onDisappear` to
@@ -59,7 +63,7 @@ final class AutonomyViewModel {
 
     // MARK: - Load
 
-    /// Fetches autonomy configuration via REST (GET /api/config?path=autonomy).
+    /// Fetches autonomy configuration via Hub management API.
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -68,8 +72,8 @@ final class AutonomyViewModel {
         defer { isLoading = false }
 
         do {
-            let payload = try await client.apiConfigObjectValue(path: "autonomy", as: AutonomyConfigPayload.self)
-            config = Self.buildConfig(from: payload)
+            let dict = try await client.getConfig(instance: instance, component: component, path: "autonomy")
+            config = Self.buildConfig(from: dict)
             isLoaded = true
         } catch {
             errorMessage = error.localizedDescription
@@ -119,9 +123,19 @@ final class AutonomyViewModel {
     }
 
     func setAllowedCommands(_ commands: [String]) async {
+        let valueString: String = if
+            let data = try? JSONEncoder().encode(commands), let json = String(
+                data: data,
+                encoding: .utf8
+            )
+        {
+            json
+        } else {
+            String(describing: commands)
+        }
         await applyChange(
             path: "autonomy.allowed_commands",
-            value: commands,
+            value: valueString,
             update: { $0.allowedCommands = commands },
             confirmation: "Allowed commands list updated. Restart gateway to apply."
         )
@@ -129,20 +143,41 @@ final class AutonomyViewModel {
 
     // MARK: - Build config (internal — visible for tests)
 
-    /// Converts a decoded AutonomyConfigPayload into an AutonomyConfig.
-    static func buildConfig(from payload: AutonomyConfigPayload) -> AutonomyConfig {
+    /// Converts a decoded autonomy config dict into an AutonomyConfig.
+    static func buildConfig(from dict: [String: String]) -> AutonomyConfig {
         var c = AutonomyConfig()
-        c.level = payload.level ?? "medium"
-        c.maxActionsPerHour = payload.maxActionsPerHour ?? 60
-        c.blockHighRiskCommands = payload.blockHighRiskCommands ?? true
-        c.requireApprovalForMediumRisk = payload.requireApprovalForMediumRisk ?? false
-        c.allowedCommands = payload.allowedCommands ?? []
+        c.level = dict["level"] ?? "medium"
+        c.maxActionsPerHour = dict["max_actions_per_hour"].flatMap(Int.init) ?? 60
+        c.blockHighRiskCommands = dict["block_high_risk_commands"] == "true" || dict["block_high_risk_commands"] == "1"
+        c
+            .requireApprovalForMediumRisk = dict["require_approval_for_medium_risk"] == "true" ||
+            dict["require_approval_for_medium_risk"] == "1"
+        c.allowedCommands = dict["allowed_commands"].flatMap(Self.parseJSONStringArray) ?? []
         return c
+    }
+
+    /// Attempts to decode a JSON string array from a string that may be a
+    /// `String(describing:)` debug output of NSArray or a proper JSON array.
+    private static func parseJSONStringArray(_ raw: String) -> [String]? {
+        // Try proper JSON first.
+        if
+            let data = raw.data(using: .utf8),
+            let arr = try? JSONDecoder().decode([String].self, from: data)
+        {
+            return arr
+        }
+        // Fallback: try to extract quoted strings from debug output like (    cmd1,    cmd2 )
+        let cleaned = raw.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "()\n "))
+        if cleaned.isEmpty { return [] }
+        let parts = cleaned.components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: "\""))) }
+        return parts.isEmpty ? nil : parts
     }
 
     // MARK: - Private helpers
 
-    /// Applies a config change via the REST Admin API PATCH /api/config.
+    /// Applies a config change via Hub setConfig.
     /// Autonomy paths are not hot-reloadable — changes take effect on next gateway restart.
     private func applyChange(
         path: String,
@@ -156,7 +191,12 @@ final class AutonomyViewModel {
         defer { isSaving = false }
 
         do {
-            try await client.apiSetConfigValue(path: path, value: value)
+            try await client.setConfig(
+                instance: instance,
+                component: component,
+                path: path,
+                value: String(describing: value)
+            )
             update(&config)
             confirmationMessage = confirmation
         } catch {
