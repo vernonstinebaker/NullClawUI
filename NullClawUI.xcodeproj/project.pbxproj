@@ -14,6 +14,7 @@
 		2783E3AB35B579B88BD2E8D9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB420D6138B0E0D5CAF48C9 /* ChatView.swift */; };
 		28869699CF261F74FE7E79C1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A879BA976476DF9DECFFA87 /* SettingsView.swift */; };
 		2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA2CB9C003C8025B742C7D /* MainTabView.swift */; };
+		392E29C478207D29EEAA56CD /* PairingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2572F306BB7A638DC44C3B38 /* PairingStep.swift */; };
 		3B3653130DED08CAD5003B58 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550E418EF7CAB589E16FF6BA /* DesignTokens.swift */; };
 		3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8CB403BDF599230258A9D2 /* PairingViewModel.swift */; };
 		3E64ABF9FD76A909E6875619 /* NullClawUIUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C9B668A10A66138C052549 /* NullClawUIUITests.swift */; };
@@ -39,7 +40,6 @@
 		8B929CB13E859782D062B0AF /* AutonomyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D12F20E13FD844AF79C22916 /* AutonomyViewModel.swift */; };
 		8F596238C2098F061B50771A /* GatewayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13AAD272DC33E346B591FF50 /* GatewayDetailView.swift */; };
 		919E77BC06606B0AB5A82C48 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */; };
-		94906578625367728853D139 /* AddGatewayPairingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791BDD6617D04FC234EA4C30 /* AddGatewayPairingModel.swift */; };
 		95B6DB68141F596399C77651 /* NullClawUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */; };
 		9BC494860EB9CB61196054F6 /* GatewayStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6FF266F4DF07E644B41C5B /* GatewayStatusViewModel.swift */; };
 		9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F344154517C845148851E370 /* GatewayStore.swift */; };
@@ -105,6 +105,7 @@
 		1DA6BE2A94E2F3A870ADB7DE /* NullClawUIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayDiscoveryModel.swift; sourceTree = "<group>"; };
 		2211EF38611CF618453B2921 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		2572F306BB7A638DC44C3B38 /* PairingStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStep.swift; sourceTree = "<group>"; };
 		2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStatsView.swift; sourceTree = "<group>"; };
 		354198F01B07BCCD5083AA9A /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayHealthMonitor.swift; sourceTree = "<group>"; };
@@ -129,7 +130,6 @@
 		72DA2CB9C003C8025B742C7D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		74207CFB19C11BAB4C15394D /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
 		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		791BDD6617D04FC234EA4C30 /* AddGatewayPairingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGatewayPairingModel.swift; sourceTree = "<group>"; };
 		7CC1A87698B2B35470BAFF5D /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		83CF4650EBD6DFAF9ABF6A35 /* UsageStatsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStatsViewModel.swift; sourceTree = "<group>"; };
 		86331E234CC107BD5471DBE7 /* CronJobListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobListView.swift; sourceTree = "<group>"; };
@@ -174,7 +174,6 @@
 			isa = PBXGroup;
 			children = (
 				46CDB41C5CC7A06B29FDE57D /* A2AMessage.swift */,
-				791BDD6617D04FC234EA4C30 /* AddGatewayPairingModel.swift */,
 				BAA0E8EAD82E62F5C960BD12 /* AgentCard.swift */,
 				617B5F453C34591C1D492407 /* ChannelInfo.swift */,
 				0F27D4DC37FD7A7C678D285C /* ConversationRecord.swift */,
@@ -182,6 +181,7 @@
 				4586808D41B6CE56D04176A0 /* GatewayProfile.swift */,
 				354198F01B07BCCD5083AA9A /* MCPServer.swift */,
 				46DF24F0C9BF478AAB6FEB2B /* NullHubModels.swift */,
+				2572F306BB7A638DC44C3B38 /* PairingStep.swift */,
 				089D59695295ADA15F58B920 /* RestApiModels.swift */,
 				94DC885F054A771E27A3B26C /* UsageStats.swift */,
 			);
@@ -538,7 +538,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC2D495D8A10C9D48248DA98 /* A2AMessage.swift in Sources */,
-				94906578625367728853D139 /* AddGatewayPairingModel.swift in Sources */,
 				6179FF6E2B511CEE18FDDD85 /* AddGatewaySheet.swift in Sources */,
 				C02F8A78AFC103AE612E73E7 /* AgentCard.swift in Sources */,
 				79924E387854ED2994F2CD4D /* AgentConfigView.swift in Sources */,
@@ -581,6 +580,7 @@
 				2E439D777686BAF6BE904355 /* MainTabView.swift in Sources */,
 				BF6BF9F70C3A673FF4F942B1 /* NullClawUIApp.swift in Sources */,
 				4BD739FDD3C205F15A17FDFA /* NullHubModels.swift in Sources */,
+				392E29C478207D29EEAA56CD /* PairingStep.swift in Sources */,
 				3C2A8EFD8AD5ADD4F5FBA7C9 /* PairingViewModel.swift in Sources */,
 				F0E93E306CD7085B0A883696 /* RestApiModels.swift in Sources */,
 				C9E05A0E9F816B315DDF8438 /* SearchView.swift in Sources */,

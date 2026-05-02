@@ -1,10 +1,7 @@
 import SwiftUI
 
-// MARK: - AddGatewaySheet
-
 /// Sheet for adding a new gateway profile.
 /// Guides the user through: name → URL → connect probe → pairing (if required).
-/// On success, calls `onComplete(name, url, isPaired, requiresPairing)` so the caller can create the profile.
 struct AddGatewaySheet: View {
     let onComplete: (String, String, Bool, Bool) -> Void
 
@@ -15,13 +12,16 @@ struct AddGatewaySheet: View {
     @State private var urlString: String = ""
     @State private var isProbing: Bool = false
     @State private var probeError: String? = nil
-    @State private var pairingModel: AddGatewayPairingModel? = nil
+    @State private var step: PairingStep = .connecting
+    @State private var pairingCode: String = ""
+    @State private var isPairing: Bool = false
+    @State private var pairingClient: InstanceGatewayClient?
     @State private var showPairing: Bool = false
 
     var body: some View {
         NavigationStack {
-            if showPairing, let pm = pairingModel {
-                pairingView(pm: pm)
+            if showPairing {
+                pairingView
             } else {
                 formView
             }
@@ -98,7 +98,7 @@ struct AddGatewaySheet: View {
 
     // MARK: - Pairing View
 
-    private func pairingView(pm: AddGatewayPairingModel) -> some View {
+    private var pairingView: some View {
         Form {
             Section {
                 LabeledContent("Name", value: name)
@@ -110,7 +110,7 @@ struct AddGatewaySheet: View {
                 }
             }
 
-            switch pm.step {
+            switch step {
             case .connecting:
                 Section {
                     HStack(spacing: 10) {
@@ -128,8 +128,7 @@ struct AddGatewaySheet: View {
                         Image(systemName: "number")
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
-                        @Bindable var bpm = pm
-                        TextField("000000", text: $bpm.pairingCode)
+                        TextField("000000", text: $pairingCode)
                             .keyboardType(.numberPad)
                             .font(.title3.monospacedDigit())
                             .accessibilityLabel("Pairing code")
@@ -138,11 +137,11 @@ struct AddGatewaySheet: View {
                     .padding(.vertical, 4)
 
                     Button {
-                        Task { await pm.pair(profileURL: urlString, store: store, profile: placeholderProfile) }
+                        Task { await submitPairingCode() }
                     } label: {
                         HStack {
                             Spacer()
-                            if pm.isPairing {
+                            if isPairing {
                                 ProgressView().controlSize(.small).tint(.white)
                             } else {
                                 Label("Pair", systemImage: "checkmark.seal.fill")
@@ -152,7 +151,7 @@ struct AddGatewaySheet: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(pm.isPairing || pm.pairingCode.count != 6)
+                    .disabled(isPairing || pairingCode.count != 6)
                 } header: {
                     Text("Pair Device")
                 } footer: {
@@ -216,7 +215,7 @@ struct AddGatewaySheet: View {
                     }
                     .padding(.vertical, 4)
                     Button("Retry") {
-                        Task { await pm.connect() }
+                        Task { await probeConnection() }
                     }
                 } header: {
                     Text("Connection Error")
@@ -237,31 +236,51 @@ struct AddGatewaySheet: View {
             return
         }
 
-        let pm = AddGatewayPairingModel(url: url)
-        pairingModel = pm
-        await pm.connect()
+        step = .connecting
+        let c = InstanceGatewayClient(baseURL: url)
+        pairingClient = c
+        showPairing = true
 
-        switch pm.step {
-        case .connecting:
-            break // Should not happen after connect() returns
-        case .requiresPairing:
-            showPairing = true
-        case .notRequired, .success:
-            showPairing = true
-        case let .failed(message):
-            probeError = message
+        do {
+            let token = try await c.pair(code: "")
+            if token.isEmpty {
+                step = .notRequired
+            } else {
+                step = .success
+            }
+        } catch {
+            if
+                let gwError = error as? GatewayError,
+                case let .httpError(code) = gwError,
+                code == 401 || code == 403
+            {
+                step = .requiresPairing
+            } else {
+                step = .failed(error.localizedDescription)
+                probeError = error.localizedDescription
+            }
+        }
+    }
+
+    private func submitPairingCode() async {
+        guard let c = pairingClient else { return }
+        isPairing = true
+        defer { isPairing = false }
+
+        let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            let token = try await c.pair(code: pairingCode.trimmingCharacters(in: .whitespacesAndNewlines))
+            try KeychainService.storeToken(token, for: trimmedURL)
+            step = .success
+        } catch {
+            step = .failed(error.localizedDescription)
         }
     }
 
     private func completeAdd() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        let step = pairingModel?.step
 
-        // Determine if the gateway is paired and whether it requires pairing:
-        // - .success after pairing code entry → isPaired: true, requiresPairing: true
-        // - .notRequired (gateway returned 403 on /pair) → isPaired: true, requiresPairing: false
-        // - .requiresPairing (user hasn't entered code yet, just probing) → isPaired: false, requiresPairing: true
         let isPaired: Bool
         let requiresPairing: Bool
         switch step {
@@ -281,20 +300,5 @@ struct AddGatewaySheet: View {
 
         onComplete(trimmedName, trimmedURL, isPaired, requiresPairing)
         dismiss()
-    }
-
-    // MARK: - Placeholder Profile
-
-    /// A temporary profile used only during the pairing flow before the real
-    /// profile is created. The pairing model needs a profile to call
-    /// `setProfilePaired`, but the real profile isn't created until `onComplete`.
-    /// We use the URL as a unique identifier for this temporary profile.
-    private var placeholderProfile: GatewayProfile {
-        _ = URL(string: urlString) ?? URL(string: "http://localhost:5111")!
-        return GatewayProfile(
-            name: name,
-            url: urlString,
-            requiresPairing: true
-        )
     }
 }

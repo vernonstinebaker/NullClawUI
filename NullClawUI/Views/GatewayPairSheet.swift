@@ -1,51 +1,35 @@
 import SwiftUI
 
-// MARK: - GatewayPairSheet
-
 /// Sheet for pairing an already-saved-but-unpaired gateway profile.
-/// Reuses AddGatewayPairingModel (connect probe → auto or code entry).
 struct GatewayPairSheet: View {
     let profile: GatewayProfile
 
     @Environment(\.dismiss) private var dismiss
     @Environment(GatewayStore.self) private var store
 
-    @State private var pairingModel: AddGatewayPairingModel? = nil
+    @State private var step: PairingStep = .connecting
+    @State private var pairingCode: String = ""
+    @State private var isPairing: Bool = false
+    @State private var client: InstanceGatewayClient?
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let pm = pairingModel {
-                    pairForm(pm: pm)
-                } else {
-                    ProgressView("Connecting…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            pairForm
+                .navigationTitle("Pair Gateway")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
                 }
-            }
-            .navigationTitle("Pair Gateway")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
         }
         .presentationDetents([.medium, .large])
-        .task {
-            if let url = URL(string: profile.url) {
-                let pm = AddGatewayPairingModel(url: url)
-                pairingModel = pm
-                await pm.connect()
-                // Auto-complete open gateways — no user action needed.
-                if pm.step == .notRequired {
-                    pm.completeOpenGateway(store: store, profile: profile)
-                    dismiss()
-                }
-            }
-        }
+        .task { await probe() }
     }
 
-    private func pairForm(pm: AddGatewayPairingModel) -> some View {
+    // MARK: - Pair Form
+
+    private var pairForm: some View {
         Form {
             Section {
                 LabeledContent("Name", value: profile.name)
@@ -57,7 +41,7 @@ struct GatewayPairSheet: View {
                 }
             }
 
-            switch pm.step {
+            switch step {
             case .connecting:
                 Section {
                     HStack(spacing: 10) {
@@ -75,8 +59,7 @@ struct GatewayPairSheet: View {
                         Image(systemName: "number")
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
-                        @Bindable var bpm = pm
-                        TextField("000000", text: $bpm.pairingCode)
+                        TextField("000000", text: $pairingCode)
                             .keyboardType(.numberPad)
                             .font(.title3.monospacedDigit())
                             .accessibilityLabel("Pairing code")
@@ -85,11 +68,11 @@ struct GatewayPairSheet: View {
                     .padding(.vertical, 4)
 
                     Button {
-                        Task { await pm.pair(profileURL: profile.url, store: store, profile: profile) }
+                        Task { await submitCode() }
                     } label: {
                         HStack {
                             Spacer()
-                            if pm.isPairing {
+                            if isPairing {
                                 ProgressView().controlSize(.small).tint(.white)
                             } else {
                                 Label("Pair", systemImage: "checkmark.seal.fill")
@@ -99,7 +82,7 @@ struct GatewayPairSheet: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(pm.isPairing || pm.pairingCode.count != 6)
+                    .disabled(isPairing || pairingCode.count != 6)
                 } header: {
                     Text("Pair Device")
                 } footer: {
@@ -118,7 +101,7 @@ struct GatewayPairSheet: View {
                     .padding(.vertical, 4)
 
                     Button("Complete") {
-                        pm.completeOpenGateway(store: store, profile: profile)
+                        completeOpenGateway()
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -161,7 +144,7 @@ struct GatewayPairSheet: View {
                     }
                     .padding(.vertical, 4)
                     Button("Retry") {
-                        Task { await pm.connect() }
+                        Task { await probe() }
                     }
                 } header: {
                     Text("Connection Error")
@@ -169,9 +152,59 @@ struct GatewayPairSheet: View {
             }
         }
     }
-}
 
-// MARK: - URL Validation
+    // MARK: - Actions
+
+    private func probe() async {
+        step = .connecting
+        guard let url = URL(string: profile.url) else {
+            step = .failed("Invalid URL")
+            return
+        }
+        let c = InstanceGatewayClient(baseURL: url)
+        client = c
+
+        do {
+            let token = try await c.pair(code: "")
+            if token.isEmpty {
+                step = .notRequired
+                completeOpenGateway()
+            } else {
+                step = .success
+            }
+        } catch {
+            if
+                let gwError = error as? GatewayError,
+                case let .httpError(code) = gwError,
+                code == 401 || code == 403
+            {
+                step = .requiresPairing
+            } else {
+                step = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func submitCode() async {
+        guard let c = client else { return }
+        isPairing = true
+        defer { isPairing = false }
+
+        do {
+            let token = try await c.pair(code: pairingCode.trimmingCharacters(in: .whitespacesAndNewlines))
+            try KeychainService.storeToken(token, for: profile.url)
+            store.setProfilePaired(profile.id, isPaired: true)
+            step = .success
+        } catch {
+            step = .failed(error.localizedDescription)
+        }
+    }
+
+    private func completeOpenGateway() {
+        store.setProfilePaired(profile.id, isPaired: true)
+        store.activate(id: profile.id)
+    }
+}
 
 /// Returns true if the string is a well-formed http/https URL with a non-empty host.
 func isValidGatewayURL(_ string: String) -> Bool {
