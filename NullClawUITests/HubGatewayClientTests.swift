@@ -308,4 +308,105 @@ final class HubGatewayClientTests: XCTestCase {
             XCTAssertTrue(error is GatewayError)
         }
     }
+
+    // MARK: - Config
+
+    func testGetConfigValue() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        let instance = "default"
+        let component = "nullclaw"
+        let configPath = "agent.name"
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/config") { req in
+            let json = """
+            {"path":"agent.name","value":"TestBot"}
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let result = try await client.getConfig(instance: instance, component: component, path: configPath)
+        XCTAssertEqual(result["path"], "agent.name")
+        XCTAssertEqual(result["value"], "TestBot")
+    }
+
+    func testSetConfigValue() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/config-set") { req in
+            let json = """
+            {"status":"ok","path":"agent.name"}
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        try await client.setConfig(instance: "default", component: "nullclaw", path: "agent.name", value: "TestBot")
+    }
+
+    func testUnsetConfigValue() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/config-unset") { req in
+            let data = Data(#"{"status":"ok"}"#.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            return (data, response, nil)
+        }
+
+        try await client.unsetConfig(instance: "default", component: "nullclaw", path: "old.key")
+    }
+
+    func testReloadConfig() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/config-reload") { req in
+            let json = """
+            {"valid":true,"message":"config reloaded"}
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let result = try await client.reloadConfig(instance: "default", component: "nullclaw")
+        XCTAssertEqual(result["valid"], "1")
+    }
+
+    func testValidateConfig() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/config-validate") { req in
+            let json = """
+            {"valid":true}
+            """
+            let data = Data(json.utf8)
+            let response = HTTPURLResponse(
+                url: req.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (data, response, nil)
+        }
+
+        let result = try await client.validateConfig(instance: "default", component: "nullclaw")
+        XCTAssertEqual(result["valid"], "1")
+    }
 }

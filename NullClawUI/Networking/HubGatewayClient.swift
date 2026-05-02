@@ -80,6 +80,102 @@ actor HubGatewayClient {
         return data
     }
 
+    // MARK: Config
+
+    func getConfig(
+        instance: String,
+        component: String,
+        path: String
+    ) async throws -> [String: String] {
+        let url = baseURL
+            .appendingPathComponent("api/instances")
+            .appendingPathComponent(component)
+            .appendingPathComponent(instance)
+            .appendingPathComponent("config")
+        var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        comps.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let finalURL = comps.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: finalURL, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func setConfig(
+        instance: String,
+        component: String,
+        path: String,
+        value: String
+    ) async throws {
+        let url = baseURL
+            .appendingPathComponent("api/instances")
+            .appendingPathComponent(component)
+            .appendingPathComponent(instance)
+            .appendingPathComponent("config-set")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        let body: [String: String] = ["path": path, "value": value]
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    func unsetConfig(
+        instance: String,
+        component: String,
+        path: String
+    ) async throws {
+        let url = baseURL
+            .appendingPathComponent("api/instances")
+            .appendingPathComponent(component)
+            .appendingPathComponent(instance)
+            .appendingPathComponent("config-unset")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["path": path])
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    func reloadConfig(
+        instance: String,
+        component: String
+    ) async throws -> [String: String] {
+        let url = baseURL
+            .appendingPathComponent("api/instances")
+            .appendingPathComponent(component)
+            .appendingPathComponent(instance)
+            .appendingPathComponent("config-reload")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = Data("{}".utf8)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func validateConfig(
+        instance: String,
+        component: String
+    ) async throws -> [String: String] {
+        let url = baseURL
+            .appendingPathComponent("api/instances")
+            .appendingPathComponent(component)
+            .appendingPathComponent(instance)
+            .appendingPathComponent("config-validate")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = Data("{}".utf8)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
     // MARK: - Helpers
 
     private func makeRequest(url: URL, method: String, authenticated: Bool = false) throws -> URLRequest {
