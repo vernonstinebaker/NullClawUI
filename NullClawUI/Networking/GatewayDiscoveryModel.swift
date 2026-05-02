@@ -73,8 +73,8 @@ final class GatewayDiscoveryModel {
         b.start(queue: .global(qos: .utility))
         browser = b
 
-        // Also browse for NullHub services
-        let hb = NWBrowser(for: .bonjourWithTXTRecord(type: "_nullhub._tcp", domain: nil), using: params)
+        // Also browse for NullHub — publishes as _http._tcp with name "nullhub"
+        let hb = NWBrowser(for: .bonjourWithTXTRecord(type: "_http._tcp", domain: nil), using: params)
         hb.stateUpdateHandler = { [weak self] state in
             Task { @MainActor [weak self] in
                 self?.updateScanningState(state)

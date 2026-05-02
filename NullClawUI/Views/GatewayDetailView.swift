@@ -143,7 +143,24 @@ struct GatewayDetailView: View {
                 }
             }
 
-            if !profile.isPaired {
+            if profile.hubURL != nil {
+                Section {
+                    LabeledContent("Hub Token") {
+                        if profile.hubToken != nil {
+                            Label("Set", systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Text("None (open hub)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Hub")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
+                }
+            } else if !profile.isPaired {
                 Section {
                     Button {
                         showingPairSheet = true

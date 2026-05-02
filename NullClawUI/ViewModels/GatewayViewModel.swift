@@ -28,8 +28,8 @@ final class GatewayViewModel {
 
         do {
             try await client.checkHealth()
-            let card = try await client.fetchAgentCard()
-            appModel.agentCard = card
+            // Agent card is optional — hub profiles won't have one.
+            appModel.agentCard = try? await client.fetchAgentCard()
             appModel.connectionStatus = .online
         } catch {
             appModel.agentCard = nil
