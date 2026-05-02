@@ -409,4 +409,118 @@ final class HubGatewayClientTests: XCTestCase {
         let result = try await client.validateConfig(instance: "default", component: "nullclaw")
         XCTAssertEqual(result["valid"], "1")
     }
+
+    // MARK: - Cron
+
+    func testListCronJobs() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/cron") { req in
+            let data = Data(#"{"jobs":[]}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.listCronJobs(instance: "default", component: "nullclaw")
+        XCTAssertNotNil(result["jobs"])
+    }
+
+    func testRunCronJob() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/cron/j1/run") { req in
+            let data = Data(#"{"status":"ran"}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        try await client.runCronJob(instance: "default", component: "nullclaw", id: "j1")
+    }
+
+    func testDeleteCronJob() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/cron/j1") { req in
+            let data = Data(#"{"status":"deleted"}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        try await client.deleteCronJob(instance: "default", component: "nullclaw", id: "j1")
+    }
+
+    // MARK: - Channels, MCP, Skills, Memory, History
+
+    func testListChannels() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/channels") { req in
+            let data = Data(#"{"channels":[]}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.listChannels(instance: "default", component: "nullclaw")
+        XCTAssertNotNil(result["channels"])
+    }
+
+    func testListMCPServers() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/mcp") { req in
+            let data = Data(#"{"servers":[]}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.listMCPServers(instance: "default", component: "nullclaw")
+        XCTAssertNotNil(result["servers"])
+    }
+
+    func testListSkills() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/skills") { req in
+            let data = Data(#"{"skills":[]}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.listSkills(instance: "default", component: "nullclaw")
+        XCTAssertNotNil(result["skills"])
+    }
+
+    func testListMemory() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/memory") { req in
+            let data = Data(#"{"entries":[]}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.listMemory(instance: "default", component: "nullclaw")
+        XCTAssertNotNil(result["entries"])
+    }
+
+    func testListHistory() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/history") { req in
+            let data = Data(#"{"sessions":[]}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.listHistory(instance: "default", component: "nullclaw")
+        XCTAssertNotNil(result["sessions"])
+    }
+
+    // MARK: - Doctor, Capabilities, Provider-Health
+
+    func testGetDoctor() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/doctor") { req in
+            let data = Data(#"{"ready":true}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.getDoctor(instance: "default", component: "nullclaw")
+        XCTAssertEqual(result["ready"], "1")
+    }
+
+    func testGetCapabilities() async throws {
+        let client = HubGatewayClient(baseURL: hubURL, mockSessionConfig: mockConfig)
+        MockURLProtocol.handle(path: "/api/instances/nullclaw/default/capabilities") { req in
+            let data = Data(#"{"version":"1.0"}"#.utf8)
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response, nil)
+        }
+        let result = try await client.getCapabilities(instance: "default", component: "nullclaw")
+        XCTAssertEqual(result["version"], "1.0")
+    }
 }

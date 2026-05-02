@@ -176,7 +176,260 @@ actor HubGatewayClient {
         return dict.mapValues { String(describing: $0) }
     }
 
+    // MARK: Models
+
+    func listModels(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "models")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: Cron
+
+    func listCronJobs(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func createCronJob(instance: String, component: String, body: Data) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = body
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func getCronJob(instance: String, component: String, id: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron/\(id)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func runCronJob(instance: String, component: String, id: String) async throws {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron/\(id)/run")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = Data("{}".utf8)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    func pauseCronJob(instance: String, component: String, id: String) async throws {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron/\(id)/pause")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = Data("{}".utf8)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    func resumeCronJob(instance: String, component: String, id: String) async throws {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron/\(id)/resume")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = Data("{}".utf8)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    func deleteCronJob(instance: String, component: String, id: String) async throws {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron/\(id)")
+        let req = try makeRequest(url: url, method: "DELETE", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+    }
+
+    func cronJobRuns(instance: String, component: String, id: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "cron/\(id)/runs")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: Channels
+
+    func listChannels(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "channels")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func getChannel(instance: String, component: String, type: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "channels/\(type)")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: MCP
+
+    func listMCPServers(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "mcp")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: Skills
+
+    func listSkills(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "skills")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: Memory
+
+    func listMemory(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "memory")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: History
+
+    func listHistory(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "history")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: Agent
+
+    func invokeAgent(instance: String, component: String, body: Data) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "agent")
+        var req = try makeRequest(url: url, method: "POST", authenticated: bearerToken != nil)
+        req.httpBody = body
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    // MARK: Doctor / Capabilities / Provider-Health / Onboarding / Usage
+
+    func getDoctor(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "doctor")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func getCapabilities(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "capabilities")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func getProviderHealth(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "provider-health")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func getOnboarding(instance: String, component: String) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "onboarding")
+        let req = try makeRequest(url: url, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
+    func getInstanceUsage(
+        instance: String,
+        component: String,
+        window: String = "24h"
+    ) async throws -> [String: String] {
+        let url = instanceURL(instance: instance, component: component, subpath: "usage")
+        var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        comps.queryItems = [URLQueryItem(name: "window", value: window)]
+        guard let finalURL = comps.url else { throw GatewayError.invalidURL }
+        let req = try makeRequest(url: finalURL, method: "GET", authenticated: bearerToken != nil)
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.decodingError(underlying: NSError(domain: "HubGateway", code: -1))
+        }
+        return dict.mapValues { String(describing: $0) }
+    }
+
     // MARK: - Helpers
+
+    private func instanceURL(instance: String, component: String, subpath: String) -> URL {
+        baseURL
+            .appendingPathComponent("api/instances")
+            .appendingPathComponent(component)
+            .appendingPathComponent(instance)
+            .appendingPathComponent(subpath)
+    }
 
     private func makeRequest(url: URL, method: String, authenticated: Bool = false) throws -> URLRequest {
         try GatewayNetworking.makeRequest(url: url, method: method, token: bearerToken, authenticated: authenticated)
