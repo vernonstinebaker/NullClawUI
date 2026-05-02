@@ -41,11 +41,11 @@ final class MCPServerViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient
+    var client: InstanceGatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient) {
+    init(client: InstanceGatewayClient) {
         self.client = client
     }
 
@@ -61,7 +61,7 @@ final class MCPServerViewModel {
         await loadInternal(client: client)
     }
 
-    private func loadInternal(client: GatewayClient) async {
+    private func loadInternal(client: InstanceGatewayClient) async {
         do {
             let apiServers = try await client.apiListMCPServers()
             servers = apiServers.map { apiServer in

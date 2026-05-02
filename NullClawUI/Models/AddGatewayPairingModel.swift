@@ -28,7 +28,7 @@ final class AddGatewayPairingModel {
     private(set) var isPairing: Bool = false
 
     private let url: URL
-    private var client: GatewayClient?
+    private var client: InstanceGatewayClient?
 
     // MARK: Init
 
@@ -42,7 +42,7 @@ final class AddGatewayPairingModel {
     /// Sets `step` to `.requiresPairing`, `.notRequired`, or `.failed`.
     func connect() async {
         step = .connecting
-        let client = GatewayClient(baseURL: url)
+        let client = InstanceGatewayClient(baseURL: url)
         self.client = client
 
         do {

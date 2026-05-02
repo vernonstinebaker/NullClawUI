@@ -31,6 +31,7 @@
 		792BD27C8D4FB4C4D5E6E5BD /* GatewayProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4586808D41B6CE56D04176A0 /* GatewayProfile.swift */; };
 		79924E387854ED2994F2CD4D /* AgentConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 926834C39C09BF5AAA1D0A4C /* AgentConfigView.swift */; };
 		7AEEF479BF9B4A9E5E7331E9 /* EditGatewaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F567D44B4F637E97764841 /* EditGatewaySheet.swift */; };
+		7BDEB0F2E84545B8CE2CF62D /* InstanceGatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88ED5266659C47BAC9C7D75B /* InstanceGatewayClient.swift */; };
 		7C9349B5DF3CCABA478FCD27 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1A87698B2B35470BAFF5D /* Components.swift */; };
 		7F9CF4D0C4006EB8388CC8FC /* ChannelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617B5F453C34591C1D492407 /* ChannelInfo.swift */; };
 		84691A62A851F7883071C557 /* CronJobViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53862F9DC7908CB505A84627 /* CronJobViewModel.swift */; };
@@ -44,6 +45,7 @@
 		9C631EBAF85AB01EFF8357A4 /* GatewayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F344154517C845148851E370 /* GatewayStore.swift */; };
 		9C894E397E1CBEC120B4B713 /* ErrorPresentationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF549B4B1840371EC46F8E72 /* ErrorPresentationModifier.swift */; };
 		9D033CE1A65D7DEE6DF18DB7 /* HubGatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFE5D11003AAAD1FB628DC5 /* HubGatewayClient.swift */; };
+		9F8D181DB8550960405D40FB /* InstanceGatewayClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF3E04A7E84BDAB4802A25C /* InstanceGatewayClientTests.swift */; };
 		A49516912E3F7ACE2517EF0A /* ServerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DAFB37DE546D95AF604D82 /* ServerCard.swift */; };
 		A5338296196C1D18DD564955 /* GatewayPairSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6740BF2DB0CA71D5931D8AE /* GatewayPairSheet.swift */; };
 		A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE2EE50008411F35D2BA39A /* GatewayViewModel.swift */; };
@@ -61,11 +63,9 @@
 		C9E05A0E9F816B315DDF8438 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4736E9977F2277469617689 /* SearchView.swift */; };
 		C9F21BCC5224D6A98DC17D83 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03240766199909EB8710D1B /* ChatViewModel.swift */; };
 		D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A2F5B1789710AF160D8545 /* GlassCard.swift */; };
-		D40FCB78B8E3926F10CA8BE2 /* GatewayClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6447D0D0EB03C3965517A96B /* GatewayClientTests.swift */; };
 		D71447C606F71C5DF82673EA /* GatewayNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3676F3ED76C5DC7065C17E9 /* GatewayNetworking.swift */; };
 		D75CBFE6DF5E536A36426C80 /* CronJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B541BEB81F62E4F0D3174FA /* CronJob.swift */; };
 		DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */; };
-		DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050EC7586B87B2D60FC214 /* GatewayClient.swift */; };
 		E34903E6B75DA6257B1B744B /* AgentConfigViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E4594106CAF9DA79BA54D9 /* AgentConfigViewModel.swift */; };
 		E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */; };
 		E72EE619A9FEA20B89F5C6F7 /* UsageStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1D652BD8347ECC53AF95ED /* UsageStatsView.swift */; };
@@ -126,7 +126,6 @@
 		5E99AF5B96CC9B00B4CBC178 /* MockGatewayServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGatewayServer.swift; sourceTree = "<group>"; };
 		5EAB6F0E62EA0E0D6FC34708 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		617B5F453C34591C1D492407 /* ChannelInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelInfo.swift; sourceTree = "<group>"; };
-		6447D0D0EB03C3965517A96B /* GatewayClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClientTests.swift; sourceTree = "<group>"; };
 		72DA2CB9C003C8025B742C7D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		74207CFB19C11BAB4C15394D /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
 		781310874638AA2C077CA4C8 /* NullClawUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NullClawUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -134,6 +133,7 @@
 		7CC1A87698B2B35470BAFF5D /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		83CF4650EBD6DFAF9ABF6A35 /* UsageStatsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStatsViewModel.swift; sourceTree = "<group>"; };
 		86331E234CC107BD5471DBE7 /* CronJobListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobListView.swift; sourceTree = "<group>"; };
+		88ED5266659C47BAC9C7D75B /* InstanceGatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceGatewayClient.swift; sourceTree = "<group>"; };
 		8A879BA976476DF9DECFFA87 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8AC103F8A268D8281BA34B60 /* TaskHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskHistoryView.swift; sourceTree = "<group>"; };
 		926834C39C09BF5AAA1D0A4C /* AgentConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentConfigView.swift; sourceTree = "<group>"; };
@@ -154,7 +154,7 @@
 		C3676F3ED76C5DC7065C17E9 /* GatewayNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayNetworking.swift; sourceTree = "<group>"; };
 		C553FAFF0D68B6C3FC70E2C6 /* AutonomyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutonomyView.swift; sourceTree = "<group>"; };
 		C6740BF2DB0CA71D5931D8AE /* GatewayPairSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayPairSheet.swift; sourceTree = "<group>"; };
-		CA050EC7586B87B2D60FC214 /* GatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClient.swift; sourceTree = "<group>"; };
+		CFF3E04A7E84BDAB4802A25C /* InstanceGatewayClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceGatewayClientTests.swift; sourceTree = "<group>"; };
 		D12F20E13FD844AF79C22916 /* AutonomyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutonomyViewModel.swift; sourceTree = "<group>"; };
 		D7A2F5B1789710AF160D8545 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		D7E52636F01842BCE0ADE456 /* ChannelStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStatusViewModel.swift; sourceTree = "<group>"; };
@@ -191,11 +191,11 @@
 		58BC0FCE79BB82A9C1046704 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
-				CA050EC7586B87B2D60FC214 /* GatewayClient.swift */,
 				20E2AF78D093919B0B7F6CBB /* GatewayDiscoveryModel.swift */,
 				365CA62CBAA7AAF0E02CD13C /* GatewayHealthMonitor.swift */,
 				C3676F3ED76C5DC7065C17E9 /* GatewayNetworking.swift */,
 				4AFE5D11003AAAD1FB628DC5 /* HubGatewayClient.swift */,
+				88ED5266659C47BAC9C7D75B /* InstanceGatewayClient.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -322,10 +322,10 @@
 			isa = PBXGroup;
 			children = (
 				3D75A443C0C31BE389A235E6 /* ComponentTests.swift */,
-				6447D0D0EB03C3965517A96B /* GatewayClientTests.swift */,
 				123D85F741021163695BD356 /* GatewayLiveIntegrationTests.swift */,
 				C07123A861DCC536C98ED37C /* GatewayProfileMigrationTests.swift */,
 				B4032AFE76A27F5FD468B17B /* HubGatewayClientTests.swift */,
+				CFF3E04A7E84BDAB4802A25C /* InstanceGatewayClientTests.swift */,
 				5E99AF5B96CC9B00B4CBC178 /* MockGatewayServer.swift */,
 				3E5F1680AE856C6B5FFD06B6 /* MockURLProtocol.swift */,
 				389FFF4C9F827DF9023DCC05 /* NullClawUITests.swift */,
@@ -520,10 +520,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				856B9F183D6B6685BD65FBD8 /* ComponentTests.swift in Sources */,
-				D40FCB78B8E3926F10CA8BE2 /* GatewayClientTests.swift in Sources */,
 				DCB651D39683C9B85A7A04FA /* GatewayLiveIntegrationTests.swift in Sources */,
 				1735412C7AC04A7AC84FCD89 /* GatewayProfileMigrationTests.swift in Sources */,
 				F501A6EC1FB3CAAD9CB3827D /* HubGatewayClientTests.swift in Sources */,
+				9F8D181DB8550960405D40FB /* InstanceGatewayClientTests.swift in Sources */,
 				B1385651D9270DEEBB23A964 /* MockGatewayServer.swift in Sources */,
 				C2DB2FBA3016FB9FE2E8BC6E /* MockURLProtocol.swift in Sources */,
 				95B6DB68141F596399C77651 /* NullClawUITests.swift in Sources */,
@@ -562,7 +562,6 @@
 				3B3653130DED08CAD5003B58 /* DesignTokens.swift in Sources */,
 				7AEEF479BF9B4A9E5E7331E9 /* EditGatewaySheet.swift in Sources */,
 				9C894E397E1CBEC120B4B713 /* ErrorPresentationModifier.swift in Sources */,
-				DDD76BF71D8CD364FFD55928 /* GatewayClient.swift in Sources */,
 				8F596238C2098F061B50771A /* GatewayDetailView.swift in Sources */,
 				BDC30F6F064666E142A7B659 /* GatewayDiscoveryModel.swift in Sources */,
 				E390C63B70E3EC21DF66031A /* GatewayHealthMonitor.swift in Sources */,
@@ -574,6 +573,7 @@
 				A5E47B8AD8376B57063C3C17 /* GatewayViewModel.swift in Sources */,
 				D02AE9E29B1FE8B2440CA453 /* GlassCard.swift in Sources */,
 				9D033CE1A65D7DEE6DF18DB7 /* HubGatewayClient.swift in Sources */,
+				7BDEB0F2E84545B8CE2CF62D /* InstanceGatewayClient.swift in Sources */,
 				C57F57B86021BA3957A4685F /* KeychainService.swift in Sources */,
 				0AFA7786BAFF763E6CA8358E /* MCPServer.swift in Sources */,
 				E753F6E9FC6FFF5AE730C221 /* MCPServerListView.swift in Sources */,

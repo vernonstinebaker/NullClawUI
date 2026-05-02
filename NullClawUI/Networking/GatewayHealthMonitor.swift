@@ -13,7 +13,7 @@ import Observation
 /// - Thread-safety: all state is confined to `@MainActor`. Timer callbacks
 ///   hop back to the main actor before touching any state.
 /// - The monitor owns no URLSession — it delegates health checks to the supplied
-///   `GatewayClient`, which already has its own session management.
+///   `InstanceGatewayClient`, which already has its own session management.
 ///
 /// ## onReconnect vs. initial online transition
 ///
@@ -39,7 +39,7 @@ final class GatewayHealthMonitor {
     // MARK: - Private
 
     private var appModel: AppModel
-    private var clientProvider: @MainActor () -> GatewayClient
+    private var clientProvider: @MainActor () -> InstanceGatewayClient
     private var onReconnect: (@MainActor () -> Void)?
 
     private var timerTask: Task<Void, Never>?
@@ -50,7 +50,7 @@ final class GatewayHealthMonitor {
 
     /// - Parameters:
     ///   - appModel: The shared app state whose `connectionStatus` will be updated.
-    ///   - clientProvider: Returns the *current* `GatewayClient`. Called on every
+    ///   - clientProvider: Returns the *current* `InstanceGatewayClient`. Called on every
     ///     poll tick so gateway switches are automatically picked up.
     ///   - pollInterval: How often to check health. Default 30 s.
     ///   - onReconnect: Called on the main actor immediately after a successful
@@ -59,7 +59,7 @@ final class GatewayHealthMonitor {
     ///     from `.unknown` status (app launch).
     init(
         appModel: AppModel,
-        clientProvider: @escaping @MainActor () -> GatewayClient,
+        clientProvider: @escaping @MainActor () -> InstanceGatewayClient,
         pollInterval: TimeInterval = 30,
         onReconnect: (@MainActor () -> Void)? = nil
     ) {

@@ -1,16 +1,16 @@
 @testable import NullClawUI
 import XCTest
 
-/// Unit tests for `GatewayClient` using `MockURLProtocol`.
-final class GatewayClientTests: XCTestCase {
-    private var client: GatewayClient!
+/// Unit tests for `InstanceGatewayClient` using `MockURLProtocol`.
+final class InstanceGatewayClientTests: XCTestCase {
+    private var client: InstanceGatewayClient!
 
     override func setUp() async throws {
         try await super.setUp()
         MockURLProtocol.setup()
 
         let url = try XCTUnwrap(URL(string: "http://localhost:5111"))
-        client = GatewayClient(baseURL: url, requiresPairing: false)
+        client = InstanceGatewayClient(baseURL: url, requiresPairing: false)
     }
 
     override func tearDown() async throws {

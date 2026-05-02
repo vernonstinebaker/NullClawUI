@@ -16,11 +16,11 @@ struct CronJobListView: View {
 
     init(profile: GatewayProfile) {
         self.profile = profile
-        // Build a tokened GatewayClient if the profile is paired.
+        // Build a tokened InstanceGatewayClient if the profile is paired.
         let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
         let token = (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
         _viewModel = State(wrappedValue: CronJobViewModel(
-            client: GatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
+            client: InstanceGatewayClient(baseURL: url, token: token, requiresPairing: profile.requiresPairing)
         ))
     }
 

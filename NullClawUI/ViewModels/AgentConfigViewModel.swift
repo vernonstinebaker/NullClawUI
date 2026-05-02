@@ -25,7 +25,7 @@ struct AgentConfig: Equatable {
 // MARK: - REST payload structs
 
 /// Decoded from GET /api/config?path=agent → data.value
-/// Keys use camelCase to match the GatewayClient decoder's convertFromSnakeCase strategy.
+/// Keys use camelCase to match the InstanceGatewayClient decoder's convertFromSnakeCase strategy.
 struct AgentConfigPayload: Decodable {
     var compactContext: Bool?
     var maxToolIterations: Int?
@@ -54,11 +54,11 @@ final class AgentConfigViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient
+    var client: InstanceGatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient) {
+    init(client: InstanceGatewayClient) {
         self.client = client
     }
 

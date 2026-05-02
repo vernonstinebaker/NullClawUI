@@ -13,7 +13,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
     // MARK: - Configuration
 
     private static let gatewayURL = "http://localhost:5111"
-    private var client: GatewayClient!
+    private var client: InstanceGatewayClient!
 
     /// ID of any cron job created by a test, used for cleanup in tearDown.
     private var createdCronJobId: String?
@@ -23,7 +23,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
         guard let url = URL(string: Self.gatewayURL) else {
             throw XCTSkip("Invalid test gateway URL")
         }
-        client = GatewayClient(baseURL: url, requiresPairing: false)
+        client = InstanceGatewayClient(baseURL: url, requiresPairing: false)
     }
 
     override func tearDown() async throws {
@@ -57,7 +57,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 5
         config.timeoutIntervalForResource = 5
-        let probe = GatewayClient(baseURL: url, requiresPairing: false, mockSessionConfig: config)
+        let probe = InstanceGatewayClient(baseURL: url, requiresPairing: false, mockSessionConfig: config)
         defer { Task { await probe.invalidate() } }
         do {
             _ = try await probe.apiListCronJobs()
@@ -764,7 +764,7 @@ final class GatewayLiveIntegrationTests: XCTestCase {
         try await requireGateway()
         // Re-create an unpaired, pairing-required client.
         let url = try XCTUnwrap(URL(string: Self.gatewayURL))
-        let pairedClient = GatewayClient(baseURL: url, requiresPairing: true)
+        let pairedClient = InstanceGatewayClient(baseURL: url, requiresPairing: true)
         defer { Task { await pairedClient.invalidate() } }
 
         let mode = await pairedClient.pairingMode

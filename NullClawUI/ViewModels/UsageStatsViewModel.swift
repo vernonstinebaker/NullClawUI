@@ -32,11 +32,11 @@ final class UsageStatsViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient
+    var client: InstanceGatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient) {
+    init(client: InstanceGatewayClient) {
         self.client = client
     }
 

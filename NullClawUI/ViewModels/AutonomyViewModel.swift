@@ -15,7 +15,7 @@ struct AutonomyConfig: Equatable {
 // MARK: - REST payload struct
 
 /// Decoded from GET /api/config?path=autonomy → data.value
-/// Keys use camelCase to match the GatewayClient decoder's convertFromSnakeCase strategy.
+/// Keys use camelCase to match the InstanceGatewayClient decoder's convertFromSnakeCase strategy.
 struct AutonomyConfigPayload: Decodable {
     var level: String?
     var maxActionsPerHour: Int?
@@ -42,11 +42,11 @@ final class AutonomyViewModel {
 
     // MARK: Dependencies
 
-    var client: GatewayClient
+    var client: InstanceGatewayClient
 
     // MARK: Init
 
-    init(client: GatewayClient) {
+    init(client: InstanceGatewayClient) {
         self.client = client
     }
 

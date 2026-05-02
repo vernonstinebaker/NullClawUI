@@ -6,13 +6,13 @@ import Observation
 @MainActor
 final class PairingViewModel {
     var appModel: AppModel
-    var client: GatewayClient
+    var client: InstanceGatewayClient
 
     var pairingCode: String = ""
     var isPairing: Bool = false
     var errorMessage: String?
 
-    init(appModel: AppModel, client: GatewayClient) {
+    init(appModel: AppModel, client: InstanceGatewayClient) {
         self.appModel = appModel
         self.client = client
     }

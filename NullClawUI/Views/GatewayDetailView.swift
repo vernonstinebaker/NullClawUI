@@ -255,7 +255,7 @@ struct GatewayDetailView: View {
     @MainActor
     private func loadProfileInfo() async {
         guard let url = URL(string: profile.url) else { return }
-        let client = GatewayClient(baseURL: url)
+        let client = InstanceGatewayClient(baseURL: url)
 
         healthStatus = .unknown
         async let healthTask: ConnectionStatus = {

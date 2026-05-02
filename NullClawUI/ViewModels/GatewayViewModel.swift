@@ -7,12 +7,12 @@ import Observation
 @MainActor
 final class GatewayViewModel {
     var appModel: AppModel
-    private(set) var client: GatewayClient
+    private(set) var client: InstanceGatewayClient
 
     init(appModel: AppModel) {
         self.appModel = appModel
         let url = URL(string: appModel.gatewayURL) ?? URL(string: "http://localhost:5111")!
-        client = GatewayClient(baseURL: url)
+        client = InstanceGatewayClient(baseURL: url)
     }
 
     // MARK: - Connect to active gateway
@@ -37,9 +37,9 @@ final class GatewayViewModel {
 
     // MARK: - Switch to a different gateway profile
 
-    /// Switches the active gateway profile, rebuilds the GatewayClient, and connects.
+    /// Switches the active gateway profile, rebuilds the InstanceGatewayClient, and connects.
     /// Returns the new client so ChatViewModel can be updated.
-    func switchGateway(to profile: GatewayProfile) async -> GatewayClient {
+    func switchGateway(to profile: GatewayProfile) async -> InstanceGatewayClient {
         // Activate the new profile in the store.
         appModel.store.activate(id: profile.id)
 
@@ -51,7 +51,7 @@ final class GatewayViewModel {
         // Invalidate the old sessions first to cancel in-flight requests immediately.
         let oldClient = client
         let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
-        client = GatewayClient(baseURL: url, requiresPairing: profile.requiresPairing)
+        client = InstanceGatewayClient(baseURL: url, requiresPairing: profile.requiresPairing)
         await oldClient.invalidate()
 
         // Restore token if the profile is already paired with a token.

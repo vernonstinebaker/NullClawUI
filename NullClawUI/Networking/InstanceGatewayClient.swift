@@ -1,10 +1,10 @@
 import Foundation
 
-// MARK: - GatewayClient
+// MARK: - InstanceGatewayClient
 
 /// Thread-safe, async/await client for the NullClaw Gateway.
 /// All methods are safe to call from any actor; UI updates must be dispatched to @MainActor by callers.
-actor GatewayClient {
+actor InstanceGatewayClient {
     // MARK: State
 
     private(set) var baseURL: URL
@@ -161,7 +161,7 @@ actor GatewayClient {
                         if buffer.count - cursor > Self.sseMaxBufferBytes {
                             continuation.finish(throwing: GatewayError.networkError(
                                 underlying: NSError(
-                                    domain: "GatewayClient",
+                                    domain: "InstanceGatewayClient",
                                     code: -1,
                                     userInfo: [NSLocalizedDescriptionKey: "SSE buffer exceeded 4 MB — aborting stream"]
                                 )

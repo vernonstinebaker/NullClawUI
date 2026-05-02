@@ -133,7 +133,7 @@ final class GatewayStatusViewModel {
     ) async -> (Int?, Int?, Int?) {
         guard let base = URL(string: urlString) else { return (nil, nil, nil) }
         let token = KeychainService.retrieveTokenIfAvailable(for: urlString)
-        let client = GatewayClient(baseURL: base, token: token, requiresPairing: false)
+        let client = InstanceGatewayClient(baseURL: base, token: token, requiresPairing: false)
         defer { Task { await client.invalidate() } }
 
         async let cronJobs: [CronJob]? = {

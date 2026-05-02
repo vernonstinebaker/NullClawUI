@@ -97,7 +97,7 @@ private struct SlotCache {
 @MainActor
 final class ChatViewModel {
     var appModel: AppModel
-    var client: GatewayClient
+    var client: InstanceGatewayClient
     private var conversationStore: ConversationStore
 
     var messages: [ChatMessage] = []
@@ -141,7 +141,7 @@ final class ChatViewModel {
     /// Handle to the in-flight stream Task so we can cancel it before switching gateways.
     private var streamTask: Task<Void, Never>?
 
-    init(appModel: AppModel, client: GatewayClient, conversationStore: ConversationStore) {
+    init(appModel: AppModel, client: InstanceGatewayClient, conversationStore: ConversationStore) {
         self.appModel = appModel
         self.client = client
         self.conversationStore = conversationStore
@@ -434,7 +434,7 @@ final class ChatViewModel {
     /// Called when the user switches to a different gateway profile.
     /// Saves current conversation state, cancels any in-flight stream,
     /// then restores (or starts fresh) the destination gateway's conversation.
-    func resetForNewGateway(client newClient: GatewayClient, gateway: GatewayProfile) {
+    func resetForNewGateway(client newClient: InstanceGatewayClient, gateway: GatewayProfile) {
         // 1. Persist the current conversation into its slot before wiping anything.
         saveCurrentSlot()
 

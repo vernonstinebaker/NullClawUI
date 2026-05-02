@@ -105,7 +105,7 @@ final class GatewayDiscoveryModel {
             //
             // The canonical approach: build a URL from the service name as a placeholder.
             // The user sees the name and can tap to fill — connection details are confirmed
-            // when `GatewayClient.checkHealth()` is called after they tap Add.
+            // when `InstanceGatewayClient.checkHealth()` is called after they tap Add.
             //
             // TXT-record key "port" is used if the server advertises it.
             var port = 5111
