@@ -16,6 +16,7 @@ final class GatewayProfileMigrationTests: XCTestCase {
         try await super.tearDown()
     }
 
+    @MainActor
     private func newContext() -> ModelContext {
         container.mainContext
     }

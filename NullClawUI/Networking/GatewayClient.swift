@@ -1,42 +1,5 @@
 import Foundation
 
-// MARK: - Gateway Errors
-
-enum GatewayError: Error, LocalizedError {
-    case invalidURL
-    case httpError(statusCode: Int)
-    case decodingError(underlying: Error)
-    case networkError(underlying: Error)
-    case jsonRPCError(code: Int, message: String)
-    case unpaired
-    case apiError(code: String, message: String)
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL: return "Invalid gateway URL."
-        case let .httpError(code): return "HTTP error \(code)."
-        case .decodingError: return "Failed to decode server response."
-        case let .networkError(e): return e.localizedDescription
-        case let .jsonRPCError(_, m): return "RPC error: \(m)"
-        case .unpaired: return "Not paired with gateway."
-        case let .apiError(code, message):
-            if code == "ADMIN_API_DISABLED" {
-                return "Admin API is disabled on this gateway. Add \"admin_api\": true to the gateway section of config.json and restart."
-            }
-            return "API error [\(code)]: \(message)"
-        }
-    }
-}
-
-// MARK: - Pairing Mode
-
-/// Whether the gateway requires a bearer token.
-/// Set to .notRequired when the gateway responds 403 to /pair (require_pairing: false).
-enum PairingMode: Equatable {
-    case required
-    case notRequired
-}
-
 // MARK: - GatewayClient
 
 /// Thread-safe, async/await client for the NullClaw Gateway.
@@ -53,25 +16,10 @@ actor GatewayClient {
     private var session: URLSession
     private var sseSession: URLSession
 
-    private let decoder: JSONDecoder = {
-        let d = JSONDecoder()
-        d.keyDecodingStrategy = .convertFromSnakeCase
-        return d
-    }()
-
-    private let encoder: JSONEncoder = {
-        let e = JSONEncoder()
-        e.keyEncodingStrategy = .convertToSnakeCase
-        e.outputFormatting = .withoutEscapingSlashes
-        return e
-    }()
-
+    private let decoder: JSONDecoder = GatewayNetworking.snakeCaseDecoder()
+    private let encoder: JSONEncoder = GatewayNetworking.snakeCaseEncoder()
     /// Dedicated encoder for JSON-RPC A2A methods that strictly require camelCase.
-    private let a2aEncoder: JSONEncoder = {
-        let e = JSONEncoder()
-        e.outputFormatting = .withoutEscapingSlashes
-        return e
-    }()
+    private let a2aEncoder: JSONEncoder = GatewayNetworking.camelCaseEncoder()
 
     // MARK: Init
 
@@ -86,19 +34,8 @@ actor GatewayClient {
         // Open gateways (requiresPairing: false) never issue tokens. Setting pairingMode
         // to .notRequired here allows all API calls to proceed without a bearer token.
         pairingMode = requiresPairing ? .required : .notRequired
-        if let cfg = mockSessionConfig {
-            session = URLSession(configuration: cfg)
-            sseSession = URLSession(configuration: cfg)
-        } else {
-            let defaultCfg = URLSessionConfiguration.default
-            defaultCfg.timeoutIntervalForRequest = 30
-            defaultCfg.timeoutIntervalForResource = 300
-            session = URLSession(configuration: defaultCfg)
-            let sseCfg = URLSessionConfiguration.default
-            sseCfg.timeoutIntervalForRequest = 90 // max wait for first byte / between tokens
-            sseCfg.timeoutIntervalForResource = 600 // max total stream duration
-            sseSession = URLSession(configuration: sseCfg)
-        }
+        session = GatewayNetworking.defaultSession(using: mockSessionConfig)
+        sseSession = GatewayNetworking.sseSession(using: mockSessionConfig)
     }
 
     // MARK: Configuration
@@ -323,28 +260,6 @@ actor GatewayClient {
 
     // MARK: - REST Admin API (/api/*)
 
-    /// Envelope used by all /api/* responses: {"success":true,"data":...,"error":null}
-    struct ApiEnvelope<T: Decodable>: Decodable {
-        let success: Bool
-        let data: T?
-        let error: ApiError?
-
-        struct ApiError: Decodable {
-            let code: String
-            let message: String
-        }
-    }
-
-    /// Minimal envelope used by `validate()` to surface structured API errors on 4xx responses
-    /// before the full response body is decoded.
-    private struct ApiErrorEnvelope: Decodable {
-        struct ApiError: Decodable { let code: String
-            let message: String
-        }
-
-        let error: ApiError?
-    }
-
     /// Typed wrapper used by `apiConfigObjectValue(path:as:)` to extract the `value`
     /// field from a GET /api/config response envelope.
     private struct ConfigValueOf<T: Decodable>: Decodable {
@@ -353,37 +268,12 @@ actor GatewayClient {
 
     /// Decodes an /api/* response envelope, throwing `GatewayError.apiError` on failure.
     private func decodeEnvelope<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
-        do {
-            let envelope = try decoder.decode(ApiEnvelope<T>.self, from: data)
-            if let err = envelope.error {
-                throw GatewayError.apiError(code: err.code, message: err.message)
-            }
-            guard let result = envelope.data else {
-                throw GatewayError.decodingError(underlying: DecodingError.dataCorrupted(
-                    .init(codingPath: [], debugDescription: "API envelope data is null")
-                ))
-            }
-            return result
-        } catch let e as GatewayError {
-            throw e
-        } catch {
-            throw GatewayError.decodingError(underlying: error)
-        }
+        try GatewayNetworking.decodeEnvelope(type, from: data, using: decoder)
     }
 
     /// Decodes an /api/* response envelope where the data is an array.
     private func decodeArrayEnvelope<T: Decodable>(_ type: T.Type, from data: Data) throws -> [T] {
-        do {
-            let envelope = try decoder.decode(ApiEnvelope<[T]>.self, from: data)
-            if let err = envelope.error {
-                throw GatewayError.apiError(code: err.code, message: err.message)
-            }
-            return envelope.data ?? []
-        } catch let e as GatewayError {
-            throw e
-        } catch {
-            throw GatewayError.decodingError(underlying: error)
-        }
+        try GatewayNetworking.decodeArrayEnvelope(type, from: data, using: decoder)
     }
 
     // MARK: Status, Doctor & Capabilities
@@ -946,36 +836,15 @@ actor GatewayClient {
     // MARK: - Helpers
 
     private func makeRequest(url: URL, method: String, authenticated: Bool = false) throws -> URLRequest {
-        guard url.scheme != nil else { throw GatewayError.invalidURL }
-        var req = URLRequest(url: url)
-        req.httpMethod = method
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if authenticated, let token = bearerToken {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        return req
+        try GatewayNetworking.makeRequest(url: url, method: method, token: bearerToken, authenticated: authenticated)
     }
 
     private func validate(_ response: URLResponse, data: Data? = nil) throws {
-        guard let http = response as? HTTPURLResponse else { return }
-        guard (200 ..< 300).contains(http.statusCode) else {
-            if
-                let body = data,
-                let envelope = try? decoder.decode(ApiErrorEnvelope.self, from: body),
-                let err = envelope.error
-            {
-                throw GatewayError.apiError(code: err.code, message: err.message)
-            }
-            throw GatewayError.httpError(statusCode: http.statusCode)
-        }
+        try GatewayNetworking.validate(response, data: data, decoder: decoder)
     }
 
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
-        do {
-            return try decoder.decode(type, from: data)
-        } catch {
-            throw GatewayError.decodingError(underlying: error)
-        }
+        try GatewayNetworking.decode(type, from: data, using: decoder)
     }
 
     nonisolated static func dataPayload(fromSSELines lines: [String]) -> String? {
