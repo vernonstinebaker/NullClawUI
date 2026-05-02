@@ -23,10 +23,13 @@ struct UsageStatsView: View {
 
     init(profile: GatewayProfile) {
         self.profile = profile
-        let url = URL(string: profile.url) ?? URL(string: "http://localhost:5111")!
-        let token = (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
+        let targetURL = profile.hubURL ?? profile.url
+        let url = URL(string: targetURL) ?? URL(string: "http://localhost:5111")!
+        let token = profile.hubToken ?? (try? KeychainService.retrieveToken(for: profile.url)) ?? ""
         _viewModel = State(wrappedValue: UsageStatsViewModel(
-            client: HubGatewayClient(baseURL: url, bearerToken: token)
+            client: HubGatewayClient(baseURL: url, bearerToken: token),
+            instance: profile.instanceName,
+            component: profile.component
         ))
     }
 
